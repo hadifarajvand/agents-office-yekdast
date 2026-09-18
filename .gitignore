@@ -77,3 +77,4 @@ brain/Agents Office/kb/  # Agent knowledge bases
 brain/Agents Office/feedback/*.md  # Learned rules
 data/tasks.json  # Runtime task state
 data/routines.json  # Routine state
+/repo
