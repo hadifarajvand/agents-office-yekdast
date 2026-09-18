@@ -141,27 +141,156 @@ Based on agentic OS patterns (research-validated from production systems):
 
 ---
 
-## 3. Task Execution Model
+## 3. Task Execution Model & Orchestration
 
-### Your Requirement: Autonomous Execution
-- ✅ NO user approval needed for agent runs
-- ✅ Lead agents manage their teams autonomously
-- ✅ User only approves/reviews AFTER completion
-- ✅ If process is bad, user updates guardrails (not individual tasks)
+### Multi-Level Orchestration Architecture
 
-### Autonomy Levels (Production 4-Point Scale from Research)
-Research found production systems use tiered autonomy:
+```
+                    ┌─────────────────────┐
+                    │   ORCHESTRATOR      │
+                    │  (Monitor + Approve)│
+                    │  (Analyze + Report) │
+                    └──────────┬──────────┘
+                               │
+                ┌──────────────┼──────────────┐
+                │              │              │
+        ┌───────▼────────┐ ┌──▼──────────┐ ┌──▼──────────┐
+        │Marketing Lead  │ │Support Lead │ │Engineering  │
+        │  (Sonnet)      │ │ (Sonnet)    │ │ Lead        │
+        └────────┬───────┘ └──┬──────────┘ │ (Sonnet)    │
+                 │            │            └──┬──────────┘
+      ┌──────────┼──────────┐ │                │
+      │          │          │ │                │
+    ┌─▼─┐    ┌──▼─┐    ┌──▼─┐│          ┌─────▼────────┐
+    │Res│    │Copy│    │Ana │        │┌──┐ ┌────┐ ┌──┐│
+    │   │    │    │    │    │        ││B │ │Fro │ │DO││
+    └───┘    └────┘    └────┘        │└──┘ └────┘ └──┘│
+                                     └────────────────┘
+  Marketing Team                  Engineering Team
+  (Haiku agents)                  (Haiku agents)
+```
 
-| Level | Execution | Best For | Examples |
-|-------|-----------|----------|----------|
-| **AUTONOMOUS** | Execute immediately, log results | Research, analysis, testing | Web search, data analysis, draft writing |
-| **IN-FORM** | Execute, log for human review | Routine execution | Code commits, routine updates |
-| **APPROVE_FIRST** | Pause, wait for human approval | High-impact changes | Production deployments, financial decisions |
-| **HARD_STOP** | Block unconditionally | Critical safety | Database mutations, fund transfers |
+**Key Architecture:**
+- **Central Orchestrator:** Monitors all departments, makes approval decisions, analyzes feedback
+- **Department Leads:** Coordinate specialists, make tactical decisions, report to orchestrator
+- **Specialists:** Execute tasks, report to leads only
 
-**Phase 2 Strategy:** Start with AUTONOMOUS + IN-FORM for all agents
-- Future phases add APPROVE_FIRST for production deployments
-- HARD_STOP reserved for Phase 7+ (sandboxing)
+### Task Execution Flow with Your Specifications
+
+```
+1. User Creates Task
+   ├─ Task queued (in-memory)
+   └─ Sent to Central Orchestrator Router
+
+2. Orchestrator Routes to Department
+   ├─ Determine department (Marketing, Support, Engineering, Research)
+   └─ Send to Department Lead
+
+3. Lead Plans & Delegates (LangGraph Pattern)
+   ├─ Analyze task requirements
+   ├─ Decide which specialists needed
+   └─ Kick off parallel specialist execution
+
+4. Specialists Execute (Parallel)
+   ├─ Each runs independently
+   ├─ Retry up to 5 times on failure
+   ├─ Log each attempt
+   └─ On persistent failure, escalate to Lead
+
+5. Lead Synthesis (LangChain Collaborative Pattern)
+   ├─ Collect specialist outputs
+   ├─ Resolve conflicts (using LangChain aggregation)
+   ├─ Synthesize final result
+   └─ Send to Orchestrator for approval
+
+6. Orchestrator Approval
+   ├─ If autonomous_approval_mode: Auto-approve
+   ├─ Else: Await user approval
+   └─ Once approved, proceed to brain update
+
+7. Brain Update & Logging
+   ├─ Write task result to brain
+   ├─ Queue writes (no conflicts)
+   ├─ Version each note update
+   ├─ Log feedback separately for orchestrator analysis
+   └─ Complete task
+
+8. Recovery on Failure
+   ├─ If state active >10s: Checkpoint to PostgreSQL every 5s
+   ├─ If state <10s: Keep in-memory
+   ├─ On server restart: Recover from PostgreSQL
+   └─ Retry task from last checkpoint
+```
+
+### Lead Decision Making (LangChain/LangGraph Pattern)
+
+**Based on production systems:**
+- Use **LangChain's ReAct pattern** for lead reasoning
+- Lead reviews specialist outputs via structured format
+- Lead uses tool-like functions to combine/filter results
+- Decision = `best_aggregation(specialist_outputs, task_context)`
+- Tradeoff resolution via lead's system prompt (authority)
+
+### State Checkpointing Strategy
+
+```
+Task State Lifecycle:
+├─ 0-10 seconds: In-memory only (fast, no I/O)
+├─ 10+ seconds: Start checkpointing to PostgreSQL
+│  └─ Every 5 seconds: Save full state snapshot
+├─ Task complete: Final state persisted
+└─ On server restart: Recover from PostgreSQL, resume
+
+PostgreSQL Checkpoint Schema:
+  task_id, state_json, checkpoint_time, recovery_point
+```
+
+### Error Handling: 5-Retry + Escalate Pattern
+
+```
+Specialist Failure Handling:
+├─ Attempt 1: Execute (fail)
+├─ Attempt 2-5: Retry with backoff
+├─ After attempt 5:
+│  ├─ Log to PostgreSQL (audit trail)
+│  ├─ Mark task state as "escalated"
+│  └─ Send to Lead for manual intervention
+└─ Lead decides:
+   ├─ Retry with different approach
+   ├─ Skip this specialist, use others
+   └─ Escalate to orchestrator
+```
+
+### Approval Workflow with Autonomous Mode
+
+```
+Phase 2 Default: User Approval Required
+├─ After synthesis completes
+├─ Task status = "pending_approval"
+├─ Orchestrator notifies user
+└─ User calls: PATCH /api/tasks/{id}/approve
+
+With autonomous_approval_mode=True:
+├─ Brain updates happen immediately
+├─ Task marked "approved_auto"
+├─ Logged for user review
+└─ User can override later via brain edit
+```
+
+### Orchestrator Role: Monitor + Analyze
+
+**Not approval authority, but analysis engine:**
+- ✅ Monitor all department activities (read-only)
+- ✅ Collect and analyze feedback notes
+- ✅ Generate reports for user
+- ✅ Suggest guardrail improvements
+- ✅ Maintain decision authority (when user approves)
+- ✅ Track department performance metrics
+
+**User remains final decision-maker:**
+- Approves task completions
+- Updates agent guardrails
+- Decides approval mode (autonomous vs manual)
 
 ### LangGraph StateGraph Design
 
@@ -330,14 +459,14 @@ Context:
 
 ---
 
-## 8. Knowledge Architecture (Production Hybrid Model)
+## 8. Knowledge Architecture & Brain Write Strategy
 
 ### Current Brain Implementation
 - Single markdown vault
 - Agents write to `<brain>/Agents Office/`
 - Wiki-links for navigation
 
-### Enhanced for Phase 2 (Research-Validated Pattern)
+### Enhanced for Phase 2 (Your Specifications)
 
 **3-Tier Architecture:**
 
@@ -359,13 +488,59 @@ Tier 3: Organizational Learning (PostgreSQL + Markdown Brain)
 └── Published documentation
 ```
 
+### Brain Write Conflict Resolution (Your Specification: Queue + Version)
+
+```
+Write Queue Strategy:
+├─ Multiple agents queue writes
+├─ Processed sequentially (no concurrent writes)
+├─ FIFO ordering
+└─ PostgreSQL lock per note
+
+Versioning per Note:
+├─ Schema: {note_id, version_num, timestamp, author, content}
+├─ Every write creates new version
+├─ Preserves full history
+├─ Enables rollback
+└─ Tracks changes by agent
+
+Implementation:
+├─ brain_write_queue table (pending writes)
+├─ brain_note_versions table (history)
+├─ Background worker processes every 100ms
+└─ Atomic: Version++ + content update
+```
+
+### Feedback Logging (Separate from Notes)
+
+```
+Approval Flow:
+├─ Task completes
+├─ Awaits user approval (with autonomous_approval_mode option)
+├─ User can add feedback/notes
+└─ All logged separately
+
+Feedback Storage:
+├─ NOT merged into brain directly
+├─ PostgreSQL: task_feedback table
+├─ Schema: {task_id, user_id, feedback, timestamp, category}
+└─ Preserved for analysis
+
+Orchestrator Analysis Role:
+├─ Analyze feedback patterns (not stored in brain)
+├─ Group by department/agent
+├─ Suggest guardrail improvements
+├─ Weekly/monthly reports to user
+└─ User approves before brain update
+```
+
 **Why Hybrid?** Production systems show this prevents:
 - Agents re-doing work (Tier 2 prevents duplication)
 - Loss of lessons learned (Tier 3 ensures retention)
 - Memory explosion (tiered TTL keeps efficient)
 - Single point of failure (distributed storage)
 
-**Phase 2 Implementation:** Start with Tier 1 + Markdown brain, add Tier 2 (PostgreSQL) in Phase 3
+**Phase 2 Implementation:** Start with Tier 1 + Markdown brain + feedback queue, add Tier 2 (PostgreSQL) in Phase 3
 
 ---
 
@@ -404,26 +579,47 @@ Research completed:
 
 ## Decisions Locked In ✅
 
-✅ **Models:** Haiku (subagents) + Sonnet (leads, orchestrator)  
-✅ **Effort:** Low for all agents  
-✅ **Autonomy:** AUTONOMOUS + IN-FORM (no approval gates in Phase 2)  
-✅ **Brain:** Markdown Obsidian vault (robust, 15/15 tests passing)  
-✅ **Brain Enhancement:** Add YAML frontmatter in Phase 2  
-✅ **Knowledge Architecture:** Hybrid 3-tier (Phase 2: Tier 1+3, Phase 3: add Tier 2/PostgreSQL)  
-✅ **Framework:** LangGraph with checkpointing (production-grade durability)  
-✅ **Departments:** 4 initial (Marketing, Support, Engineering, Research)  
-✅ **Agents:** 11 initial (can scale to 35 following enterprise template)  
-✅ **MCP Tools:** Web Search + Documents + Deployment  
-✅ **Frontend:** Ready to send tasks in Phase 2  
-✅ **Observability:** Include Jaeger in Phase 2 (easy to deploy)  
+### Architecture
+✅ **Orchestration:** 3-level (Orchestrator → Department Leads → Specialists)  
+✅ **Orchestrator Role:** Monitor + analyze feedback (NOT approval authority)  
+✅ **Models:** Haiku (specialists) + Sonnet (leads + orchestrator)  
+✅ **Framework:** LangGraph (leads) + LangChain ReAct (decision-making)  
+✅ **Sandboxing:** Per-agent (individual isolation, not whole team)  
 
-### Research Validated
-- ✅ Markdown brain architecture = production-ready
-- ✅ 11-agent structure = realistic starting point (scales to 35)
-- ✅ 4-point autonomy scale = industry standard
-- ✅ Hybrid knowledge tier = prevents duplication & loss
-- ✅ LangGraph choice = best for durability + retries
+### Execution & Error Handling
+✅ **Lead Decisions:** Use LangChain ReAct pattern (reviewed specialist outputs)  
+✅ **Retry Logic:** 5 retries + escalate to lead (all logged to PostgreSQL)  
+✅ **Task Status:** <10s in-memory, >10s checkpoint every 5s to PostgreSQL  
+✅ **Recovery:** Unfinished tasks survive server restart (resume from checkpoint)  
+
+### Brain & Knowledge
+✅ **Brain:** Markdown Obsidian vault (robust, 15/15 tests)  
+✅ **Brain Updates:** Queued writes + versioning (prevent conflicts)  
+✅ **Feedback Logging:** Separate from brain (orchestrator analyzes patterns)  
+✅ **Knowledge Architecture:** 3-tier hybrid (Redis + PostgreSQL + Brain)  
+
+### Approval & Autonomy
+✅ **Approval:** User approves BEFORE brain update (default)  
+✅ **Autonomous Mode:** Optional flag (skips user approval, auto-updates brain)  
+✅ **Feedback Loop:** Add notes to brain separately, orchestrator suggests improvements  
+
+### Budget & Tracking
+✅ **Cost Tracking:** Per-task total (Haiku + Sonnet tokens)  
+✅ **Budget Limits:** Define per task type (fail is better than waste)  
+✅ **Observability:** Jaeger + Prometheus in Phase 2  
+
+### Communication & Isolation
+✅ **Agent Communication:** Specialists ↔ Leads only (leads call each other)  
+✅ **Task State Persistence:** PostgreSQL checkpoints (recovery on restart)  
+✅ **MCP Tools:** Web Search + Documents + Deployment  
+
+### Research Findings Applied
+- ✅ LangChain coordination patterns for multi-agent
+- ✅ LangGraph state checkpointing for durability
+- ✅ Per-agent sandboxing strategy (per your specification)
+- ✅ Hierarchical orchestration (orchestrator > leads > specialists)
+- ✅ Queue + version for brain writes (conflict resolution)
 
 ---
 
-**Status:** Research complete → Design finalized → Ready to implement Phase 2
+**Status:** Research complete → Design finalized with all specifications → Ready to implement Phase 2
