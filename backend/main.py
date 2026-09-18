@@ -13,6 +13,7 @@ import uvicorn
 from backend.config import get_config
 from backend.services.roster import load_roster, get_agents_by_dept
 from backend.services.brain import load_brain
+from backend.services.task_executor import get_task_executor
 
 # Initialize
 app = FastAPI(
@@ -60,6 +61,9 @@ for problem in roster["problems"][:3]:
 brain = load_brain()
 print(f"[INFO] Brain: {len(brain['all_notes'])} notes")
 
+# Initialize services
+task_executor = get_task_executor()
+
 # In-memory store (replace with DB in Phase 8)
 TASKS = {}
 ROUTINES = {}
@@ -103,32 +107,22 @@ async def create_task(body: dict):
             status_code=400, detail=f"Department '{body['department']}' not found"
         )
 
-    # Create task ID
-    import uuid
+    # Execute task through LangGraph
+    task_id = await task_executor.execute_task(
+        department=body["department"],
+        task_text=body["text"],
+        model=body.get("model", config["model"]),
+        effort=body.get("effort", "low"),
+        created_by=body.get("created_by", "api"),
+    )
 
-    task_id = str(uuid.uuid4())[:8]
-
-    task = {
-        "task_id": task_id,
-        "department": body["department"],
-        "task_text": body["text"],
-        "model": body.get("model", config["model"]),
-        "effort": body.get("effort", "auto"),
-        "is_team_task": body.get("is_team_task", False),
-        "created_at": int(datetime.now().timestamp() * 1000),
-        "status": "pending",
-        "used_tools": [],
-        "deliverable": None,
-        "error": None,
-    }
-
-    TASKS[task_id] = task
+    task_state = await task_executor.get_task_status(task_id)
 
     return {
         "task_id": task_id,
-        "status": "pending",
+        "status": task_state.get("status", "pending") if task_state else "pending",
         "department": body["department"],
-        "created_at": task["created_at"],
+        "created_at": int(datetime.now().timestamp() * 1000),
     }
 
 
@@ -136,29 +130,33 @@ async def create_task(body: dict):
 async def get_task(task_id: str):
     """GET /api/tasks/{task_id}: Get task status"""
 
-    if task_id not in TASKS:
+    task_state = await task_executor.get_task_status(task_id)
+    if not task_state:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    task = TASKS[task_id]
     return {
         "task_id": task_id,
-        "status": task["status"],
-        "deliverable": task["deliverable"],
-        "used_tools": task["used_tools"],
-        "error": task["error"],
-        "model": task["model"],
-        "created_at": task["created_at"],
+        "status": task_state.get("status"),
+        "deliverable": task_state.get("deliverable"),
+        "used_tools": task_state.get("used_tools", []),
+        "errors": task_state.get("errors", []),
+        "assigned_lead": task_state.get("assigned_lead"),
+        "specialist_results": task_state.get("specialist_results", {}),
+        "total_tokens": task_state.get("total_tokens", 0),
+        "cost_usd": task_state.get("cost_usd", 0.0),
     }
 
 
 @app.post("/api/tasks/{task_id}/approve")
-async def approve_task(task_id: str):
+async def approve_task(task_id: str, body: dict = None):
     """POST /api/tasks/{task_id}/approve: Approve pending task"""
 
-    if task_id not in TASKS:
+    feedback = (body or {}).get("feedback", "") if body else ""
+    approved = await task_executor.approve_task(task_id, feedback)
+
+    if not approved:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    TASKS[task_id]["approval_status"] = "approved"
     return {"approved": True}
 
 
@@ -166,12 +164,11 @@ async def approve_task(task_id: str):
 async def reject_task(task_id: str, body: dict = None):
     """POST /api/tasks/{task_id}/reject: Reject with feedback"""
 
-    if task_id not in TASKS:
-        raise HTTPException(status_code=404, detail="Task not found")
+    reason = (body or {}).get("reason", "") if body else ""
+    rejected = await task_executor.reject_task(task_id, reason)
 
-    feedback = (body or {}).get("feedback", "")
-    TASKS[task_id]["approval_status"] = "rejected"
-    TASKS[task_id]["rejection_reason"] = feedback
+    if not rejected:
+        raise HTTPException(status_code=404, detail="Task not found")
 
     return {"rejected": True}
 
