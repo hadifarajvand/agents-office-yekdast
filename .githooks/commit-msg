@@ -1,0 +1,24 @@
+#!/bin/bash
+# Commit message hook: enforce format
+
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Check if message is conventional commit format
+if ! echo "$COMMIT_MSG" | grep -qE "^(feat|fix|refactor|test|docs|chore)\(.+\):"; then
+    echo "❌ Commit message must follow format:"
+    echo "   feat(scope): subject"
+    echo "   fix(scope): subject"
+    echo "   etc."
+    echo ""
+    echo "Got: $COMMIT_MSG"
+    exit 1
+fi
+
+# Check for "Co-Authored-By" line (if not a fixup/squash commit)
+if ! echo "$COMMIT_MSG" | grep -q "Co-Authored-By:"; then
+    echo "⚠️  Warning: Consider adding Co-Authored-By line"
+    # Not blocking, just warning
+fi
+
+exit 0

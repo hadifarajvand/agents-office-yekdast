@@ -1,0 +1,79 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+
+# Data
+data/
+logs/
+*.db
+*.sqlite
+postgres_data/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Node (frontend)
+node_modules/
+dist/
+npm-debug.log
+yarn-error.log
+
+# Build artifacts
+build/
+dist/
+*.o
+*.a
+*.so
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+brain/Agents Office/kb/  # Agent knowledge bases
+brain/Agents Office/feedback/*.md  # Learned rules
+data/tasks.json  # Runtime task state
+data/routines.json  # Routine state

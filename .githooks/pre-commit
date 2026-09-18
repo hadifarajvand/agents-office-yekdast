@@ -1,0 +1,41 @@
+#!/bin/bash
+# Pre-commit hook: run tests before allowing commit
+
+echo "🔍 Running pre-commit checks..."
+
+# Check if Python files changed
+if git diff --cached --name-only | grep -E "\.py$" > /dev/null; then
+    echo "📝 Python files detected, running checks..."
+
+    # Run black (formatting)
+    echo "  • Checking code formatting with black..."
+    black --check backend/ || {
+        echo "❌ Black formatting failed. Run: black backend/"
+        exit 1
+    }
+
+    # Run flake8 (linting)
+    echo "  • Checking code quality with flake8..."
+    flake8 backend/ --max-line-length=120 || {
+        echo "❌ Flake8 found issues. Run: flake8 backend/ to see them"
+        exit 1
+    }
+
+    # Run mypy (type checking)
+    echo "  • Type checking with mypy..."
+    mypy backend/ --ignore-missing-imports || {
+        echo "⚠️  Type errors found (non-blocking)"
+    }
+fi
+
+# Run pytest (unit tests)
+if [ -d "backend/tests" ]; then
+    echo "🧪 Running unit tests..."
+    pytest backend/tests -q --tb=short || {
+        echo "❌ Tests failed. Fix and retry."
+        exit 1
+    }
+fi
+
+echo "✅ Pre-commit checks passed!"
+exit 0
