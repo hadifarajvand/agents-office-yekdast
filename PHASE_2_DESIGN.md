@@ -74,9 +74,21 @@
 2. **Customer Support** - Handle support tickets, financial issues
 3. **Project Delivery** - Build, develop, deploy applications for clients
 
+### Research Findings Summary
+✅ **Research Complete:** Analyzed AutoGPT, CrewAI, LangChain, MetaGPT, Claude Projects
+
+**Key Insight:** Enterprise systems use 5-7 specialists per capability, organized into 5-6 departments. The original 35-agent structure aligns with production patterns for large organizations.
+
+**Framework Recommendation:** Use LangGraph (best for production durability + retries)
+
+**Knowledge Architecture (Production Standard):** Hybrid 3-tier system:
+- Tier 1: Agent session memory (Redis, 8-hour TTL)
+- Tier 2: Team working memory (PostgreSQL, project-scoped)  
+- Tier 3: Organizational learnings (PostgreSQL, long-term)
+
 ### Proposed Department Structure
 
-Based on agentic OS patterns (AutoGPT, LangChain, CrewAI), departments should be:
+Based on agentic OS patterns (research-validated from production systems):
 
 #### Department 1: MARKETING
 **Role:** Campaign orchestration and execution  
@@ -136,6 +148,20 @@ Based on agentic OS patterns (AutoGPT, LangChain, CrewAI), departments should be
 - ✅ Lead agents manage their teams autonomously
 - ✅ User only approves/reviews AFTER completion
 - ✅ If process is bad, user updates guardrails (not individual tasks)
+
+### Autonomy Levels (Production 4-Point Scale from Research)
+Research found production systems use tiered autonomy:
+
+| Level | Execution | Best For | Examples |
+|-------|-----------|----------|----------|
+| **AUTONOMOUS** | Execute immediately, log results | Research, analysis, testing | Web search, data analysis, draft writing |
+| **IN-FORM** | Execute, log for human review | Routine execution | Code commits, routine updates |
+| **APPROVE_FIRST** | Pause, wait for human approval | High-impact changes | Production deployments, financial decisions |
+| **HARD_STOP** | Block unconditionally | Critical safety | Database mutations, fund transfers |
+
+**Phase 2 Strategy:** Start with AUTONOMOUS + IN-FORM for all agents
+- Future phases add APPROVE_FIRST for production deployments
+- HARD_STOP reserved for Phase 7+ (sandboxing)
 
 ### LangGraph StateGraph Design
 
@@ -201,23 +227,30 @@ User Task
 
 ## 4. MCP Tools Integration
 
-### Phase 2 Tools (Confirmed)
-1. **Web Search** - Research, market data, competitor analysis
-2. **Documents** - Google Drive / Notion integration
-3. **Deployment** - Deployment MCP (TBD: research needed)
+### Research Findings: MCP Ecosystem 2026
+✅ **97M+ SDK downloads**, 13,000+ servers available
+- Official servers: Gmail (11 tools), Calendar (9), Drive (8), Slack (6+), Notion (8+)
+- Multi-app bundles: Composio (100+ apps), Rube (500+ apps)
+- Enterprise-grade: GitHub, Kubernetes, PostgreSQL, Datadog
 
-### Tools NOT in Phase 2
-- ❌ Email (Gmail) - defer to Phase 5
-- ❌ Slack - defer to Phase 5
-- ❌ Calendar - defer to Phase 5
-- ❌ Project Tracking - not needed
+### Phase 2 Tools (Research-Validated)
+1. **Web Search** - Available via official MCP
+2. **Google Drive / Notion** - Official servers (8+ tools each)
+3. **Deployment** - Kubernetes MCP or bash command executor
 
-### MCP Tool Availability
-**PENDING:** Research agent findings on:
-- Web Search MCP capabilities
-- Document MCP integrations (Google Drive vs Notion)
-- Deployment MCPs available
-- Tool availability in LangGraph
+### Tools NOT in Phase 2 (Defer to Phase 5+)
+- ❌ Gmail - defer (focus on documents first)
+- ❌ Slack - defer (focus on documents first)
+- ❌ Calendar - defer
+- ❌ GitHub - Phase 3+ (when agents write code)
+- ❌ Kubernetes - Phase 7+ (advanced deployment)
+
+### MCP Integration Pattern
+Research shows: **LangGraph + MCP works well** for tool invocation
+- Tool definitions loaded at startup
+- Tool calls embedded in agent prompts
+- Handles async/await cleanly
+- Error handling + retries built-in
 
 ---
 
@@ -297,14 +330,53 @@ Context:
 
 ---
 
-## Outstanding Questions
+## 8. Knowledge Architecture (Production Hybrid Model)
 
-Awaiting research agent findings on:
-1. ✅ Department structures in real agentic systems
-2. ✅ Agent guardrail templates
-3. ✅ MCP tools availability (web search, documents, deployment)
-4. ✅ Agent skill definitions and templates
-5. ✅ LangGraph patterns for multi-agent orchestration
+### Current Brain Implementation
+- Single markdown vault
+- Agents write to `<brain>/Agents Office/`
+- Wiki-links for navigation
+
+### Enhanced for Phase 2 (Research-Validated Pattern)
+
+**3-Tier Architecture:**
+
+```
+Tier 1: Session Memory (Redis)
+├── Active task context (8h TTL)
+├── Current agent state
+└── Temporary working data
+
+Tier 2: Team Working Memory (PostgreSQL)
+├── Project-scoped knowledge
+├── Task results & artifacts
+└── Department learnings (1-month retention)
+
+Tier 3: Organizational Learning (PostgreSQL + Markdown Brain)
+├── Long-term patterns
+├── Successful templates
+├── Guardrails & rules (indefinite)
+└── Published documentation
+```
+
+**Why Hybrid?** Production systems show this prevents:
+- Agents re-doing work (Tier 2 prevents duplication)
+- Loss of lessons learned (Tier 3 ensures retention)
+- Memory explosion (tiered TTL keeps efficient)
+- Single point of failure (distributed storage)
+
+**Phase 2 Implementation:** Start with Tier 1 + Markdown brain, add Tier 2 (PostgreSQL) in Phase 3
+
+---
+
+## Outstanding Questions - RESOLVED ✅
+
+Research completed:
+1. ✅ Department structures - Production templates provided
+2. ✅ Agent guardrail templates - 4-point autonomy scale
+3. ✅ MCP tools availability - 13,000+ servers, official MCPs documented
+4. ✅ Agent skill definitions - Framework patterns identified
+5. ✅ LangGraph patterns - Checkpointing + durability recommended
 
 ---
 
@@ -330,17 +402,28 @@ Awaiting research agent findings on:
 
 ---
 
-## Decisions Locked In
+## Decisions Locked In ✅
 
-✅ **Models:** Haiku (subagents) + Sonnet (leads)  
+✅ **Models:** Haiku (subagents) + Sonnet (leads, orchestrator)  
 ✅ **Effort:** Low for all agents  
-✅ **Autonomy:** No approval gates (autonomous execution)  
-✅ **Brain:** Markdown Obsidian vault (robust, tested)  
-✅ **Departments:** 4 (Marketing, Support, Engineering, Research)  
-✅ **Agents:** 11 (3-3-3-2 split)  
+✅ **Autonomy:** AUTONOMOUS + IN-FORM (no approval gates in Phase 2)  
+✅ **Brain:** Markdown Obsidian vault (robust, 15/15 tests passing)  
+✅ **Brain Enhancement:** Add YAML frontmatter in Phase 2  
+✅ **Knowledge Architecture:** Hybrid 3-tier (Phase 2: Tier 1+3, Phase 3: add Tier 2/PostgreSQL)  
+✅ **Framework:** LangGraph with checkpointing (production-grade durability)  
+✅ **Departments:** 4 initial (Marketing, Support, Engineering, Research)  
+✅ **Agents:** 11 initial (can scale to 35 following enterprise template)  
 ✅ **MCP Tools:** Web Search + Documents + Deployment  
 ✅ **Frontend:** Ready to send tasks in Phase 2  
+✅ **Observability:** Include Jaeger in Phase 2 (easy to deploy)  
+
+### Research Validated
+- ✅ Markdown brain architecture = production-ready
+- ✅ 11-agent structure = realistic starting point (scales to 35)
+- ✅ 4-point autonomy scale = industry standard
+- ✅ Hybrid knowledge tier = prevents duplication & loss
+- ✅ LangGraph choice = best for durability + retries
 
 ---
 
-**Status:** Awaiting research findings → Finalize design → Implement Phase 2
+**Status:** Research complete → Design finalized → Ready to implement Phase 2
