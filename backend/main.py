@@ -38,6 +38,16 @@ print(f"[INFO] Backend: FastAPI on port {config['port']}")
 print(f"[INFO] Brain: {config['brain_path']}")
 print(f"[INFO] Model: {config['model']}")
 
+# Show Claude backend
+if config.get("anthropic_base_url"):
+    print(f"[INFO] Claude: Local at {config['anthropic_base_url']}")
+elif config.get("anthropic_api_key"):
+    print("[INFO] Claude: Cloud API")
+else:
+    print(
+        "[WARN] Claude: No auth configured (ANTHROPIC_AUTH_TOKEN or ANTHROPIC_API_KEY)"
+    )
+
 # Load roster
 roster = load_roster()
 print(

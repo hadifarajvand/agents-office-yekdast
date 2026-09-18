@@ -8,11 +8,20 @@ services:
     ports:
       - "8000:8000"
     environment:
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      # Local Claude setup (instead of ANTHROPIC_API_KEY)
+      ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-http://127.0.0.1:20128/v1}
+      ANTHROPIC_AUTH_TOKEN: ${ANTHROPIC_AUTH_TOKEN}
+      ANTHROPIC_DEFAULT_FABLE_MODEL: ${ANTHROPIC_DEFAULT_FABLE_MODEL:-cc/claude-fable-5}
+      ANTHROPIC_DEFAULT_OPUS_MODEL: ${ANTHROPIC_DEFAULT_OPUS_MODEL:-cc/claude-opus-5}
+      ANTHROPIC_DEFAULT_SONNET_MODEL: ${ANTHROPIC_DEFAULT_SONNET_MODEL:-cc/claude-sonnet-5}
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: ${ANTHROPIC_DEFAULT_HAIKU_MODEL:-cc/claude-haiku-4-5-20251001}
+      # Database
       DATABASE_URL: postgresql://ao:aopass@postgres:5432/agents_office
       REDIS_URL: redis://redis:6379
+      # Observability
       JAEGER_AGENT_HOST: jaeger
       JAEGER_AGENT_PORT: 6831
+      # Config
       AO_BRAIN: ./brain
     volumes:
       - ./backend:/app/backend

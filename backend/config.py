@@ -72,8 +72,26 @@ def load_config() -> Dict[str, Any]:
         config["port"] = int(os.getenv("PORT", "8000"))
     if os.getenv("AO_MODEL"):
         config["model"] = os.getenv("AO_MODEL")
+
+    # Anthropic setup (local Claude or API key)
+    if os.getenv("ANTHROPIC_AUTH_TOKEN"):
+        config["anthropic_auth_token"] = os.getenv("ANTHROPIC_AUTH_TOKEN")
+    if os.getenv("ANTHROPIC_BASE_URL"):
+        config["anthropic_base_url"] = os.getenv("ANTHROPIC_BASE_URL")
     if os.getenv("ANTHROPIC_API_KEY"):
-        config["api_key"] = os.getenv("ANTHROPIC_API_KEY")
+        config["anthropic_api_key"] = os.getenv("ANTHROPIC_API_KEY")
+
+    # Model names (for local Claude)
+    config["model_fable"] = os.getenv(
+        "ANTHROPIC_DEFAULT_FABLE_MODEL", "cc/claude-fable-5"
+    )
+    config["model_opus"] = os.getenv("ANTHROPIC_DEFAULT_OPUS_MODEL", "cc/claude-opus-5")
+    config["model_sonnet"] = os.getenv(
+        "ANTHROPIC_DEFAULT_SONNET_MODEL", "cc/claude-sonnet-5"
+    )
+    config["model_haiku"] = os.getenv(
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL", "cc/claude-haiku-4-5-20251001"
+    )
 
     # Resolve paths
     config["port"] = int(config.get("port", 8000)) or 8000
