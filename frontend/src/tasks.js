@@ -1033,7 +1033,8 @@ export function initTasks(ctx) {
           d.progress = Math.min(1, (now - d.startedAt) / d.dur);
           if (d.progress >= 1) complete(d);
         }
-      } else {
+      } else if (!live) {
+        // Demo mode only: auto-generate tasks from Brain when agent is idle
         const nx = agentTasks(id, 'next').sort((a, b) => a.addedAt - b.addedAt)[0];
         if (nx) { start(nx, now); r.nextBrainAt = null; }
         else if (!r.nextBrainAt) r.nextBrainAt = now + 6000 + Math.random() * 16000;
