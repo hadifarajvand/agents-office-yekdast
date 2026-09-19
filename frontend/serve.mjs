@@ -34,10 +34,27 @@
 // V3.2.1: the CALENDAR (P). A task can be scheduled for a date (`at` on POST /api/tasks → state
 // 'scheduled', `dueAt`; the clock below fires it, marked LATE if the office was off) and a routine
 // can start from a date (`when.start`, src/when.js). Cancel = DELETE /api/tasks/:id.
-import http from 'node:http';
+
+// Load environment variables from .env file
+import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+try {
+  const envPath = path.resolve(__dirname, '..', '.env');
+  const envContent = fs.readFileSync(envPath, 'utf-8');
+  envContent.split('\n').forEach(line => {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#')) {
+      const [key, ...valueParts] = trimmed.split('=');
+      const value = valueParts.join('=').trim();
+      if (key && value && !process.env[key]) process.env[key] = value;
+    }
+  });
+} catch (e) { /* .env file not found or unreadable */ }
+
+import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { loadConfig, ROOT } from './config.mjs';
 import { layoutGraph, readVault, readOfficeNotes } from './graph-build.mjs';
