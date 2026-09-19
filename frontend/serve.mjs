@@ -551,6 +551,18 @@ window.FRONTEND_TASK_CREATION = false;
     if (url.pathname === '/api/mcp') { if (url.searchParams.get('refresh') === '1') await mcp.discover(); else await discovering; return json(res, 200, { ...mcp.summary(), tools: backend === 'claude-cli' }); }
     if (url.pathname === '/api/brain') return json(res, 200, graph);
     if (url.pathname === '/api/usage') return json(res, 200, await getUsage(url.searchParams.get('refresh') === '1')); // V3.6: the plan's gauge (never a 500: unavailable is an answer)
+    if (url.pathname === '/api/events' && req.method === 'GET') {
+      if (!USE_PYTHON_BACKEND) { res.writeHead(404, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'SSE requires USE_PYTHON_BACKEND' })); }
+      const target = new URL('/api/events', PYTHON_BACKEND_URL);
+      const proxyReq = http.request({ hostname: target.hostname, port: target.port, path: target.pathname, method: 'GET', headers: { accept: 'text/event-stream' } }, (proxyRes) => {
+        res.writeHead(proxyRes.statusCode, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', 'connection': 'keep-alive' });
+        proxyRes.pipe(res);
+      });
+      proxyReq.on('error', () => { try { res.writeHead(502); res.end(); } catch {} });
+      req.on('close', () => proxyReq.destroy());
+      proxyReq.end();
+      return;
+    }
     if (url.pathname === '/api/tasks' && req.method === 'GET') {
       // [MIGRATION] If Python backend is enabled, proxy to it
       if (USE_PYTHON_BACKEND) {

@@ -1,7 +1,7 @@
 {
   "name": "agents-office",
   "version": "3.2.1-beta.1",
-  "description": "Agents Office v3 (Beta) \u2014 a 3D isometric office where AI agents do real work on your own Claude login",
+  "description": "Agents Office v3 (Beta) — a 3D isometric office where AI agents do real work on your own Claude login",
   "type": "module",
   "private": true,
   "scripts": {
@@ -15,12 +15,13 @@
     "node": ">=20"
   },
   "dependencies": {
-    "d3-force": "^3.0.0"
+    "d3-force": "^3.0.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",
-    "three": "^0.185.1",
-    "playwright-core": "^1.62.0"
+    "playwright-core": "^1.62.0",
+    "three": "^0.185.1"
   },
   "optionalDependencies": {
     "@anthropic-ai/sdk": "^0.80.0"

@@ -29,7 +29,7 @@ export class SSEClient {
     console.log('[SSE] Connecting to event stream...');
 
     try {
-      this.eventSource = new EventSource(`${this.apiUrl}/api/events`);
+      this.eventSource = new EventSource(`${this.apiUrl}/events`);
 
       // Handle incoming messages
       this.eventSource.onmessage = (event) => {
