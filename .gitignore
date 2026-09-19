@@ -78,3 +78,12 @@ brain/Agents Office/feedback/*.md  # Learned rules
 data/tasks.json  # Runtime task state
 data/routines.json  # Routine state
 /repo
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+# Playwright CLI output (may contain credentials)
+.playwright-cli/

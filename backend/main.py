@@ -75,6 +75,7 @@ ROUTINES = {}
 async def health():
     """GET /api/health: Service health"""
     return {
+        "ok": True,
         "status": "ok",
         "version": "3.6.0-py",
         "backend": "fastapi",
@@ -87,6 +88,12 @@ async def health():
 
 
 # ============ Tasks API ============
+
+
+@app.get("/api/tasks")
+async def list_tasks():
+    """GET /api/tasks: List all tasks"""
+    return list(task_executor.active_tasks.values())
 
 
 @app.post("/api/tasks")
@@ -266,9 +273,9 @@ async def shutdown():
 
 if __name__ == "__main__":
     port = config.get("port", 8000)
-    print(f"\n🚀 Starting on http://localhost:{port}")
-    print(f"📖 Docs at http://localhost:{port}/docs")
-    print(f"🧠 Brain at {config['brain_path']}\n")
+    print(f"\n[START] Starting on http://localhost:{port}")
+    print(f"[DOCS] Docs at http://localhost:{port}/docs")
+    print(f"[BRAIN] Brain at {config['brain_path']}\n")
 
     uvicorn.run(
         "backend.main:app", host="0.0.0.0", port=port, reload=False, log_level="info"

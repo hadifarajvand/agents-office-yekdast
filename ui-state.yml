@@ -1,0 +1,612 @@
+- generic [active] [ref=e1]:
+  - generic:
+    - generic [ref=e3] [cursor=pointer]: ★EMAILS LEAD
+    - generic [ref=e4] [cursor=pointer]: CLIENT EMAILS
+    - generic [ref=e5] [cursor=pointer]: INTERNAL EMAILS
+    - generic [ref=e6] [cursor=pointer]: VENDOR EMAILS
+    - generic [ref=e7] [cursor=pointer]: CONTRACTOR EMAILS
+    - generic [ref=e8] [cursor=pointer]: ★SALES LEAD
+    - generic [ref=e9] [cursor=pointer]: LEAD ENRICHER
+    - generic [ref=e10] [cursor=pointer]: INBOUND LEADS MANAGER
+    - generic [ref=e11] [cursor=pointer]: PROSPECTOR
+    - generic [ref=e12] [cursor=pointer]: PROPOSALS
+    - generic [ref=e13] [cursor=pointer]: FOLLOW UPS
+    - generic [ref=e14] [cursor=pointer]: ★MARKETING LEAD
+    - generic [ref=e15] [cursor=pointer]: RESEARCH
+    - generic [ref=e16] [cursor=pointer]: NEWSLETTER
+    - generic [ref=e17] [cursor=pointer]: GRAPHICS DESIGNER
+    - generic [ref=e18] [cursor=pointer]: META ADS
+    - generic [ref=e19] [cursor=pointer]: INSTAGRAM ORGANIC
+    - generic [ref=e20] [cursor=pointer]: VIDEO EDITOR
+    - generic [ref=e21] [cursor=pointer]: ★OPERATIONS LEAD
+    - generic [ref=e22] [cursor=pointer]: INTEL
+    - generic [ref=e23] [cursor=pointer]: LEGAL REVIEW
+    - generic [ref=e24] [cursor=pointer]: COMPLIANCE CHECKER
+    - generic [ref=e25] [cursor=pointer]: INTERNAL REPORTING
+    - generic [ref=e26] [cursor=pointer]: INTERNAL DASHBOARDS
+    - generic [ref=e27] [cursor=pointer]: ★ACCOUNTING LEAD
+    - generic [ref=e28] [cursor=pointer]: INVOICING
+    - generic [ref=e29] [cursor=pointer]: ACCOUNTS PAYABLE
+    - generic [ref=e30] [cursor=pointer]: RECONCILIATION
+    - generic [ref=e31] [cursor=pointer]: ★DELIVERY LEAD
+    - generic [ref=e32] [cursor=pointer]: PROJECT CO-ORDINATOR
+    - generic [ref=e33] [cursor=pointer]: QUALITY ASSURANCE CHECKER
+    - generic [ref=e34] [cursor=pointer]: CLIENT REPORTS
+    - generic [ref=e35] [cursor=pointer]: CLIENT ASSETS
+    - generic [ref=e36] [cursor=pointer]: DESIGNER ASSISTANT
+    - generic [ref=e37] [cursor=pointer]: ONBOARDER
+    - generic [ref=e38] [cursor=pointer]:
+      - generic [ref=e39]: EMAILS
+      - generic [ref=e42]:
+        - generic [ref=e43]: "5"
+        - generic [ref=e44]: AGENTS
+      - generic [ref=e45]:
+        - generic [ref=e46]:
+          - generic [ref=e47]: EMAILS SENT
+          - generic [ref=e48]: "128"
+        - generic [ref=e49]:
+          - generic [ref=e50]: REPLIES DRAFTED
+          - generic [ref=e51]: "41"
+      - generic "show EMAILS in the task panel" [ref=e52]:
+        - generic [ref=e53]: DOING5
+        - generic [ref=e54]: NEXT6
+        - generic [ref=e55]: DONE7
+    - generic [ref=e56] [cursor=pointer]:
+      - generic [ref=e57]: SALES
+      - generic [ref=e60]:
+        - generic [ref=e61]: "6"
+        - generic [ref=e62]: AGENTS
+      - generic [ref=e63]:
+        - generic [ref=e64]:
+          - generic [ref=e65]: CALLS S·A·J
+          - generic [ref=e66]: 14·31·16
+        - generic [ref=e67]:
+          - generic [ref=e68]: NEW MANAGERS
+          - generic [ref=e69]: "5"
+        - generic [ref=e70]:
+          - generic [ref=e71]: AUTO-ONBOARDED
+          - generic [ref=e72]: "17"
+      - generic "show SALES in the task panel" [ref=e73]:
+        - generic [ref=e74]: DOING6
+        - generic [ref=e75]: NEXT5
+        - generic [ref=e76]: DONE9
+    - generic [ref=e77] [cursor=pointer]:
+      - generic [ref=e78]: MARKETING
+      - generic [ref=e81]:
+        - generic [ref=e82]: "7"
+        - generic [ref=e83]: AGENTS
+      - generic [ref=e84]:
+        - generic [ref=e85]:
+          - generic [ref=e86]: NEW INSIGHTS
+          - generic [ref=e87]: "3"
+        - generic [ref=e88]:
+          - generic [ref=e89]: COST PER USER
+          - generic [ref=e90]: $41
+      - generic "show MARKETING in the task panel" [ref=e91]:
+        - generic [ref=e92]: DOING7
+        - generic [ref=e93]: NEXT4
+        - generic [ref=e94]: DONE5
+    - generic [ref=e95] [cursor=pointer]:
+      - generic [ref=e96]: OPERATIONS
+      - generic [ref=e99]:
+        - generic [ref=e100]: "6"
+        - generic [ref=e101]: AGENTS
+      - generic [ref=e102]:
+        - generic [ref=e103]:
+          - generic [ref=e104]: PROPOSALS MADE
+          - generic [ref=e105]: "6"
+        - generic [ref=e106]:
+          - generic [ref=e107]: NEW INSIGHTS
+          - generic [ref=e108]: "6"
+      - generic "show OPERATIONS in the task panel" [ref=e109]:
+        - generic [ref=e110]: DOING6
+        - generic [ref=e111]: NEXT9
+        - generic [ref=e112]: DONE6
+    - generic [ref=e113] [cursor=pointer]:
+      - generic [ref=e114]: FINANCE
+      - generic [ref=e117]:
+        - generic [ref=e118]: "4"
+        - generic [ref=e119]: AGENTS
+      - generic [ref=e120]:
+        - generic [ref=e121]:
+          - generic [ref=e122]: INVOICES ISSUED
+          - generic [ref=e123]: "24"
+        - generic [ref=e124]:
+          - generic [ref=e125]: BILLS PAID
+          - generic [ref=e126]: "14"
+      - generic "show FINANCE in the task panel" [ref=e127]:
+        - generic [ref=e128]: DOING4
+        - generic [ref=e129]: NEXT5
+        - generic [ref=e130]: DONE6
+    - generic [ref=e131] [cursor=pointer]:
+      - generic [ref=e132]: DELIVERY
+      - generic [ref=e135]:
+        - generic [ref=e136]: "7"
+        - generic [ref=e137]: AGENTS
+      - generic [ref=e138]:
+        - generic [ref=e139]:
+          - generic [ref=e140]: REPORTS SENT
+          - generic [ref=e141]: "9"
+        - generic [ref=e142]:
+          - generic [ref=e143]: ON TRACK
+          - generic [ref=e144]: 11 / 12
+      - generic "show DELIVERY in the task panel" [ref=e145]:
+        - generic [ref=e146]: DOING7
+        - generic [ref=e147]: NEXT10
+        - generic [ref=e148]: DONE5
+    - generic "open the Brain (G)" [ref=e149] [cursor=pointer]:
+      - generic [ref=e150]:
+        - text: THE BRAIN
+        - generic [ref=e152]: "35"
+        - text: NOTES
+    - generic: CONNECTORS
+    - generic: CONNECTORS
+    - generic: CONNECTORS
+    - generic: CONNECTORS
+    - generic: CONNECTORS
+    - generic: CONNECTORS
+  - generic [ref=e153]:
+    - generic [ref=e154]: AGENTS OFFICE BETA
+    - generic [ref=e155]:
+      - generic [ref=e156]: CONNECTED TO
+      - img "Slack" [ref=e158] [cursor=pointer]
+      - img "Google Calendar" [ref=e159] [cursor=pointer]
+      - img "Google Drive" [ref=e160] [cursor=pointer]
+      - img "Chrome" [ref=e161] [cursor=pointer]
+      - img "Claude Docs" [ref=e162] [cursor=pointer]
+      - img "Autosheet" [ref=e163] [cursor=pointer]
+      - img "Notion" [ref=e164] [cursor=pointer]
+      - img "Trello" [ref=e165] [cursor=pointer]
+      - img "Gmail" [ref=e166] [cursor=pointer]
+    - generic [ref=e167]:
+      - generic [ref=e168]: RUNS HEADLESS ON
+      - img "Claude — headless" [ref=e170] [cursor=pointer]
+      - generic "Your Claude plan, as Claude Code shows it. Session resets Fri 11:10 PM · week resets Wed 8:30 PM." [ref=e643]:
+        - generic [ref=e644]: SESSION
+        - generic [ref=e647]: 29%
+        - generic [ref=e648]: ·
+        - generic [ref=e649]: WEEK
+        - generic [ref=e652]: 42%
+    - button "◷ CALENDAR" [ref=e172] [cursor=pointer]
+    - generic [ref=e173]: 09:19:34 pm
+  - link "BY sahni.ai_" [ref=e174] [cursor=pointer]:
+    - /url: https://sahni.ai
+    - generic [ref=e175]: BY
+    - generic [ref=e176]: sahni.ai_
+  - generic "licence":
+    - generic: sahni.ai_
+    - generic: © 2026 Sahni.ai · Agents Office · PolyForm Noncommercial 1.0.0 · free for personal and internal use · not for resale
+  - button "◂ OVERVIEW"
+  - generic:
+    - generic:
+      - textbox "Search the Brain…"
+    - generic: THE BRAIN
+    - generic: Esc closes · scroll zooms · drag pans · click a note to read it
+  - generic:
+    - generic:
+      - generic: CALENDAR
+      - generic:
+        - button "WEEK"
+        - button "MONTH"
+      - generic:
+        - button "‹"
+        - button "›"
+        - button "TODAY"
+      - generic: ← → move · W M view · T today · Esc close
+      - button "✕"
+    - generic:
+      - textbox "Search tasks and routines…"
+    - generic:
+      - complementary:
+        - generic: ROUTINES 0
+        - generic: Click any day to schedule a task for it, or switch on REPEAT to start a routine from that date. Click a routine here to see only its days.
+  - generic [ref=e177]:
+    - generic [ref=e178]:
+      - generic [ref=e179]:
+        - button "MARKETING ▾" [ref=e180] [cursor=pointer]:
+          - generic [ref=e182]: MARKETING
+          - text: ▾
+        - textbox "Type a task for marketing…" [ref=e183]
+        - button "⤢" [ref=e184] [cursor=pointer]
+      - generic [ref=e185]:
+        - combobox "which model runs this (the office default unless you change it)" [ref=e186] [cursor=pointer]:
+          - option "SONNET" [selected]
+          - option "OPUS"
+          - option "FABLE"
+        - 'combobox "how hard it thinks: Auto is the model''s own level (Opus runs at high); Low to Max as Claude Code names them" [ref=e187] [cursor=pointer]':
+          - option "AUTO" [selected]
+          - option "LOW"
+          - option "MEDIUM"
+          - option "HIGH"
+          - option "X-HIGH"
+          - option "MAX"
+        - button "REPEAT" [ref=e188] [cursor=pointer]
+        - button "TEAM" [ref=e189] [cursor=pointer]
+        - button "ADD" [ref=e190] [cursor=pointer]
+    - generic [ref=e192]:
+      - generic [ref=e193]: TASK STATUS LIVE · CLAUDE
+      - generic [ref=e194]: WHOLE OFFICE
+    - generic [ref=e195]:
+      - button "All 112" [ref=e653] [cursor=pointer]:
+        - text: All
+        - generic [ref=e654]: "112"
+      - button "Scheduled 0" [ref=e655] [cursor=pointer]:
+        - text: Scheduled
+        - generic [ref=e656]: "0"
+      - button "Backlog 39" [ref=e657] [cursor=pointer]:
+        - text: Backlog
+        - generic [ref=e658]: "39"
+      - button "In progress 35" [ref=e659] [cursor=pointer]:
+        - text: In progress
+        - generic [ref=e660]: "35"
+      - button "Waiting 0" [ref=e661] [cursor=pointer]:
+        - text: Waiting
+        - generic [ref=e662]: "0"
+      - button "Done 38" [ref=e663] [cursor=pointer]:
+        - text: Done
+        - generic [ref=e664]: "38"
+    - generic [ref=e208]:
+      - generic [ref=e665]:
+        - generic [ref=e666]: 17%
+        - generic [ref=e667]:
+          - generic [ref=e668]: Rebuild the welcome sequence, email 2
+          - generic [ref=e669]: NEWSLETTER · MARKETING
+        - generic [ref=e672]: just now
+      - generic [ref=e673]:
+        - generic [ref=e674]: 18%
+        - generic [ref=e675]:
+          - generic [ref=e676]: Fix the revenue chart, wrong period
+          - generic [ref=e677]: INTERNAL DASHBOARDS · OPERATIONS
+        - generic [ref=e680]: just now
+      - generic [ref=e681]:
+        - generic [ref=e682]: 12%
+        - generic [ref=e683]:
+          - generic [ref=e684]: Re-engage 8 cold leads
+          - generic [ref=e685]: FOLLOW UPS · SALES
+        - generic [ref=e688]: just now
+      - generic [ref=e689]:
+        - generic [ref=e690]: 20%
+        - generic [ref=e691]:
+          - generic [ref=e692]: Answer 9 client emails from overnight
+          - generic [ref=e693]: CLIENT EMAILS · EMAILS
+        - generic [ref=e696]: just now
+      - generic [ref=e697]:
+        - generic [ref=e698]: 32%
+        - generic [ref=e699]:
+          - generic [ref=e700]: Rep activity summary
+          - generic [ref=e701]: INTERNAL REPORTING · OPERATIONS
+        - generic [ref=e704]: just now
+      - generic [ref=e705]:
+        - generic [ref=e706]: 14%
+        - generic [ref=e707]:
+          - generic [ref=e708]: Research hook angles for the next reel
+          - generic [ref=e709]: RESEARCH · MARKETING
+        - generic [ref=e712]: 1 min
+      - generic [ref=e713]:
+        - generic [ref=e714]: 27%
+        - generic [ref=e715]:
+          - generic [ref=e716]: Clean the inbound queue, 12 duplicates
+          - generic [ref=e717]: INBOUND LEADS MANAGER · SALES
+        - generic [ref=e720]: 1 min
+      - generic [ref=e721]:
+        - generic [ref=e722]: 23%
+        - generic [ref=e723]:
+          - generic [ref=e724]: Chase 2 overdue client sign-offs
+          - generic [ref=e725]: PROJECT CO-ORDINATOR · DELIVERY
+        - generic [ref=e728]: 1 min
+      - generic [ref=e729]:
+        - generic [ref=e730]: 18%
+        - generic [ref=e731]:
+          - generic [ref=e732]: Review the week's contracts and flags
+          - generic [ref=e733]: OPERATIONS LEAD · OPERATIONS
+        - generic [ref=e736]: 1 min
+      - generic [ref=e737]:
+        - generic [ref=e738]: 25%
+        - generic [ref=e739]:
+          - generic [ref=e740]: Quarterly compliance checklist
+          - generic [ref=e741]: COMPLIANCE CHECKER · OPERATIONS
+        - generic [ref=e744]: 1 min
+      - generic [ref=e745]:
+        - generic [ref=e746]: 38%
+        - generic [ref=e747]:
+          - generic [ref=e748]: Organise the Silver Fern Security asset library
+          - generic [ref=e749]: CLIENT ASSETS · DELIVERY
+        - generic [ref=e752]: 1 min
+      - generic [ref=e753]:
+        - generic [ref=e754]: 38%
+        - generic [ref=e755]:
+          - generic [ref=e756]: Contractor invoice query from the designer
+          - generic [ref=e757]: CONTRACTOR EMAILS · EMAILS
+        - generic [ref=e760]: 1 min
+      - generic [ref=e761]:
+        - generic [ref=e762]: 43%
+        - generic [ref=e763]:
+          - generic [ref=e764]: Creative for the new legal ad set
+          - generic [ref=e765]: GRAPHICS DESIGNER · MARKETING
+        - generic [ref=e768]: 1 min
+      - generic [ref=e769]:
+        - generic [ref=e770]: 42%
+        - generic [ref=e771]:
+          - generic [ref=e772]: Proof the asset set, brand rules
+          - generic [ref=e773]: QUALITY ASSURANCE CHECKER · DELIVERY
+        - generic [ref=e776]: 1 min
+      - generic [ref=e777]:
+        - generic [ref=e778]: 28%
+        - generic [ref=e779]:
+          - generic [ref=e780]: Set next week’s reel line-up
+          - generic [ref=e781]: MARKETING LEAD · MARKETING
+        - generic [ref=e784]: 1 min
+      - generic [ref=e785]:
+        - generic [ref=e786]: 32%
+        - generic [ref=e787]:
+          - generic [ref=e788]: "Audit contractor invoice #218 vs contract"
+          - generic [ref=e789]: ACCOUNTS PAYABLE · FINANCE
+        - generic [ref=e792]: 1 min
+      - generic [ref=e793]:
+        - generic [ref=e794]: 48%
+        - generic [ref=e795]:
+          - generic [ref=e796]: Issue this week's invoices
+          - generic [ref=e797]: INVOICING · FINANCE
+        - generic [ref=e800]: 1 min
+      - generic [ref=e801]:
+        - generic [ref=e802]: 47%
+        - generic [ref=e803]:
+          - generic [ref=e804]: Render the "10am rule" reel, captions on
+          - generic [ref=e805]: VIDEO EDITOR · MARKETING · rendering
+        - generic [ref=e808]: 1 min
+      - generic [ref=e809]:
+        - generic [ref=e810]: 61%
+        - generic [ref=e811]:
+          - generic [ref=e812]: Build today's call lists
+          - generic [ref=e813]: SALES LEAD · SALES
+        - generic [ref=e816]: 1 min
+      - generic [ref=e817]:
+        - generic [ref=e818]: 47%
+        - generic [ref=e819]:
+          - generic [ref=e820]: Prep the month-end pack
+          - generic [ref=e821]: ACCOUNTING LEAD · FINANCE
+        - generic [ref=e824]: 1 min
+      - generic [ref=e825]:
+        - generic [ref=e826]: 78%
+        - generic [ref=e827]:
+          - generic [ref=e828]: Rival pricing change detected, memo
+          - generic [ref=e829]: INTEL · OPERATIONS
+        - generic [ref=e832]: 1 min
+      - generic [ref=e833]:
+        - generic [ref=e834]: 61%
+        - generic [ref=e835]:
+          - generic [ref=e836]: Build a legal prospect list
+          - generic [ref=e837]: PROSPECTOR · SALES
+        - generic [ref=e840]: 1 min
+      - generic [ref=e841]:
+        - generic [ref=e842]: 89%
+        - generic [ref=e843]:
+          - generic [ref=e844]: Write the hook for the carousel
+          - generic [ref=e845]: INSTAGRAM ORGANIC · MARKETING
+        - generic [ref=e848]: 1 min
+      - generic [ref=e849]:
+        - generic [ref=e850]: 56%
+        - generic [ref=e851]:
+          - generic [ref=e852]: Shift $50/day into the winner
+          - generic [ref=e853]: META ADS · MARKETING
+        - generic [ref=e856]: 2 min
+      - generic [ref=e857]:
+        - generic [ref=e858]: 82%
+        - generic [ref=e859]:
+          - generic [ref=e860]: Backfill company size on 12 leads
+          - generic [ref=e861]: LEAD ENRICHER · SALES
+        - generic [ref=e864]: 2 min
+      - generic [ref=e865]:
+        - generic [ref=e866]: 84%
+        - generic [ref=e867]:
+          - generic [ref=e868]: Circulate the weekly numbers
+          - generic [ref=e869]: INTERNAL EMAILS · EMAILS
+        - generic [ref=e872]: 2 min
+      - generic [ref=e873]:
+        - generic [ref=e874]: 80%
+        - generic [ref=e875]:
+          - generic [ref=e876]: Sign-online link for the Totara Legal proposal
+          - generic [ref=e877]: PROPOSALS · SALES
+        - generic [ref=e880]: 2 min
+      - generic [ref=e881]:
+        - generic [ref=e882]: 68%
+        - generic [ref=e883]:
+          - generic [ref=e884]: Weekly delivery summary for AJ
+          - generic [ref=e885]: DELIVERY LEAD · DELIVERY
+        - generic [ref=e888]: 2 min
+      - generic [ref=e889]:
+        - generic [ref=e890]: 77%
+        - generic [ref=e891]:
+          - generic [ref=e892]: Onboarding checklist for Kea Logistics
+          - generic [ref=e893]: ONBOARDER · DELIVERY
+        - generic [ref=e896]: 2 min
+      - generic [ref=e897]:
+        - generic [ref=e898]: 55%
+        - generic [ref=e899]:
+          - generic [ref=e900]: September report ready for Harbour City Roofing
+          - generic [ref=e901]: CLIENT REPORTS · DELIVERY
+        - generic [ref=e904]: 2 min
+      - generic [ref=e905]:
+        - generic [ref=e906]: 57%
+        - generic [ref=e907]:
+          - generic [ref=e908]: Match Stripe payouts to invoices
+          - generic [ref=e909]: RECONCILIATION · FINANCE
+        - generic [ref=e912]: 2 min
+      - generic [ref=e913]:
+        - generic [ref=e914]: 67%
+        - generic [ref=e915]:
+          - generic [ref=e916]: Vendor quote received for Ridgeline Property Group
+          - generic [ref=e917]: VENDOR EMAILS · EMAILS
+        - generic [ref=e920]: 2 min
+      - generic [ref=e921]:
+        - generic [ref=e922]: 79%
+        - generic [ref=e923]:
+          - generic [ref=e924]: Tone pass on 6 client replies
+          - generic [ref=e925]: EMAILS LEAD · EMAILS
+        - generic [ref=e928]: 2 min
+      - generic [ref=e929]:
+        - generic [ref=e930]: 89%
+        - generic [ref=e931]:
+          - generic [ref=e932]: Check the price-lock clause
+          - generic [ref=e933]: LEGAL REVIEW · OPERATIONS
+        - generic [ref=e936]: 3 min
+      - generic [ref=e937]:
+        - generic [ref=e938]: 81%
+        - generic [ref=e939]:
+          - generic [ref=e940]: Draft the Bay Plumbing Co asset set
+          - generic [ref=e941]: DESIGNER ASSISTANT · DELIVERY
+        - generic [ref=e944]: 3 min
+      - generic [ref=e945]:
+        - generic [ref=e946]: Done
+        - generic [ref=e947]:
+          - generic [ref=e948]: Pull the daily spend report
+          - generic [ref=e949]: META ADS · MARKETING · done 9:15 pm
+        - generic [ref=e950]: 4 min
+      - generic [ref=e951]:
+        - generic [ref=e952]: Backlog
+        - generic [ref=e953]:
+          - generic [ref=e954]: Design the Harbour City Roofing report cover
+          - generic [ref=e955]: DESIGNER ASSISTANT · DELIVERY · waiting 10 min · from the Brain
+        - generic [ref=e956]: 10 min
+      - generic [ref=e957]:
+        - generic [ref=e958]: Backlog
+        - generic [ref=e959]:
+          - generic [ref=e960]: Score 40 prospects against the ICP
+          - generic [ref=e961]: PROSPECTOR · SALES · waiting 16 min · from the Brain
+        - generic [ref=e962]: 16 min
+      - generic [ref=e963]:
+        - generic [ref=e964]: Backlog
+        - generic [ref=e965]:
+          - generic [ref=e966]: Confirm the contractor’s hours for the week
+          - generic [ref=e967]: CONTRACTOR EMAILS · EMAILS · waiting 19 min · from the Brain
+        - generic [ref=e968]: 19 min
+      - generic [ref=e969]:
+        - generic [ref=e970]: Backlog
+        - generic [ref=e971]:
+          - generic [ref=e972]: Proposal for the 40-seat prospect
+          - generic [ref=e973]: PROPOSALS · SALES · waiting 25 min · from the Brain
+        - generic [ref=e974]: 25 min
+      - generic [ref=e975]:
+        - generic [ref=e976]: Done
+        - generic [ref=e977]:
+          - generic [ref=e978]: Sync the Kauri Dental Group assets to the portal
+          - generic [ref=e979]: CLIENT ASSETS · DELIVERY · done 8:51 pm
+        - generic [ref=e980]: 28 min
+      - generic [ref=e981]:
+        - generic [ref=e982]: Done
+        - generic [ref=e983]:
+          - generic [ref=e984]: Draft the price-increase notice
+          - generic [ref=e985]: CLIENT EMAILS · EMAILS · done 8:46 pm
+        - generic [ref=e986]: 33 min
+      - generic [ref=e987]:
+        - generic [ref=e988]: Backlog
+        - generic [ref=e989]:
+          - generic [ref=e990]: Build the inbox response-time view
+          - generic [ref=e991]: INTERNAL DASHBOARDS · OPERATIONS · waiting 40 min · from the Brain
+        - generic [ref=e992]: 40 min
+      - generic [ref=e993]:
+        - generic [ref=e994]: Done
+        - generic [ref=e995]:
+          - generic [ref=e996]: Pricing options for Marlborough Wines Direct
+          - generic [ref=e997]: PROPOSALS · SALES · done 8:38 pm
+        - generic [ref=e998]: 41 min
+      - generic [ref=e999]:
+        - generic [ref=e1000]: Done
+        - generic [ref=e1001]:
+          - generic [ref=e1002]: Chase 33 deals quiet past 14 days
+          - generic [ref=e1003]: SALES LEAD · SALES · done 8:38 pm
+        - generic [ref=e1004]: 41 min
+      - generic [ref=e1005]:
+        - generic [ref=e1006]: Backlog
+        - generic [ref=e1007]:
+          - generic [ref=e1008]: Churn cohort report for the Brain
+          - generic [ref=e1009]: INTERNAL REPORTING · OPERATIONS · waiting 43 min · from the Brain
+        - generic [ref=e1010]: 43 min
+      - generic [ref=e1011]:
+        - generic [ref=e1012]: Backlog
+        - generic [ref=e1013]:
+          - generic [ref=e1014]: Add the delivery on-track tile
+          - generic [ref=e1015]: INTERNAL DASHBOARDS · OPERATIONS · waiting 47 min · from the Brain
+        - generic [ref=e1016]: 47 min
+      - generic [ref=e1017]:
+        - generic [ref=e1018]: Done
+        - generic [ref=e1019]:
+          - generic [ref=e1020]: Flag a subscription overlap
+          - generic [ref=e1021]: ACCOUNTS PAYABLE · FINANCE · done 8:29 pm
+        - generic [ref=e1022]: 50 min
+      - generic [ref=e1023]:
+        - generic [ref=e1024]: Backlog
+        - generic [ref=e1025]:
+          - generic [ref=e1026]: Check the Alpine Freight report pack for errors
+          - generic [ref=e1027]: QUALITY ASSURANCE CHECKER · DELIVERY · waiting 55 min · from the Brain
+        - generic [ref=e1028]: 55 min
+      - generic [ref=e1029]:
+        - generic [ref=e1030]: Backlog
+        - generic [ref=e1031]:
+          - generic [ref=e1032]: Book a discovery call with Nectar Foods
+          - generic [ref=e1033]: INBOUND LEADS MANAGER · SALES · waiting 1 h 4 m · from the Brain
+        - generic [ref=e1034]: 1 h 4 m
+      - generic [ref=e1035]:
+        - generic [ref=e1036]: Backlog
+        - generic [ref=e1037]:
+          - generic [ref=e1038]: Re-plan the Marlborough Wines Direct timeline
+          - generic [ref=e1039]: DELIVERY LEAD · DELIVERY · waiting 1 h 4 m · from the Brain
+        - generic [ref=e1040]: 1 h 4 m
+      - generic [ref=e1041]:
+        - generic [ref=e1042]: Backlog
+        - generic [ref=e1043]:
+          - generic [ref=e1044]: Match today's card charges
+          - generic [ref=e1045]: ACCOUNTS PAYABLE · FINANCE · waiting 1 h 8 m · from the Brain
+        - generic [ref=e1046]: 1 h 8 m
+      - generic [ref=e1047]:
+        - generic [ref=e1048]: Done
+        - generic [ref=e1049]:
+          - generic [ref=e1050]: Approve the Totara Legal handover
+          - generic [ref=e1051]: DELIVERY LEAD · DELIVERY · done 8:01 pm
+        - generic [ref=e1052]: 1 h 18 m
+      - generic [ref=e1053]:
+        - generic [ref=e1054]: Backlog
+        - generic [ref=e1055]:
+          - generic [ref=e1056]: Privacy policy annual check
+          - generic [ref=e1057]: LEGAL REVIEW · OPERATIONS · waiting 1 h 19 m · from the Brain
+        - generic [ref=e1058]: 1 h 19 m
+      - generic [ref=e1059]:
+        - generic [ref=e1060]: Backlog
+        - generic [ref=e1061]:
+          - generic [ref=e1062]: Cut a 15 s teaser from the demo
+          - generic [ref=e1063]: VIDEO EDITOR · MARKETING · waiting 1 h 22 m · from the Brain
+        - generic [ref=e1064]: 1 h 22 m
+      - generic [ref=e1065]:
+        - generic [ref=e1066]: Done
+        - generic [ref=e1067]:
+          - generic [ref=e1068]: Tag 60 assets by campaign
+          - generic [ref=e1069]: CLIENT ASSETS · DELIVERY · done 7:53 pm
+        - generic [ref=e1070]: 1 h 26 m
+      - generic [ref=e1071]:
+        - generic [ref=e1072]: Done
+        - generic [ref=e1073]:
+          - generic [ref=e1074]: Regression pass on the booking form
+          - generic [ref=e1075]: QUALITY ASSURANCE CHECKER · DELIVERY · done 7:53 pm
+        - generic [ref=e1076]: 1 h 26 m
+      - generic [ref=e1077]:
+        - generic [ref=e1078]: Backlog
+        - generic [ref=e1079]:
+          - generic [ref=e1080]: Send the Nectar Foods report, 2 flags
+          - generic [ref=e1081]: CLIENT REPORTS · DELIVERY · waiting 1 h 31 m · from the Brain
+        - generic [ref=e1082]: 1 h 31 m
+      - generic [ref=e1083]:
+        - generic [ref=e1084]: Backlog
+        - generic [ref=e1085]:
+          - generic [ref=e1086]: Send the kickoff summary to Southern Cross Fitness
+          - generic [ref=e1087]: CLIENT EMAILS · EMAILS · waiting 1 h 34 m · from the Brain
+        - generic [ref=e1088]: 1 h 34 m
+      - generic [ref=e1089]:
+        - generic [ref=e1090]: Done
+        - generic [ref=e1091]:
+          - generic [ref=e1092]: Story + square exports, brand kit
+          - generic [ref=e1093]: GRAPHICS DESIGNER · MARKETING · done 7:38 pm
+        - generic [ref=e1094]: 1 h 41 m
+  - generic [ref=e639]:
+    - button "+" [ref=e640] [cursor=pointer]
+    - button "−" [ref=e641] [cursor=pointer]
+    - button "⌂" [ref=e642] [cursor=pointer]

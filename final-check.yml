@@ -1,0 +1,612 @@
+- generic [active] [ref=f2e1]:
+  - generic:
+    - generic [ref=f2e3] [cursor=pointer]: ★EMAILS LEAD
+    - generic [ref=f2e4] [cursor=pointer]: CLIENT EMAILS
+    - generic [ref=f2e5] [cursor=pointer]: INTERNAL EMAILS
+    - generic [ref=f2e6] [cursor=pointer]: VENDOR EMAILS
+    - generic [ref=f2e7] [cursor=pointer]: CONTRACTOR EMAILS
+    - generic [ref=f2e8] [cursor=pointer]: ★SALES LEAD
+    - generic [ref=f2e9] [cursor=pointer]: LEAD ENRICHER
+    - generic [ref=f2e10] [cursor=pointer]: INBOUND LEADS MANAGER
+    - generic [ref=f2e11] [cursor=pointer]: PROSPECTOR
+    - generic [ref=f2e12] [cursor=pointer]: PROPOSALS
+    - generic [ref=f2e13] [cursor=pointer]: FOLLOW UPS
+    - generic [ref=f2e14] [cursor=pointer]: ★MARKETING LEAD
+    - generic [ref=f2e15] [cursor=pointer]: RESEARCH
+    - generic [ref=f2e16] [cursor=pointer]: NEWSLETTER
+    - generic [ref=f2e17] [cursor=pointer]: GRAPHICS DESIGNER
+    - generic [ref=f2e18] [cursor=pointer]: META ADS
+    - generic [ref=f2e19] [cursor=pointer]: INSTAGRAM ORGANIC
+    - generic [ref=f2e20] [cursor=pointer]: VIDEO EDITOR
+    - generic [ref=f2e21] [cursor=pointer]: ★OPERATIONS LEAD
+    - generic [ref=f2e22] [cursor=pointer]: INTEL
+    - generic [ref=f2e23] [cursor=pointer]: LEGAL REVIEW
+    - generic [ref=f2e24] [cursor=pointer]: COMPLIANCE CHECKER
+    - generic [ref=f2e25] [cursor=pointer]: INTERNAL REPORTING
+    - generic [ref=f2e26] [cursor=pointer]: INTERNAL DASHBOARDS
+    - generic [ref=f2e27] [cursor=pointer]: ★ACCOUNTING LEAD
+    - generic [ref=f2e28] [cursor=pointer]: INVOICING
+    - generic [ref=f2e29] [cursor=pointer]: ACCOUNTS PAYABLE
+    - generic [ref=f2e30] [cursor=pointer]: RECONCILIATION
+    - generic [ref=f2e31] [cursor=pointer]: ★DELIVERY LEAD
+    - generic [ref=f2e32] [cursor=pointer]: PROJECT CO-ORDINATOR
+    - generic [ref=f2e33] [cursor=pointer]: QUALITY ASSURANCE CHECKER
+    - generic [ref=f2e34] [cursor=pointer]: CLIENT REPORTS
+    - generic [ref=f2e35] [cursor=pointer]: CLIENT ASSETS
+    - generic [ref=f2e36] [cursor=pointer]: DESIGNER ASSISTANT
+    - generic [ref=f2e37] [cursor=pointer]: ONBOARDER
+    - generic [ref=f2e38] [cursor=pointer]:
+      - generic [ref=f2e39]: EMAILS
+      - generic [ref=f2e42]:
+        - generic [ref=f2e43]: "5"
+        - generic [ref=f2e44]: AGENTS
+      - generic [ref=f2e45]:
+        - generic [ref=f2e46]:
+          - generic [ref=f2e47]: EMAILS SENT
+          - generic [ref=f2e48]: "130"
+        - generic [ref=f2e49]:
+          - generic [ref=f2e50]: REPLIES DRAFTED
+          - generic [ref=f2e51]: "41"
+      - generic "show EMAILS in the task panel" [ref=f2e52]:
+        - generic [ref=f2e53]: DOING5
+        - generic [ref=f2e54]: NEXT3
+        - generic [ref=f2e55]: DONE8
+    - generic [ref=f2e56] [cursor=pointer]:
+      - generic [ref=f2e57]: SALES
+      - generic [ref=f2e60]:
+        - generic [ref=f2e61]: "6"
+        - generic [ref=f2e62]: AGENTS
+      - generic [ref=f2e63]:
+        - generic [ref=f2e64]:
+          - generic [ref=f2e65]: CALLS S·A·J
+          - generic [ref=f2e66]: 14·32·17
+        - generic [ref=f2e67]:
+          - generic [ref=f2e68]: NEW MANAGERS
+          - generic [ref=f2e69]: "5"
+        - generic [ref=f2e70]:
+          - generic [ref=f2e71]: AUTO-ONBOARDED
+          - generic [ref=f2e72]: "17"
+      - generic "show SALES in the task panel" [ref=f2e73]:
+        - generic [ref=f2e74]: DOING6
+        - generic [ref=f2e75]: NEXT6
+        - generic [ref=f2e76]: DONE6
+    - generic [ref=f2e77] [cursor=pointer]:
+      - generic [ref=f2e78]: MARKETING
+      - generic [ref=f2e81]:
+        - generic [ref=f2e82]: "7"
+        - generic [ref=f2e83]: AGENTS
+      - generic [ref=f2e84]:
+        - generic [ref=f2e85]:
+          - generic [ref=f2e86]: NEW INSIGHTS
+          - generic [ref=f2e87]: "4"
+        - generic [ref=f2e88]:
+          - generic [ref=f2e89]: COST PER USER
+          - generic [ref=f2e90]: $41
+      - generic "show MARKETING in the task panel" [ref=f2e91]:
+        - generic [ref=f2e92]: DOING6
+        - generic [ref=f2e93]: NEXT4
+        - generic [ref=f2e94]: DONE10
+    - generic [ref=f2e95] [cursor=pointer]:
+      - generic [ref=f2e96]: OPERATIONS
+      - generic [ref=f2e99]:
+        - generic [ref=f2e100]: "6"
+        - generic [ref=f2e101]: AGENTS
+      - generic [ref=f2e102]:
+        - generic [ref=f2e103]:
+          - generic [ref=f2e104]: PROPOSALS MADE
+          - generic [ref=f2e105]: "6"
+        - generic [ref=f2e106]:
+          - generic [ref=f2e107]: NEW INSIGHTS
+          - generic [ref=f2e108]: "5"
+      - generic "show OPERATIONS in the task panel" [ref=f2e109]:
+        - generic [ref=f2e110]: DOING6
+        - generic [ref=f2e111]: NEXT8
+        - generic [ref=f2e112]: DONE10
+    - generic [ref=f2e113] [cursor=pointer]:
+      - generic [ref=f2e114]: FINANCE
+      - generic [ref=f2e117]:
+        - generic [ref=f2e118]: "4"
+        - generic [ref=f2e119]: AGENTS
+      - generic [ref=f2e120]:
+        - generic [ref=f2e121]:
+          - generic [ref=f2e122]: INVOICES ISSUED
+          - generic [ref=f2e123]: "23"
+        - generic [ref=f2e124]:
+          - generic [ref=f2e125]: BILLS PAID
+          - generic [ref=f2e126]: "15"
+      - generic "show FINANCE in the task panel" [ref=f2e127]:
+        - generic [ref=f2e128]: DOING3
+        - generic [ref=f2e129]: NEXT1
+        - generic [ref=f2e130]: DONE8
+    - generic [ref=f2e131] [cursor=pointer]:
+      - generic [ref=f2e132]: DELIVERY
+      - generic [ref=f2e135]:
+        - generic [ref=f2e136]: "7"
+        - generic [ref=f2e137]: AGENTS
+      - generic [ref=f2e138]:
+        - generic [ref=f2e139]:
+          - generic [ref=f2e140]: REPORTS SENT
+          - generic [ref=f2e141]: "9"
+        - generic [ref=f2e142]:
+          - generic [ref=f2e143]: ON TRACK
+          - generic [ref=f2e144]: 11 / 12
+      - generic "show DELIVERY in the task panel" [ref=f2e145]:
+        - generic [ref=f2e146]: DOING7
+        - generic [ref=f2e147]: NEXT8
+        - generic [ref=f2e148]: DONE10
+    - generic "open the Brain (G)" [ref=f2e149] [cursor=pointer]:
+      - generic [ref=f2e150]:
+        - text: THE BRAIN
+        - generic [ref=f2e152]: "35"
+        - text: NOTES
+    - generic: CONNECTORS
+    - generic: CONNECTORS
+    - generic: CONNECTORS
+    - generic: CONNECTORS
+    - generic: CONNECTORS
+    - generic: CONNECTORS
+  - generic [ref=f2e153]:
+    - generic [ref=f2e154]: AGENTS OFFICE BETA
+    - generic [ref=f2e155]:
+      - generic [ref=f2e156]: CONNECTED TO
+      - img "Slack" [ref=f2e158] [cursor=pointer]
+      - img "Google Calendar" [ref=f2e159] [cursor=pointer]
+      - img "Google Drive" [ref=f2e160] [cursor=pointer]
+      - img "Chrome" [ref=f2e161] [cursor=pointer]
+      - img "Claude Docs" [ref=f2e162] [cursor=pointer]
+      - img "Autosheet" [ref=f2e163] [cursor=pointer]
+      - img "Notion" [ref=f2e164] [cursor=pointer]
+      - img "Trello" [ref=f2e165] [cursor=pointer]
+      - img "Gmail" [ref=f2e166] [cursor=pointer]
+    - generic [ref=f2e167]:
+      - generic [ref=f2e168]: RUNS HEADLESS ON
+      - img "Claude — headless" [ref=f2e170] [cursor=pointer]
+      - generic "Your Claude plan, as Claude Code shows it. Session resets Fri 11:10 PM · week resets Wed 8:30 PM." [ref=f2e643]:
+        - generic [ref=f2e644]: SESSION
+        - generic [ref=f2e647]: 35%
+        - generic [ref=f2e648]: ·
+        - generic [ref=f2e649]: WEEK
+        - generic [ref=f2e652]: 43%
+    - button "◷ CALENDAR" [ref=f2e172] [cursor=pointer]
+    - generic [ref=f2e173]: 09:53:33 pm
+  - link "BY sahni.ai_" [ref=f2e174] [cursor=pointer]:
+    - /url: https://sahni.ai
+    - generic [ref=f2e175]: BY
+    - generic [ref=f2e176]: sahni.ai_
+  - generic "licence":
+    - generic: sahni.ai_
+    - generic: © 2026 Sahni.ai · Agents Office · PolyForm Noncommercial 1.0.0 · free for personal and internal use · not for resale
+  - button "◂ OVERVIEW"
+  - generic:
+    - generic:
+      - textbox "Search the Brain…"
+    - generic: THE BRAIN
+    - generic: Esc closes · scroll zooms · drag pans · click a note to read it
+  - generic:
+    - generic:
+      - generic: CALENDAR
+      - generic:
+        - button "WEEK"
+        - button "MONTH"
+      - generic:
+        - button "‹"
+        - button "›"
+        - button "TODAY"
+      - generic: ← → move · W M view · T today · Esc close
+      - button "✕"
+    - generic:
+      - textbox "Search tasks and routines…"
+    - generic:
+      - complementary:
+        - generic: ROUTINES 0
+        - generic: Click any day to schedule a task for it, or switch on REPEAT to start a routine from that date. Click a routine here to see only its days.
+  - generic [ref=f2e177]:
+    - generic [ref=f2e178]:
+      - generic [ref=f2e179]:
+        - button "MARKETING ▾" [ref=f2e180] [cursor=pointer]:
+          - generic [ref=f2e182]: MARKETING
+          - text: ▾
+        - textbox "Type a task for marketing…" [ref=f2e183]
+        - button "⤢" [ref=f2e184] [cursor=pointer]
+      - generic [ref=f2e185]:
+        - combobox "which model runs this (the office default unless you change it)" [ref=f2e186] [cursor=pointer]:
+          - option "SONNET" [selected]
+          - option "OPUS"
+          - option "FABLE"
+        - 'combobox "how hard it thinks: Auto is the model''s own level (Opus runs at high); Low to Max as Claude Code names them" [ref=f2e187] [cursor=pointer]':
+          - option "AUTO" [selected]
+          - option "LOW"
+          - option "MEDIUM"
+          - option "HIGH"
+          - option "X-HIGH"
+          - option "MAX"
+        - button "REPEAT" [ref=f2e188] [cursor=pointer]
+        - button "TEAM" [ref=f2e189] [cursor=pointer]
+        - button "ADD" [ref=f2e190] [cursor=pointer]
+    - generic [ref=f2e192]:
+      - generic [ref=f2e193]: TASK STATUS LIVE · CLAUDE
+      - generic [ref=f2e194]: WHOLE OFFICE
+    - generic [ref=f2e195]:
+      - button "All 116" [ref=f2e653] [cursor=pointer]:
+        - text: All
+        - generic [ref=f2e654]: "116"
+      - button "Scheduled 0" [ref=f2e655] [cursor=pointer]:
+        - text: Scheduled
+        - generic [ref=f2e656]: "0"
+      - button "Backlog 30" [ref=f2e657] [cursor=pointer]:
+        - text: Backlog
+        - generic [ref=f2e658]: "30"
+      - button "In progress 34" [ref=f2e659] [cursor=pointer]:
+        - text: In progress
+        - generic [ref=f2e660]: "34"
+      - button "Waiting 0" [ref=f2e661] [cursor=pointer]:
+        - text: Waiting
+        - generic [ref=f2e662]: "0"
+      - button "Done 52" [ref=f2e663] [cursor=pointer]:
+        - text: Done
+        - generic [ref=f2e664]: "52"
+    - generic [ref=f2e208]:
+      - generic [ref=f2e665]:
+        - generic [ref=f2e666]: 0%
+        - generic [ref=f2e667]:
+          - generic [ref=f2e668]: Log issue 31 numbers
+          - generic [ref=f2e669]: NEWSLETTER · MARKETING
+        - generic [ref=f2e671]: just now
+      - generic [ref=f2e672]:
+        - generic [ref=f2e673]: 0%
+        - generic [ref=f2e674]:
+          - generic [ref=f2e675]: Review the week's content before it ships
+          - generic [ref=f2e676]: MARKETING LEAD · MARKETING
+        - generic [ref=f2e678]: just now
+      - generic [ref=f2e679]:
+        - generic [ref=f2e680]: Done
+        - generic [ref=f2e681]:
+          - generic [ref=f2e682]: Weekly marketing summary for AJ
+          - generic [ref=f2e683]: MARKETING LEAD · MARKETING · done 9:53 pm
+        - generic [ref=f2e684]: just now
+      - generic [ref=f2e685]:
+        - generic [ref=f2e686]: 0%
+        - generic [ref=f2e687]:
+          - generic [ref=f2e688]: Cut the caption on the "10am rule" reel
+          - generic [ref=f2e689]: INSTAGRAM ORGANIC · MARKETING
+        - generic [ref=f2e691]: just now
+      - generic [ref=f2e692]:
+        - generic [ref=f2e693]: Done
+        - generic [ref=f2e694]:
+          - generic [ref=f2e695]: Write the hook for the carousel
+          - generic [ref=f2e696]: INSTAGRAM ORGANIC · MARKETING · done 9:53 pm
+        - generic [ref=f2e697]: just now
+      - generic [ref=f2e698]:
+        - generic [ref=f2e699]: 8%
+        - generic [ref=f2e700]:
+          - generic [ref=f2e701]: Story + square exports, brand kit
+          - generic [ref=f2e702]: GRAPHICS DESIGNER · MARKETING
+        - generic [ref=f2e705]: just now
+      - generic [ref=f2e706]:
+        - generic [ref=f2e707]: Done
+        - generic [ref=f2e708]:
+          - generic [ref=f2e709]: Match Stripe payouts to invoices
+          - generic [ref=f2e710]: RECONCILIATION · FINANCE · done 9:53 pm
+        - generic [ref=f2e711]: just now
+      - generic [ref=f2e712]:
+        - generic [ref=f2e713]: Done
+        - generic [ref=f2e714]:
+          - generic [ref=f2e715]: Creative for the new property ad set
+          - generic [ref=f2e716]: GRAPHICS DESIGNER · MARKETING · done 9:53 pm
+        - generic [ref=f2e717]: just now
+      - generic [ref=f2e718]:
+        - generic [ref=f2e719]: Backlog
+        - generic [ref=f2e720]:
+          - generic [ref=f2e721]: Launch the property ad set, 4 variants
+          - generic [ref=f2e722]: META ADS · MARKETING · just added · from GRAPHICS DESIGNER
+        - generic [ref=f2e723]: just now
+      - generic [ref=f2e724]:
+        - generic [ref=f2e725]: 12%
+        - generic [ref=f2e726]:
+          - generic [ref=f2e727]: Competitor pricing page diff
+          - generic [ref=f2e728]: INTEL · OPERATIONS
+        - generic [ref=f2e731]: just now
+      - generic [ref=f2e732]:
+        - generic [ref=f2e733]: Done
+        - generic [ref=f2e734]:
+          - generic [ref=f2e735]: "Opportunity memo: rival price rise"
+          - generic [ref=f2e736]: INTEL · OPERATIONS · done 9:53 pm
+        - generic [ref=f2e737]: just now
+      - generic [ref=f2e738]:
+        - generic [ref=f2e739]: Done
+        - generic [ref=f2e740]:
+          - generic [ref=f2e741]: Rebuild the welcome sequence, email 2
+          - generic [ref=f2e742]: NEWSLETTER · MARKETING · done 9:53 pm
+        - generic [ref=f2e743]: just now
+      - generic [ref=f2e744]:
+        - generic [ref=f2e745]: 9%
+        - generic [ref=f2e746]:
+          - generic [ref=f2e747]: Draft the price-increase notice
+          - generic [ref=f2e748]: CLIENT EMAILS · EMAILS
+        - generic [ref=f2e751]: just now
+      - generic [ref=f2e752]:
+        - generic [ref=f2e753]: Done
+        - generic [ref=f2e754]:
+          - generic [ref=f2e755]: Scope change request from Marlborough Wines Direct
+          - generic [ref=f2e756]: CLIENT EMAILS · EMAILS · done 9:53 pm
+        - generic [ref=f2e757]: just now
+      - generic [ref=f2e758]:
+        - generic [ref=f2e759]: Backlog
+        - generic [ref=f2e760]:
+          - generic [ref=f2e761]: Re-plan the Marlborough Wines Direct milestones
+          - generic [ref=f2e762]: PROJECT CO-ORDINATOR · DELIVERY · just added · from CLIENT EMAILS
+        - generic [ref=f2e763]: just now
+      - generic [ref=f2e764]:
+        - generic [ref=f2e765]: 10%
+        - generic [ref=f2e766]:
+          - generic [ref=f2e767]: Review the amended MSA, 2 clauses
+          - generic [ref=f2e768]: LEGAL REVIEW · OPERATIONS
+        - generic [ref=f2e771]: just now
+      - generic [ref=f2e772]:
+        - generic [ref=f2e773]: 14%
+        - generic [ref=f2e774]:
+          - generic [ref=f2e775]: Cut a 15 s teaser from the demo
+          - generic [ref=f2e776]: VIDEO EDITOR · MARKETING · rendering
+        - generic [ref=f2e779]: just now
+      - generic [ref=f2e780]:
+        - generic [ref=f2e781]: Done
+        - generic [ref=f2e782]:
+          - generic [ref=f2e783]: Colour + captions on the founder reel
+          - generic [ref=f2e784]: VIDEO EDITOR · MARKETING · done 9:53 pm
+        - generic [ref=f2e785]: just now
+      - generic [ref=f2e786]:
+        - generic [ref=f2e787]: 17%
+        - generic [ref=f2e788]:
+          - generic [ref=f2e789]: Prep the month-end pack
+          - generic [ref=f2e790]: ACCOUNTING LEAD · FINANCE
+        - generic [ref=f2e793]: just now
+      - generic [ref=f2e794]:
+        - generic [ref=f2e795]: Done
+        - generic [ref=f2e796]:
+          - generic [ref=f2e797]: Approve the contractor payment run
+          - generic [ref=f2e798]: ACCOUNTING LEAD · FINANCE · done 9:53 pm
+        - generic [ref=f2e799]: just now
+      - generic [ref=f2e800]:
+        - generic [ref=f2e801]: Done
+        - generic [ref=f2e802]:
+          - generic [ref=f2e803]: Privacy policy annual check
+          - generic [ref=f2e804]: LEGAL REVIEW · OPERATIONS · done 9:53 pm
+        - generic [ref=f2e805]: 1 min
+      - generic [ref=f2e806]:
+        - generic [ref=f2e807]: 19%
+        - generic [ref=f2e808]:
+          - generic [ref=f2e809]: Review 12 live projects for risk
+          - generic [ref=f2e810]: DELIVERY LEAD · DELIVERY
+        - generic [ref=f2e813]: 1 min
+      - generic [ref=f2e814]:
+        - generic [ref=f2e815]: Done
+        - generic [ref=f2e816]:
+          - generic [ref=f2e817]: Weekly delivery summary for AJ
+          - generic [ref=f2e818]: DELIVERY LEAD · DELIVERY · done 9:53 pm
+        - generic [ref=f2e819]: 1 min
+      - generic [ref=f2e820]:
+        - generic [ref=f2e821]: 64%
+        - generic [ref=f2e822]:
+          - generic [ref=f2e823]: Backfill company size on 12 leads
+          - generic [ref=f2e824]: LEAD ENRICHER · SALES
+        - generic [ref=f2e827]: 1 min
+      - generic [ref=f2e828]:
+        - generic [ref=f2e829]: 67%
+        - generic [ref=f2e830]:
+          - generic [ref=f2e831]: Move 3 milestones after the scope change
+          - generic [ref=f2e832]: PROJECT CO-ORDINATOR · DELIVERY
+        - generic [ref=f2e835]: 1 min
+      - generic [ref=f2e836]:
+        - generic [ref=f2e837]: 63%
+        - generic [ref=f2e838]:
+          - generic [ref=f2e839]: Verify mobiles on the new batch
+          - generic [ref=f2e840]: PROSPECTOR · SALES
+        - generic [ref=f2e843]: 1 min
+      - generic [ref=f2e844]:
+        - generic [ref=f2e845]: 73%
+        - generic [ref=f2e846]:
+          - generic [ref=f2e847]: Pull the daily spend report
+          - generic [ref=f2e848]: META ADS · MARKETING
+        - generic [ref=f2e851]: 1 min
+      - generic [ref=f2e852]:
+        - generic [ref=f2e853]: 37%
+        - generic [ref=f2e854]:
+          - generic [ref=f2e855]: Credit note for Harbour City Roofing
+          - generic [ref=f2e856]: INVOICING · FINANCE
+        - generic [ref=f2e859]: 1 min
+      - generic [ref=f2e860]:
+        - generic [ref=f2e861]: 85%
+        - generic [ref=f2e862]:
+          - generic [ref=f2e863]: Re-engage 8 cold leads
+          - generic [ref=f2e864]: FOLLOW UPS · SALES
+        - generic [ref=f2e867]: 1 min
+      - generic [ref=f2e868]:
+        - generic [ref=f2e869]: 37%
+        - generic [ref=f2e870]:
+          - generic [ref=f2e871]: Monthly report pack, 14 clients
+          - generic [ref=f2e872]: CLIENT REPORTS · DELIVERY
+        - generic [ref=f2e875]: 1 min
+      - generic [ref=f2e876]:
+        - generic [ref=f2e877]: 60%
+        - generic [ref=f2e878]:
+          - generic [ref=f2e879]: Monthly KPI roll-up
+          - generic [ref=f2e880]: INTERNAL REPORTING · OPERATIONS
+        - generic [ref=f2e883]: 1 min
+      - generic [ref=f2e884]:
+        - generic [ref=f2e885]: 42%
+        - generic [ref=f2e886]:
+          - generic [ref=f2e887]: Escalate 2 threads to AJ
+          - generic [ref=f2e888]: EMAILS LEAD · EMAILS
+        - generic [ref=f2e891]: 1 min
+      - generic [ref=f2e892]:
+        - generic [ref=f2e893]: 60%
+        - generic [ref=f2e894]:
+          - generic [ref=f2e895]: "Audit contractor invoice #218 vs contract"
+          - generic [ref=f2e896]: ACCOUNTS PAYABLE · FINANCE
+        - generic [ref=f2e899]: 1 min
+      - generic [ref=f2e900]:
+        - generic [ref=f2e901]: 60%
+        - generic [ref=f2e902]:
+          - generic [ref=f2e903]: Archive the finished Crestline Finance files
+          - generic [ref=f2e904]: CLIENT ASSETS · DELIVERY
+        - generic [ref=f2e907]: 1 min
+      - generic [ref=f2e908]:
+        - generic [ref=f2e909]: 64%
+        - generic [ref=f2e910]:
+          - generic [ref=f2e911]: AU regulation page changed, diffing
+          - generic [ref=f2e912]: COMPLIANCE CHECKER · OPERATIONS
+        - generic [ref=f2e915]: 2 min
+      - generic [ref=f2e916]:
+        - generic [ref=f2e917]: 54%
+        - generic [ref=f2e918]:
+          - generic [ref=f2e919]: "Qualified lead: Summit HVAC wants a quote"
+          - generic [ref=f2e920]: INBOUND LEADS MANAGER · SALES
+        - generic [ref=f2e923]: 2 min
+      - generic [ref=f2e924]:
+        - generic [ref=f2e925]: 44%
+        - generic [ref=f2e926]:
+          - generic [ref=f2e927]: Draft the Ridgeline Property Group asset set
+          - generic [ref=f2e928]: DESIGNER ASSISTANT · DELIVERY
+        - generic [ref=f2e931]: 2 min
+      - generic [ref=f2e932]:
+        - generic [ref=f2e933]: 92%
+        - generic [ref=f2e934]:
+          - generic [ref=f2e935]: Kickoff call prep for Mako Digital
+          - generic [ref=f2e936]: ONBOARDER · DELIVERY
+        - generic [ref=f2e939]: 2 min
+      - generic [ref=f2e940]:
+        - generic [ref=f2e941]: 50%
+        - generic [ref=f2e942]:
+          - generic [ref=f2e943]: Chase 8 open vendor renewals
+          - generic [ref=f2e944]: OPERATIONS LEAD · OPERATIONS
+        - generic [ref=f2e947]: 2 min
+      - generic [ref=f2e948]:
+        - generic [ref=f2e949]: 73%
+        - generic [ref=f2e950]:
+          - generic [ref=f2e951]: Proposal accepted by Nectar Foods
+          - generic [ref=f2e952]: PROPOSALS · SALES
+        - generic [ref=f2e955]: 2 min
+      - generic [ref=f2e956]:
+        - generic [ref=f2e957]: 99%
+        - generic [ref=f2e958]:
+          - generic [ref=f2e959]: Request a quote from the print vendor
+          - generic [ref=f2e960]: VENDOR EMAILS · EMAILS
+        - generic [ref=f2e963]: 2 min
+      - generic [ref=f2e964]:
+        - generic [ref=f2e965]: 56%
+        - generic [ref=f2e966]:
+          - generic [ref=f2e967]: Proof the asset set, brand rules
+          - generic [ref=f2e968]: QUALITY ASSURANCE CHECKER · DELIVERY
+        - generic [ref=f2e971]: 2 min
+      - generic [ref=f2e972]:
+        - generic [ref=f2e973]: 80%
+        - generic [ref=f2e974]:
+          - generic [ref=f2e975]: Contractor invoice query from the designer
+          - generic [ref=f2e976]: CONTRACTOR EMAILS · EMAILS
+        - generic [ref=f2e979]: 3 min
+      - generic [ref=f2e980]:
+        - generic [ref=f2e981]: 85%
+        - generic [ref=f2e982]:
+          - generic [ref=f2e983]: Fix the revenue chart, wrong period
+          - generic [ref=f2e984]: INTERNAL DASHBOARDS · OPERATIONS
+        - generic [ref=f2e987]: 3 min
+      - generic [ref=f2e988]:
+        - generic [ref=f2e989]: 77%
+        - generic [ref=f2e990]:
+          - generic [ref=f2e991]: Chase 15 deals quiet past 14 days
+          - generic [ref=f2e992]: SALES LEAD · SALES
+        - generic [ref=f2e995]: 3 min
+      - generic [ref=f2e996]:
+        - generic [ref=f2e997]: 96%
+        - generic [ref=f2e998]:
+          - generic [ref=f2e999]: Team asks for the Q3 numbers
+          - generic [ref=f2e1000]: INTERNAL EMAILS · EMAILS
+        - generic [ref=f2e1003]: 3 min
+      - generic [ref=f2e1004]:
+        - generic [ref=f2e1005]: 95%
+        - generic [ref=f2e1006]:
+          - generic [ref=f2e1007]: Research hook angles for the next reel
+          - generic [ref=f2e1008]: RESEARCH · MARKETING
+        - generic [ref=f2e1011]: 3 min
+      - generic [ref=f2e1012]:
+        - generic [ref=f2e1013]: Done
+        - generic [ref=f2e1014]:
+          - generic [ref=f2e1015]: Reconcile 14 payments, 2 flagged
+          - generic [ref=f2e1016]: RECONCILIATION · FINANCE · done 9:48 pm
+        - generic [ref=f2e1017]: 5 min
+      - generic [ref=f2e1018]:
+        - generic [ref=f2e1019]: Done
+        - generic [ref=f2e1020]:
+          - generic [ref=f2e1021]: Set next week’s reel line-up
+          - generic [ref=f2e1022]: MARKETING LEAD · MARKETING · done 9:45 pm
+        - generic [ref=f2e1023]: 8 min
+      - generic [ref=f2e1024]:
+        - generic [ref=f2e1025]: Done
+        - generic [ref=f2e1026]:
+          - generic [ref=f2e1027]: Watch the rival launch page
+          - generic [ref=f2e1028]: INTEL · OPERATIONS · done 9:43 pm
+        - generic [ref=f2e1029]: 10 min
+      - generic [ref=f2e1030]:
+        - generic [ref=f2e1031]: Backlog
+        - generic [ref=f2e1032]:
+          - generic [ref=f2e1033]: Test the client portal login flow
+          - generic [ref=f2e1034]: QUALITY ASSURANCE CHECKER · DELIVERY · waiting 11 min · from the Brain
+        - generic [ref=f2e1035]: 11 min
+      - generic [ref=f2e1036]:
+        - generic [ref=f2e1037]: Done
+        - generic [ref=f2e1038]:
+          - generic [ref=f2e1039]: Re-plan the Summit HVAC timeline
+          - generic [ref=f2e1040]: DELIVERY LEAD · DELIVERY · done 9:35 pm
+        - generic [ref=f2e1041]: 18 min
+      - generic [ref=f2e1042]:
+        - generic [ref=f2e1043]: Done
+        - generic [ref=f2e1044]:
+          - generic [ref=f2e1045]: Sync the Silver Fern Security assets to the portal
+          - generic [ref=f2e1046]: CLIENT ASSETS · DELIVERY · done 9:27 pm
+        - generic [ref=f2e1047]: 26 min
+      - generic [ref=f2e1048]:
+        - generic [ref=f2e1049]: Backlog
+        - generic [ref=f2e1050]:
+          - generic [ref=f2e1051]: September status report for Bay Plumbing Co
+          - generic [ref=f2e1052]: CLIENT REPORTS · DELIVERY · waiting 29 min · from the Brain
+        - generic [ref=f2e1053]: 29 min
+      - generic [ref=f2e1054]:
+        - generic [ref=f2e1055]: Backlog
+        - generic [ref=f2e1056]:
+          - generic [ref=f2e1057]: G2 review scan for the top 3 rivals
+          - generic [ref=f2e1058]: INTEL · OPERATIONS · waiting 31 min · from the Brain
+        - generic [ref=f2e1059]: 31 min
+      - generic [ref=f2e1060]:
+        - generic [ref=f2e1061]: Done
+        - generic [ref=f2e1062]:
+          - generic [ref=f2e1063]: Read 6 buyer reviews for angles
+          - generic [ref=f2e1064]: RESEARCH · MARKETING · done 9:21 pm
+        - generic [ref=f2e1065]: 32 min
+      - generic [ref=f2e1066]:
+        - generic [ref=f2e1067]: Done
+        - generic [ref=f2e1068]:
+          - generic [ref=f2e1069]: Score the morning batch for the Sales Lead
+          - generic [ref=f2e1070]: LEAD ENRICHER · SALES · done 9:12 pm
+        - generic [ref=f2e1071]: 41 min
+      - generic [ref=f2e1072]:
+        - generic [ref=f2e1073]: Done
+        - generic [ref=f2e1074]:
+          - generic [ref=f2e1075]: Export the logo set, 4 formats
+          - generic [ref=f2e1076]: CLIENT ASSETS · DELIVERY · done 9:11 pm
+        - generic [ref=f2e1077]: 42 min
+      - generic [ref=f2e1078]:
+        - generic [ref=f2e1079]: Backlog
+        - generic [ref=f2e1080]:
+          - generic [ref=f2e1081]: Consent wording audit on the forms
+          - generic [ref=f2e1082]: COMPLIANCE CHECKER · OPERATIONS · waiting 43 min · from the Brain
+        - generic [ref=f2e1083]: 43 min
+      - generic [ref=f2e1084]:
+        - generic [ref=f2e1085]: Backlog
+        - generic [ref=f2e1086]:
+          - generic [ref=f2e1087]: Set up the Fern & Field Landscaping client portal
+          - generic [ref=f2e1088]: ONBOARDER · DELIVERY · waiting 44 min · from the Brain
+        - generic [ref=f2e1089]: 44 min
+  - generic [ref=f2e639]:
+    - button "+" [ref=f2e640] [cursor=pointer]
+    - button "−" [ref=f2e641] [cursor=pointer]
+    - button "⌂" [ref=f2e642] [cursor=pointer]

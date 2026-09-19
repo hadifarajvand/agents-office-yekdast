@@ -10,7 +10,6 @@ from backend.langgraph.state import OfficeState, Message
 from backend.services.brain import rank_by_relevance, load_brain
 from backend.services.roster import get_agents_by_dept
 
-
 # ============ ROUTER NODE ============
 
 

@@ -1,0 +1,14 @@
+{
+  "name": "agent-office-yekdast",
+  "version": "1.0.0",
+  "description": "**Status:** Development   **Branch:** develop   **Timeline:** 6 weeks to production",
+  "main": "index.js",
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.1"
+  }
+}
