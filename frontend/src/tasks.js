@@ -921,7 +921,7 @@ export function initTasks(ctx) {
     const tot = st => DEPT_KEYS.reduce((s, k) => s + deptTasks(k, st).length, 0);
     const doneAll = DEPT_KEYS.reduce((s, k) => s + doneCount[k], 0);
     return `<div class="bd-head">
-        <span class="b-name"><span class="bd-title">Agents Office</span>Today's board</span>
+        <span class="b-name"><span class="bd-title">Agent Office</span>Today's board</span>
         <span class="bd-stats"><span>SCHEDULED<b>${routines.length + tot('scheduled')}</b></span><span>IN PROGRESS<b>${tot('doing')}</b></span><span>BACKLOG<b>${tot('next')}</b></span><span>WAITING<b>${tot('waiting')}</b></span><span>DONE<b>${doneAll}</b></span></span></div>
       <div class="bd-lanes"><div class="lh"></div>${COLS.map(([, lab]) => `<div class="lh">${lab}</div>`).join('')}
       ${DEPT_KEYS.map(k => {
@@ -1089,7 +1089,7 @@ export function initTasks(ctx) {
     tasks.splice(tasks.indexOf(t), 1); dirty = true; feedPush(R[t.agent], '✕', `Cancelled: ${t.title}`);
     return true;
   }
-  const calendar = initCalendar({ tasks, routines, agentOf, DEPTS, DEPT_KEYS, RT_DEPTS, rtRefuse, create: createScheduled, createRoutine: createRoutineAt, cancelTask: cancelScheduled, rtAct, openAgent: (id, tab) => openAgent && openAgent(id, tab), esc, isLive: () => live, officeModel: () => officeModel, MODEL_KEYS, modelName, business: () => document.title.replace(/ — Agents Office$/, ''), currentDept: () => dept });
+  const calendar = initCalendar({ tasks, routines, agentOf, DEPTS, DEPT_KEYS, RT_DEPTS, rtRefuse, create: createScheduled, createRoutine: createRoutineAt, cancelTask: cancelScheduled, rtAct, openAgent: (id, tab) => openAgent && openAgent(id, tab), esc, isLive: () => live, officeModel: () => officeModel, MODEL_KEYS, modelName, business: () => document.title.replace(/ — Agent Office$/, ''), currentDept: () => dept });
   return { tick, toggle, open, close, openFor, isOpen, boardWidth, onFocusChange, onStuck, onResolve, calendar, createScheduled, cancelScheduled,
            handleChat, addTask, revise, rowHTML, setDept, tasks, panelWidth: () => panel.offsetWidth, isLive: () => live,
            routines, addRoutine, rtAct, railFor, syncPills, refresh: poll, resolveLive, pendingReject, rejectLive, officeModel: () => officeModel, chosenModel, chosenEffort };

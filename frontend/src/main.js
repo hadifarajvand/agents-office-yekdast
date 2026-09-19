@@ -1370,7 +1370,7 @@ function applyRoster(agents) {
 tasks = initTasks({
   hud, R, deptRT, RAIL_SIDE, spawnEmote, chatPush, chatHist, feedPush, zoomToApproval, enterFocus, openAgent, esc,
   brainWrite: (id, title) => brain.write(id, title), brain,
-  onLive: (h) => { document.querySelector('#topbar .brand .ver').textContent = 'BETA'; document.title = `${h.name} — Agents Office`; brain.setOwner(h.name); brain.setQuiet(true); applyRoster(h.agents); },
+  onLive: (h) => { document.querySelector('#topbar .brand .ver').textContent = 'BETA'; document.title = `${h.name} — Agent Office`; brain.setOwner(h.name); brain.setQuiet(true); applyRoster(h.agents); },
   onTools: (agentId, keys) => mcp.onToolsUsed(agentId, keys),
   requestApproval, setStuck: setStuckLive,
   onUsage: (u) => { if (mcp && mcp.setUsage) mcp.setUsage(u); }, // V3.6: the plan's gauge in the top bar
