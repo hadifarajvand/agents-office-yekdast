@@ -44,15 +44,26 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 try {
   const envPath = path.resolve(__dirname, '..', '.env');
   const envContent = fs.readFileSync(envPath, 'utf-8');
+  const FRONTEND_ALLOWED = ['USE_PYTHON_BACKEND', 'PYTHON_BACKEND_URL', 'SYNC_STRATEGY', 'SSE_MAX_RETRIES', 'SSE_INITIAL_DELAY', 'SSE_MAX_DELAY', 'SSE_TIMEOUT', 'FRONTEND_TASK_CREATION', 'POLLING_ENABLED'];
+  let loaded = 0;
   envContent.split('\n').forEach(line => {
     const trimmed = line.trim();
     if (trimmed && !trimmed.startsWith('#')) {
-      const [key, ...valueParts] = trimmed.split('=');
-      const value = valueParts.join('=').trim();
-      if (key && value && !process.env[key]) process.env[key] = value;
+      const eqIndex = trimmed.indexOf('=');
+      if (eqIndex > 0) {
+        const key = trimmed.substring(0, eqIndex).trim();
+        const value = trimmed.substring(eqIndex + 1).trim();
+        // Only load frontend-relevant variables, skip backend-specific ones like PORT
+        if (key && value && FRONTEND_ALLOWED.includes(key)) {
+          process.env[key] = value;
+          if (key === 'USE_PYTHON_BACKEND') console.log(`[ENV] Loaded ${key}=${value}`);
+          loaded++;
+        }
+      }
     }
   });
-} catch (e) { /* .env file not found or unreadable */ }
+  if (loaded > 0) console.log(`[ENV] Loaded ${loaded} frontend variables from .env`);
+} catch (e) { console.warn('[ENV] Could not load .env:', e.message); }
 
 import http from 'node:http';
 import { spawn } from 'node:child_process';
