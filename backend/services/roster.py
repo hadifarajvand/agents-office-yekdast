@@ -10,24 +10,41 @@ from typing import Dict, List, Any, Tuple
 
 from backend.config import get_config
 
-# Import agent defaults from original repo
-AGENTS_DEFAULTS = [
-    {
-        "id": "alice",
-        "department": "marketing",
-        "lead": True,
-        "name": "ALICE",
-        "role": "Lead",
-    },
-    {
-        "id": "bob",
-        "department": "marketing",
-        "lead": False,
-        "name": "BOB",
-        "role": "Agent",
-    },
-    # ... (full list from office.agents.json)
-]
+# Load agent defaults from office.agents.json
+def _load_defaults():
+    """Load default agents from office.agents.json"""
+    try:
+        config = get_config()
+        agents_file = config["brain_path"].parent / "office.agents.json"
+        if agents_file.exists():
+            data = json.loads(agents_file.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and "agents" in data:
+                return data["agents"]
+            elif isinstance(data, list):
+                return data
+    except Exception as e:
+        # Debug: print why loading failed
+        import sys
+        print(f"Warning: Could not load agents from office.agents.json: {e}", file=sys.stderr)
+    # Fallback: minimal set
+    return [
+        {
+            "id": "alice",
+            "department": "marketing",
+            "lead": True,
+            "name": "ALICE",
+            "role": "Lead",
+        },
+        {
+            "id": "bob",
+            "department": "marketing",
+            "lead": False,
+            "name": "BOB",
+            "role": "Agent",
+        },
+    ]
+
+AGENTS_DEFAULTS = _load_defaults()
 
 EDITABLE_FIELDS = {"name", "role", "does", "tools", "brief", "model", "effort"}
 BRIEF_MAX = 2000
@@ -38,7 +55,7 @@ VALID_EFFORTS = {"low", "medium", "high", "xhigh", "max", ""}
 def read_json(path: Path) -> Dict:
     """Safely read JSON"""
     try:
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 

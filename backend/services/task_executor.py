@@ -71,7 +71,7 @@ class TaskExecutor:
 
         # Execute graph
         try:
-            result = self.graph.invoke(state)
+            result = await self.graph.ainvoke(state)
             self.active_tasks[task_id] = result
 
             # Save checkpoint
