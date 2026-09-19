@@ -5,15 +5,24 @@ Serves API matching v3.6 frontend expectations.
 """
 
 from datetime import datetime
+from typing import List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 import uvicorn
+import json
 
 from backend.config import get_config
 from backend.services.roster import load_roster, get_agents_by_dept
 from backend.services.brain import load_brain
 from backend.services.task_executor import get_task_executor
+from backend.schemas import (
+    TaskResponse,
+    TaskFrontendState,
+    HealthResponse,
+)
+from backend.events import event_bus
 
 # Initialize
 app = FastAPI(
@@ -71,29 +80,118 @@ ROUTINES = {}
 # ============ Health Check ============
 
 
-@app.get("/api/health")
+@app.get("/api/health", response_model=HealthResponse)
 async def health():
     """GET /api/health: Service health"""
+    return HealthResponse(
+        ok=True,
+        status="ok",
+        version="3.6.0-py",
+        backend="fastapi",
+        model=config["model"],
+        brain=str(config["brain_path"]),
+        agents=len(roster["agents"]),
+        notes=len(brain["all_notes"]),
+        timestamp=datetime.now().isoformat(),
+    )
+
+
+# ============ Real-Time Events (SSE) ============
+
+
+@app.get("/api/events")
+async def events_stream():
+    """Server-Sent Events stream for real-time updates
+
+    Clients connect here and receive task events as they happen:
+    - task:created
+    - task:started
+    - task:progress
+    - task:completed
+    - task:failed
+    - ping (keepalive)
+    """
+
+    async def event_generator():
+        try:
+            async for event in event_bus.subscribe(timeout=30):
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as e:
+            print(f"[SSE] Error in event stream: {e}")
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@app.get("/api/metrics")
+async def metrics():
+    """Monitoring endpoint for health and diagnostics"""
     return {
         "ok": True,
-        "status": "ok",
-        "version": "3.6.0-py",
-        "backend": "fastapi",
-        "model": config["model"],
-        "brain": str(config["brain_path"]),
-        "agents": len(roster["agents"]),
-        "notes": len(brain["all_notes"]),
+        "sse": event_bus.get_stats(),
+        "tasks": {
+            "total": len(task_executor.active_tasks),
+            "by_status": _count_tasks_by_status(),
+        },
         "timestamp": datetime.now().isoformat(),
     }
+
+
+def _count_tasks_by_status():
+    """Count tasks by status"""
+    counts = {"pending": 0, "doing": 0, "done": 0, "waiting": 0}
+    for t in task_executor.active_tasks.values():
+        status = t.get("status", "pending")
+        if status in counts:
+            counts[status] += 1
+    return counts
 
 
 # ============ Tasks API ============
 
 
-@app.get("/api/tasks")
+@app.get("/api/tasks", response_model=List[TaskResponse])
 async def list_tasks():
-    """GET /api/tasks: List all tasks"""
-    return list(task_executor.active_tasks.values())
+    """GET /api/tasks: List all tasks with normalized schema"""
+    result = []
+
+    for task_id, t in task_executor.active_tasks.items():
+        # Ensure assigned_lead always has a value (never null)
+        lead = t.get("assigned_lead")
+        if not lead:
+            # Fallback: get department lead from roster
+            dept = t.get("department", "")
+            dept_agents = get_agents_by_dept(dept)
+            dept_lead = next((a["id"] for a in dept_agents if a.get("lead")), None)
+            lead = dept_lead or f"lead_{dept}" or "unknown"
+
+        result.append(
+            TaskResponse(
+                id=t.get("task_id", ""),
+                agent=lead,
+                dept=t.get("department", ""),
+                title=t.get("task_text", "Task"),
+                state=_normalize_state(t.get("status", "pending")),
+                by=t.get("created_by", "backend"),
+                createdAt=int(t.get("created_at", 0) * 1000),
+                updatedAt=int(t.get("created_at", 0) * 1000),
+                model=t.get("model", "sonnet"),
+                effort=t.get("effort", "low"),
+                live=True,
+            )
+        )
+
+    return result
+
+
+def _normalize_state(backend_state: str) -> TaskFrontendState:
+    """Map backend status to frontend state"""
+    status_map = {
+        "pending": TaskFrontendState.NEXT,
+        "pending_approval": TaskFrontendState.WAITING,
+        "doing": TaskFrontendState.DOING,
+        "done": TaskFrontendState.DONE,
+    }
+    return status_map.get(backend_state, TaskFrontendState.NEXT)
 
 
 @app.post("/api/tasks")

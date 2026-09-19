@@ -26,6 +26,8 @@ import { applyTasks, PROFILE, titleCase } from './profile.js';
 import { parseWhen, describe, nextRun, fromPicker, untilText } from './when.js';
 import { initCalendar } from './calendar.js'; // V3.2.1 (16 Sep 2026): the calendar on P
 import { MODEL_KEYS, MODELS, DEFAULT_MODEL, modelName, normModel, FROM_TEXT , EFFORT_KEYS, EFFORT_NAME, normEffort, effortName, effortFor } from './models.js';
+import { validateTaskListSafe, reportValidationError, TaskListSchema } from './validation.js';
+import { initSSE, disconnectSSE } from './sse.js';
 
 const SEGMENTS = ['roofing', 'HVAC', 'dental', 'logistics', 'fitness', 'property', 'landscaping', 'legal'];
 
@@ -559,17 +561,40 @@ export function initTasks(ctx) {
     try {
       const [rl, tl] = await Promise.all([fetch(API + '/routines').then(r => r.json()), fetch(API + '/tasks').then(r => r.json())]);
       if (Array.isArray(rl.routines)) setRoutines(rl.routines);
-      if (Array.isArray(tl)) for (const st of tl) reconcile(st);
+      if (Array.isArray(tl)) {
+        // Phase 2: Validate tasks against schema
+        try {
+          const validatedTasks = TaskListSchema.parse(tl);
+          for (const st of validatedTasks) reconcile(st);
+        } catch (e) {
+          console.error('[poll] Schema validation failed:', e.message);
+          reportValidationError('TaskList', e);
+          // Still try to process as best we can
+          for (const st of tl) reconcile(st);
+        }
+      }
       if (calendar) calendar.refresh();
     } catch (e) { console.warn('office poll:', e.message); }
     polling = false;
   }
   function reconcile(st) { // a server task the page did not start (a routine firing, a catch-up, an approval finishing) → the same cards, the same moves
-    if (!agentOf(st.agent)) return;
-    let t = tasks.find(x => x.live && x.sid === st.id);
+    // Phase 1: Better error handling for agent validation
+    const agent = st.agent || st.assigned_lead;
+
+    if (!agent) {
+      console.warn('[reconcile] Task has no agent field', { st, task_id: st.id || st.task_id });
+      return;
+    }
+
+    if (!agentOf(agent)) {
+      console.warn(`[reconcile] Agent "${agent}" not found in roster`, { st, availableAgents: AGENTS?.map(a => a.id) });
+      return;
+    }
+
+    let t = tasks.find(x => x.live && x.sid === (st.id || st.task_id));
     if (!t) {
-      t = mk({ agent: st.agent, title: st.title, text: st.text, plan: st.plan, by: st.by === 'routine' ? 'routine' : 'you', live: true, srv: !!st.routine, sid: st.id,
-        routine: st.routine, when: st.when, late: !!st.late, due: st.due, needsOk: !!st.needsOk, addedAt: st.addedAt, changedAt: st.addedAt, last: 'added',
+      t = mk({ agent, title: st.title, text: st.text, plan: st.plan, by: st.by === 'routine' ? 'routine' : 'you', live: true, srv: !!st.routine, sid: st.id || st.task_id,
+        routine: st.routine, when: st.when, late: !!st.late, due: st.due, needsOk: !!st.needsOk, addedAt: st.addedAt || Date.now(), changedAt: st.addedAt || Date.now(), last: 'added',
         model: st.model, modelUsed: st.modelUsed || st.model || undefined, modelFrom: st.modelFrom || (st.model ? 'task' : undefined), effort: st.effort, effortUsed: st.effortUsed, effortFrom: st.effortFrom });
       if (st.state === 'scheduled') { t.state = 'scheduled'; t.dueAt = st.dueAt; t.needsOk = !!st.needsOk; }
       else if (st.state !== 'done') { spawnEmote(R[t.agent], st.routine ? '⏱' : st.dueAt ? '⏱' : '📋'); if (st.routine) feedPush(R[t.agent], '⏱', `Routine fired: ${t.title}${t.late ? ' (late — was due ' + timeStr(t.due) + ')' : ''}`); else if (st.dueAt) feedPush(R[t.agent], '⏱', `Scheduled task fired: ${t.title}`); }
@@ -689,7 +714,57 @@ export function initTasks(ctx) {
       }
       dirty = true;
       if (onLive) onLive(h);
-      await poll(); setInterval(poll, 6000); // V3.5: routines fire on the server's clock — the page keeps up
+
+      // Phase 3: Subscribe to SSE for real-time updates instead of polling
+      const handleSSEEvent = (eventType, data) => {
+        switch (eventType) {
+          case 'task:created':
+            reconcile(data);
+            render(true);
+            break;
+          case 'task:started':
+            const doingTask = tasks.find(t => t.id === data.id || t.sid === data.id);
+            if (doingTask) {
+              doingTask.state = 'doing';
+              doingTask.progress = 0;
+              touch(doingTask, 'started');
+              dirty = true;
+            }
+            break;
+          case 'task:progress':
+            const progressTask = tasks.find(t => t.id === data.id || t.sid === data.id);
+            if (progressTask) {
+              progressTask.progress = data.progress || 0;
+              dirty = true;
+            }
+            break;
+          case 'task:completed':
+            const doneTask = tasks.find(t => t.id === data.id || t.sid === data.id);
+            if (doneTask) {
+              doneTask.state = 'done';
+              complete(doneTask);
+            }
+            break;
+          case 'task:failed':
+            const failedTask = tasks.find(t => t.id === data.id || t.sid === data.id);
+            if (failedTask) {
+              failedTask.state = 'done';
+              failedTask.error = data.error;
+              touch(failedTask, 'done');
+              dirty = true;
+            }
+            break;
+        }
+      };
+
+      const handleSSEError = (error) => {
+        console.warn('[SSE] Error, falling back to polling:', error);
+        // Fallback to polling
+        setInterval(poll, 10000);
+      };
+
+      initSSE(API, handleSSEEvent, handleSSEError);
+
     } catch (e) { console.warn('office server not reachable — running offline:', e.message); }
   }
   connect();

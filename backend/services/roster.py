@@ -10,6 +10,7 @@ from typing import Dict, List, Any, Tuple
 
 from backend.config import get_config
 
+
 # Load agent defaults from office.agents.json
 def _load_defaults():
     """Load default agents from office.agents.json"""
@@ -25,7 +26,11 @@ def _load_defaults():
     except Exception as e:
         # Debug: print why loading failed
         import sys
-        print(f"Warning: Could not load agents from office.agents.json: {e}", file=sys.stderr)
+
+        print(
+            f"Warning: Could not load agents from office.agents.json: {e}",
+            file=sys.stderr,
+        )
     # Fallback: minimal set
     return [
         {
@@ -43,6 +48,7 @@ def _load_defaults():
             "role": "Agent",
         },
     ]
+
 
 AGENTS_DEFAULTS = _load_defaults()
 

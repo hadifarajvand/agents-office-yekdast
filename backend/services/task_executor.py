@@ -10,6 +10,11 @@ from typing import Optional
 from backend.langgraph.graphs import office_graph
 from backend.langgraph.state import OfficeState
 from backend.services.checkpoint import get_checkpoint_manager
+from backend.events import (
+    publish_task_created,
+    publish_task_completed,
+    publish_task_failed,
+)
 
 
 class TaskExecutor:
@@ -69,10 +74,30 @@ class TaskExecutor:
             "checkpoint_node": None,
         }
 
+        # Phase 3: Publish task:created event
+        try:
+            await publish_task_created(
+                task_id=task_id,
+                agent="pending",
+                dept=department,
+                title=task_text,
+                status="pending",
+            )
+        except Exception as e:
+            print(f"[TaskExecutor] Error publishing task:created event: {e}")
+
         # Execute graph
         try:
             result = await self.graph.ainvoke(state)
             self.active_tasks[task_id] = result
+
+            # Phase 3: Publish task:completed event
+            try:
+                await publish_task_completed(
+                    task_id=task_id, result=result.get("deliverable", ""), error=False
+                )
+            except Exception as e:
+                print(f"[TaskExecutor] Error publishing task:completed event: {e}")
 
             # Save checkpoint
             await self.checkpoint_manager.save_checkpoint(
@@ -84,6 +109,13 @@ class TaskExecutor:
             state["status"] = "failed"
             state["errors"].append(f"Execution error: {str(e)}")
             self.active_tasks[task_id] = state
+
+            # Phase 3: Publish task:failed event
+            try:
+                await publish_task_failed(task_id=task_id, error=str(e))
+            except Exception as pub_err:
+                print(f"[TaskExecutor] Error publishing task:failed event: {pub_err}")
+
             return task_id
 
     async def get_task_status(self, task_id: str) -> Optional[OfficeState]:

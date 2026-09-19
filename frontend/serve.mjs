@@ -516,30 +516,41 @@ const server = http.createServer(async (req, res) => {
           // Convert backend task format to frontend task format
           if (Array.isArray(pyRes.body)) {
             const convertedTasks = pyRes.body.map(t => {
-              const agent = t.assigned_lead || (AGENTS && AGENTS.find(a => a.department === t.department && a.lead)?.id) || 'unknown';
+              // Handle both old and new backend formats
+              const id = t.id || t.task_id || '';
+              const agent = t.agent || t.assigned_lead || 'unknown';
+              const dept = t.dept || t.department || '';
+              const title = t.title || t.task_text || 'Task';
+              const state = t.state || (t.status === 'pending_approval' || t.status === 'pending') ? 'next' : 'doing';
+
+              // Validate agent exists in roster
+              if (!agent || agent === 'unknown') {
+                console.warn('[PROXY] Task has no valid agent, using fallback', { id, agent, dept });
+              }
+
               return {
-                id: t.task_id || '',
-                agent: agent,
-                dept: t.department || '',
-                title: t.task_text || 'Task',
-                text: t.task_text || '',
-                state: (t.status === 'pending_approval' || t.status === 'pending') ? 'next' : 'doing',
-                by: t.created_by || 'backend',
+                id,
+                agent,
+                dept,
+                title,
+                text: t.text || title,
+                state,
+                by: t.by || t.created_by || 'backend',
                 srv: true,
                 live: true,
-                sid: t.task_id || '',
-                addedAt: Math.round((t.created_at || 0) * 1000),
-                changedAt: Math.round((t.created_at || 0) * 1000),
+                sid: id,
+                addedAt: Math.round((t.createdAt || t.created_at || 0) * 1000),
+                changedAt: Math.round((t.updatedAt || t.created_at || 0) * 1000),
                 model: t.model || 'sonnet',
                 effort: t.effort || 'low'
               };
             });
-            console.log('[MIGRATION] Converted', convertedTasks.length, 'tasks from backend');
+            console.log(`[PROXY] Converted ${convertedTasks.length} tasks from backend (${pyRes.body.length} raw)`);
             return json(res, pyRes.status, convertedTasks);
           }
           return json(res, pyRes.status, pyRes.body);
         } catch (e) {
-          console.error('[MIGRATION] Python backend error on GET /api/tasks:', e.message);
+          console.error('[PROXY] Python backend error on GET /api/tasks:', e.message);
           // Fallback to local if backend fails
           return json(res, 200, load());
         }
