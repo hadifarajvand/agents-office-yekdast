@@ -513,6 +513,30 @@ const server = http.createServer(async (req, res) => {
       if (USE_PYTHON_BACKEND) {
         try {
           const pyRes = await proxyToPython('/api/tasks', 'GET');
+          // Convert backend task format to frontend task format
+          if (Array.isArray(pyRes.body)) {
+            const convertedTasks = pyRes.body.map(t => {
+              const agent = t.assigned_lead || (AGENTS && AGENTS.find(a => a.department === t.department && a.lead)?.id) || 'unknown';
+              return {
+                id: t.task_id || '',
+                agent: agent,
+                dept: t.department || '',
+                title: t.task_text || 'Task',
+                text: t.task_text || '',
+                state: (t.status === 'pending_approval' || t.status === 'pending') ? 'next' : 'doing',
+                by: t.created_by || 'backend',
+                srv: true,
+                live: true,
+                sid: t.task_id || '',
+                addedAt: Math.round((t.created_at || 0) * 1000),
+                changedAt: Math.round((t.created_at || 0) * 1000),
+                model: t.model || 'sonnet',
+                effort: t.effort || 'low'
+              };
+            });
+            console.log('[MIGRATION] Converted', convertedTasks.length, 'tasks from backend');
+            return json(res, pyRes.status, convertedTasks);
+          }
           return json(res, pyRes.status, pyRes.body);
         } catch (e) {
           console.error('[MIGRATION] Python backend error on GET /api/tasks:', e.message);
