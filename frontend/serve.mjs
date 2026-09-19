@@ -497,7 +497,22 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/command-centre-v2.html' || url.pathname === '/dark')) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-      const page = fs.readFileSync(HTML, 'utf8');
+      let page = fs.readFileSync(HTML, 'utf8');
+
+      // Inject frontend configuration into the HTML
+      const configScript = `<script>
+window.live = true;
+window.USE_PYTHON_BACKEND = ${USE_PYTHON_BACKEND};
+window.PYTHON_BACKEND_URL = '${PYTHON_BACKEND_URL}';
+window.SYNC_STRATEGY = 'sse';
+window.SSE_URL = '/api/events';
+window.SSE_RECONNECT_DELAY = 1000;
+window.SSE_MAX_RETRIES = 5;
+window.POLLING_ENABLED = false;
+window.FRONTEND_TASK_CREATION = false;
+</script>`;
+
+      page = page.replace(/<\/head>/i, configScript + '</head>');
       return res.end(url.pathname === '/dark' ? page.replace('<body>', '<body class="dark">') : page); // /dark: the same file, opened in dark mode
     }
     if (url.pathname === '/api/health') return json(res, 200, { ok: true, version, backend, model: cfg.model, modelName: modelName(cfg.model), models: MODEL_KEYS, effort: cfg.effort || '', efforts: EFFORT_KEYS, name: cfg.name, brain: BRAIN, notes: graph.notes, depts: DEPT_KEYS,
