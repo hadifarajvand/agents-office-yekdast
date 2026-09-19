@@ -470,7 +470,7 @@ const proxyToPython = async (path, method = 'GET', data = null) => {
       method,
       headers: { 'content-type': 'application/json' }
     };
-    const req = require('http').request(options, (res) => {
+    const req = http.request(options, (res) => {
       let responseData = '';
       res.on('data', (chunk) => { responseData += chunk; });
       res.on('end', () => {
@@ -508,7 +508,21 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/mcp') { if (url.searchParams.get('refresh') === '1') await mcp.discover(); else await discovering; return json(res, 200, { ...mcp.summary(), tools: backend === 'claude-cli' }); }
     if (url.pathname === '/api/brain') return json(res, 200, graph);
     if (url.pathname === '/api/usage') return json(res, 200, await getUsage(url.searchParams.get('refresh') === '1')); // V3.6: the plan's gauge (never a 500: unavailable is an answer)
-    if (url.pathname === '/api/tasks' && req.method === 'GET') return json(res, 200, load());
+    if (url.pathname === '/api/tasks' && req.method === 'GET') {
+      // [MIGRATION] If Python backend is enabled, proxy to it
+      if (USE_PYTHON_BACKEND) {
+        try {
+          const pyRes = await proxyToPython('/api/tasks', 'GET');
+          return json(res, pyRes.status, pyRes.body);
+        } catch (e) {
+          console.error('[MIGRATION] Python backend error on GET /api/tasks:', e.message);
+          // Fallback to local if backend fails
+          return json(res, 200, load());
+        }
+      }
+      // Local backend: return frontend's tasks
+      return json(res, 200, load());
+    }
     if (url.pathname === '/api/routines' && req.method === 'GET') return json(res, 200, routinesOut());
     if (url.pathname === '/api/routines' && req.method === 'POST') {
       const b = await body(req);
