@@ -68,7 +68,8 @@ cd $FrontendDir
 $env:USE_PYTHON_BACKEND = "true"
 $env:PYTHON_BACKEND_URL = "http://localhost:8000"
 
-$FrontendProcess = Start-Process npm -ArgumentList "start" -PassThru -NoNewWindow -RedirectStandardOutput $FrontendLog
+# Use cmd /c to properly invoke npm (which is a batch/cmd file)
+$FrontendProcess = Start-Process cmd -ArgumentList "/c", "npm start" -PassThru -NoNewWindow -RedirectStandardOutput $FrontendLog -RedirectStandardError $FrontendLog
 $FrontendPID = $FrontendProcess.Id
 
 Write-Host "[OK] Frontend started (PID: $FrontendPID)" -ForegroundColor Green
