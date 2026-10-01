@@ -1,4 +1,9 @@
 node_modules/
+.env
+.env.local
+.env.*.local
+backend/**/__pycache__/
+backend/.venv/
 dist/*
 !dist/command-centre-v2.html
 data/
@@ -7,3 +12,4 @@ office.agents.local.json
 brain/Agents Office/
 .DS_Store
 *.backup-*
+.graphify-venv/

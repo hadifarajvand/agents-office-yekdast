@@ -131,9 +131,9 @@ export function initTasks(ctx) {
   let seq = 1;
   // V3.5 routines. Live: the server's list (polled). Demo: session-only, fired by this tick.
   const routines = []; let rseq = 1, polling = false, railAgent = null, railExp = false;
-  const RT_DEPTS = ['emails', 'fin', 'sales'];
-  const RT_NAMES = { emails: 'Emails', fin: 'Accounting', sales: 'Sales', marketing: 'Marketing', ops: 'Operations', delivery: 'Delivery' };
-  const rtRefuse = k => `Routines come to ${RT_NAMES[k] || k} in a later release. This release: Emails, Accounting and Sales.`;
+  const RT_DEPTS = ['content', 'fin', 'revenue'];
+  const RT_NAMES = { content: 'Content', fin: 'Finance', revenue: 'Revenue', exec: 'Exec', engineering: 'Engineering', frontend: 'Frontend', devops: 'Devops', secdata: 'Secdata' };
+  const rtRefuse = k => `Routines come to ${RT_NAMES[k] || k} in a later release. This release: Content, Finance and Revenue.`;
   const deptRoutines = k => routines.filter(r => r.dept === k);
   const agentRoutines = id => routines.filter(r => r.agent === id);
   const nextOf = list => list.filter(r => !r.paused && r.nextAt).sort((a, b) => a.nextAt - b.nextAt)[0];
@@ -317,7 +317,7 @@ export function initTasks(ctx) {
   P_.at.addEventListener('change', updateHint);
   [P_.cad, P_.at, P_.okc].forEach(el => el.addEventListener('keydown', e => e.stopPropagation()));
   const routineIntent = text => repeat ? { when: fromPicker(P_.cad.value, P_.at.value), text, picker: true } : parseWhen(text);
-  let dept = 'marketing', filter = 'all';
+  let dept = 'revenue', filter = 'all';
   P_.menu.innerHTML = DEPT_KEYS.map(k => `<button data-k="${k}"><span class="dot" style="background:${DEPTS[k].chip}"></span>${DEPTS[k].name}</button>`).join('');
   P_.menu.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { setDept(b.dataset.k); P_.menu.classList.remove('on'); P_.input.focus(); }));
   P_.dd.addEventListener('click', (e) => { e.stopPropagation(); P_.menu.classList.toggle('on'); });
@@ -327,7 +327,7 @@ export function initTasks(ctx) {
     P_.ddName.textContent = DEPTS[k].short;
     P_.ddDot.style.background = DEPTS[k].chip;
     B_.dept.textContent = DEPTS[k].name.toUpperCase(); B_.dot.style.background = DEPTS[k].chip;
-    P_.input.placeholder = `Type a task for ${DEPTS[k].name.toLowerCase()}…`;
+    P_.input.placeholder = `Type a task for ${DEPTS[k].short.toLowerCase()}…`;
     updateHint();
   }
   // routing: keywords → the right agent in the chosen dept; fallback = the dept lead (or first agent)
@@ -715,7 +715,7 @@ export function initTasks(ctx) {
       if (t) m.innerHTML = metaFor(t);
     });
   }
-  setDept('marketing');
+  setDept('revenue');
   render(true);
 
   /* ---------- the company board (B) ---------- */

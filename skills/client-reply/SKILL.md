@@ -1,7 +1,7 @@
 ---
 name: client-reply
 description: How we answer a client email
-departments: [emails]
+departments: [content]
 ---
 # Replying to a client
 

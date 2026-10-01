@@ -1,10 +1,10 @@
 # Agents Office v3 (Beta)
 
-![Agents Office — six department pods around the Brain, with the Task Status panel](assets/readme-hero.jpg)
+![Agents Office — eight department pods around the Brain, with the Task Status panel](assets/readme-hero.jpg)
 
 A 3D isometric office where AI agents do real work on your own Claude login.
 
-Six departments, thirty-five agents at their desks, a task bar that routes what you type to the
+Eight departments, thirty-five agents at their desks, a task bar that routes what you type to the
 right agent, and a Brain at the centre that is your own folder of notes. Type a task, the office
 gives it to the right person, they read your notes, use the connectors you have already set up
 in Claude Code, do the work, and file the result back into your notes. Everything runs on your
@@ -67,7 +67,7 @@ A finished deliverable says which tools it used, and the note in your brain reco
 Decide what the agents may touch in `office.config.json`:
 
 ```json
-"mcp": { "allow": [], "deny": ["Stripe"], "departments": { "Slack": ["emails", "ops"] } },
+"mcp": { "allow": [], "deny": ["Stripe"], "departments": { "Slack": ["content", "devops"] } },
 "tools": { "web": true }
 ```
 
@@ -80,7 +80,7 @@ Tool use needs the Claude Code login; on an `ANTHROPIC_API_KEY` the agents write
 
 The 35 agents are in `office.agents.json`: an id, a department, a name, a role, what they do,
 and the connectors they usually use. Change the name, the role, what they do and their tools.
-Departments, leads and seats are fixed: six pods, 35 desks, that is the office. A new kind of
+Departments, leads and seats are fixed: eight pods, 35 desks, that is the office. A new kind of
 agent is a renamed seat in the right department.
 
 The easy way is to let Claude do it. Open Claude Code in this folder and say what you want:
@@ -88,7 +88,7 @@ The easy way is to let Claude do it. Open Claude Code in this folder and say wha
 ```
 claude
 > Rename the Newsletter agent to PODCAST NOTES. It turns each episode into show notes and a LinkedIn post, and uses Google Drive.
-> Make the Sales department about wholesale accounts, not inbound leads. Rewrite what each agent does.
+> Make the Revenue department about wholesale accounts, not inbound leads. Rewrite what each agent does.
 > Tell every Finance agent to use Xero and nothing else.
 ```
 

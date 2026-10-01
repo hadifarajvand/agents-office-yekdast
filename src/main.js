@@ -196,7 +196,7 @@ deptRT.brain.group.traverse(o => { if ((o.isMesh || o.isSprite) && !o.userData.d
    the brain↔dept relationship shows through the badge sweep + meetings.) */
 
 /* desks + people per dept */
-const COLS = { emails: 2, sales: 2, marketing: 2, ops: 2, fin: 2, delivery: 2 };
+const COLS = Object.fromEntries(DEPT_KEYS.map(k => [k, 2]));
 for (const a of AGENTS) {
   const dRT = deptRT[a.dept];
   const dept = DEPTS[a.dept];
@@ -267,7 +267,7 @@ let mcpUsage = null;
 loadConnectors().then(c => { mcpImpl = initMcp({ scene, hud, LAYOUT, DEPTS, FR, R, connectors: c }); if (mcpDark) mcpImpl.setDark(true); if (mcpUsage) mcpImpl.setUsage(mcpUsage); });
 
 // plants on outer corners
-for (const k of ['emails', 'sales', 'marketing', 'ops', 'delivery']) {
+for (const k of DEPT_KEYS) {
   const L = LAYOUT[k];
   const sx = Math.sign(L.pos[0]), sz = Math.sign(L.pos[1]);
   const p = makePlant();
@@ -315,25 +315,32 @@ function tickDim(dt) {
 const kv = id => KPIS.find(k => k.id === id).val;
 let brainNotes = brain.state.notes;
 const BB_ROWS = {
-  emails: [
-    ['EMAILS SENT', () => STATS.emailsSent],
-    ['REPLIES DRAFTED', () => STATS.drafts]],
-  delivery: [
-    ['REPORTS SENT', () => STATS.reports],
+  exec: [
+    ['PROPOSALS MADE', () => Math.round(kv('proposals'))],
     ['ON TRACK', () => STATS.onTrack + ' / ' + STATS.projects]],
-  sales: [
+  revenue: [
     ['CALLS S·A·J', () => STATS.spencer + '·' + STATS.arwin + '·' + STATS.jack],
     ['NEW MANAGERS', () => STATS.managers],
-    ['AUTO-ONBOARDED', () => STATS.autoOnb]],
-  marketing: [
+    ['AUTO-ONBOARDED', () => STATS.autoOnb],
     ['NEW INSIGHTS', () => STATS.insMkt],
     ['COST PER USER', () => '$' + Math.round(STATS.cpa)]],
-  ops: [
-    ['PROPOSALS MADE', () => Math.round(kv('proposals'))],
+  engineering: [
+    ['REPORTS SENT', () => STATS.reports],
+    ['ON TRACK', () => STATS.onTrack + ' / ' + STATS.projects]],
+  frontend: [
+    ['NEW INSIGHTS', () => STATS.insMkt],
+    ['COST PER USER', () => '$' + Math.round(STATS.cpa)]],
+  devops: [
+    ['NEW INSIGHTS', () => STATS.insOps],
+    ['ON TRACK', () => STATS.onTrack + ' / ' + STATS.projects]],
+  secdata: [
     ['NEW INSIGHTS', () => STATS.insOps]],
   fin: [
     ['INVOICES ISSUED', () => Math.round(kv('invoices'))],
     ['BILLS PAID', () => STATS.billsPaid]],
+  content: [
+    ['EMAILS SENT', () => STATS.emailsSent],
+    ['REPLIES DRAFTED', () => STATS.drafts]],
   brain: [
     ['NOTES INDEXED', () => brainNotes.toLocaleString('en-NZ')]],
 };
@@ -368,22 +375,19 @@ for (const k of [...DEPT_KEYS, 'brain']) {
   // anchor just above the FIRST DESK ROW (z-9.6), not the pod edge — keeps the card-to-agents
   // gap consistent across pods of different depths. Support docks to the side instead: its
   // natural spot is off-screen at overview and the clamp used to shove it onto its agents.
-  // V3.2 (AJ): every card sits ON its own pod, over the wiring — screen-tuned per pod at the
-  // 0.84 overview. Standard = centred above the anchor (back corner, y clears the pills);
-  // side = hangs off the pod's edge, vertically centred (fin: its back corner is the Brain;
-  // ops: its back corner is the marketing pod's front row).
-  const ANCHOR = {
-    marketing: [-36, 8.6, 13.4],
-    emails:    [-30, 8.6, -32.6],
-    delivery:  [0, 10.6, -57.6],   // y 10.6: the top-bar clamp otherwise lands it on the back-row pills
-    sales:     [48, 8.6, -32],     // over the pod's right corner — past the DELIVERY pod's desks and the Sales Lead pill
-    ops:       [-13.5, 4, 54],     // side LEFT
-    fin:       [43.5, 4, 17],      // side RIGHT
-    brain:     [-5.5, 3.2, -5.5],  // just above the pod's back corner
-  };
+  // V3.2 (AJ): every card sits ON its own pod, over the wiring. Standard = centred above the
+  // pod (y clears the pills); side = hangs off the pod's edge, vertically centred. 8-pod shape:
+  // anchors derive from each pod's own LAYOUT centre, nudged up; the two leftmost/outermost
+  // pods (fin, secdata) keep the old side-badge treatment since their cards would otherwise
+  // overhang the walkway.
+  const ANCHOR = Object.fromEntries(DEPT_KEYS.map(dk => {
+    const L = LAYOUT[dk];
+    return [dk, [L.pos[0], 8.6, L.pos[1]]];
+  }));
+  ANCHOR.brain = [-5.5, 3.2, -5.5]; // just above the pod's back corner
   deptRT[k].badgeAnchor = new THREE.Vector3(...ANCHOR[k]);
   if (k === 'fin') deptRT[k].sideBadge = true;
-  if (k === 'ops') { deptRT[k].sideBadge = true; deptRT[k].sideLeft = true; }
+  if (k === 'secdata') { deptRT[k].sideBadge = true; deptRT[k].sideLeft = true; }
 }
 function updateBillboards() {
   for (const k of Object.keys(BB_ROWS)) {
@@ -499,9 +503,9 @@ addEventListener('keydown', (e) => {
   else if (e.key === '-' || e.key === '_') zoomStep(1 / 1.5);
   else if (e.key === '0') zoomOut();
   else if (e.key === 'x' || e.key === 'X') { if (!meeting) planMeeting(performance.now()); }
-  else if (e.key >= '1' && e.key <= '6') { // jump straight to a department
-    const dept = ['marketing', 'emails', 'sales', 'ops', 'fin', 'delivery'][+e.key - 1];
-    if (focused !== dept) enterFocus(dept);
+  else if (e.key >= '1' && e.key <= '8') { // jump straight to a department
+    const dept = DEPT_KEYS[+e.key - 1];
+    if (dept && focused !== dept) enterFocus(dept);
   }
   else if (e.key === 'c' || e.key === 'C') { // in a department: open its (lead) agent's chat
     if (focused && focused !== 'brain') {
@@ -580,7 +584,7 @@ const vignette = document.getElementById('vignette');
 const mMsgs = document.getElementById('mMsgs');
 let modalOpen = null, modalTab = 'chat'; // modalOpen = agent id open in the rail slide-over
 // V3.3: the rail docks LEFT for every department — the task panel has the right side
-const RAIL_SIDE = { marketing: 'left', emails: 'left', sales: 'left', ops: 'left', fin: 'left', delivery: 'left' };
+const RAIL_SIDE = Object.fromEntries(DEPT_KEYS.map(k => [k, 'left']));
 const SCREEN_RIGHT = new THREE.Vector3(1, 0, -1).normalize();
 
 function ensureChat(id) {
@@ -1018,18 +1022,16 @@ function fireAgentEvent(seedTs) {
     if (chatHist[r.a.id]) chatPush(r.a.id, { who: 'work', i: ev.i, text });
     if (ev.kpi) { const k = KPIS.find(x => x.id === ev.kpi.id); if (k) k.val += ev.kpi.n; }
     const d = r.a.dept, roll = Math.random();
-    if (d === 'emails') { if (roll < 0.45) STATS.emailsSent++; else if (roll < 0.7) STATS.drafts++; }
-    else if (d === 'delivery' && roll < 0.2) STATS.reports++;
-    else if (d === 'sales') {
+    if (d === 'content') { if (roll < 0.45) STATS.emailsSent++; else if (roll < 0.7) STATS.drafts++; }
+    else if (d === 'engineering' && roll < 0.2) STATS.reports++;
+    else if (d === 'revenue') {
       if (roll < 0.4) STATS[rnd(['spencer', 'arwin', 'jack'])]++;
       else if (roll < 0.5) STATS.autoOnb++;
       else if (roll < 0.56) STATS.managers++;
+      else if (roll < 0.62) STATS.insMkt++;
+      else if (roll < 0.8) STATS.cpa = Math.max(25, STATS.cpa + (Math.random() - 0.55) * 1.2);
     }
-    else if (d === 'marketing') {
-      if (roll < 0.18) STATS.insMkt++;
-      else if (roll < 0.5) STATS.cpa = Math.max(25, STATS.cpa + (Math.random() - 0.55) * 1.2);
-    }
-    else if (d === 'ops' && roll < 0.22) STATS.insOps++;
+    else if (d === 'devops' && roll < 0.22) STATS.insOps++;
     else if (d === 'fin' && roll < 0.3) STATS.billsPaid++;
     if (ev.brain || Math.random() < 0.12) { brainNotes++; brain.read(r.a.id); } // the Brain shows the read
     updateBillboards();

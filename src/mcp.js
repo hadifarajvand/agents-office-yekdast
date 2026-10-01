@@ -42,16 +42,19 @@ const FRONT = new THREE.Vector3(1, 0, 1).normalize();
 // focusDim — the marketing focus look (row floating in the empty gap beside the pod, labels
 // under, pill above) is AJ's approved reference; support/sales re-anchor to match it.
 const DOCKS = {
-  marketing: { dir: SR.clone().negate(), dist: 12.5, h: 8.0 },  // screen-left of pod — the approved reference look
-  emails:    { dir: SR.clone(),          dist: 12.5, h: 8.0,    // overview: screen-right of pod (was support's slot)
-               fdir: SR.clone().negate(), fdist: 12.5 },        // focus: mirror marketing (rail LEFT, empty gap left of pod)
-  delivery:  { dir: SR.clone().negate(), dist: 12.5, h: 8.0 },  // rail LEFT like marketing → dock in the gap beside the pod
-  sales:     { dir: FRONT.clone(),       dist: 17.5, h: 8.0,    // overview: front row below the pod (old right-edge stack clipped off-screen)
-               fdir: SR.clone().negate(), fdist: 13.5 },        // focus: marketing-style row in the open floor (rail is RIGHT)
-  fin:       { dir: FRONT.clone(), dist: 20.5, h: 8.0 },        // front-bottom past the corner; camera-facing
-                                                                // (20.5 not 17.5 — the pod lost 2 rows in the ops/finance split)
-  ops:       { dir: SR.clone().negate(), dist: 13.5, h: 8.0,    // bottom-left pod: dock in the open floor to its screen-left
-               fdir: SR.clone().negate(), fdist: 13.5 },
+  revenue:     { dir: SR.clone().negate(), dist: 12.5, h: 8.0 },  // screen-left of pod — the approved reference look (was marketing)
+  content:     { dir: SR.clone(),          dist: 12.5, h: 8.0,    // overview: screen-right of pod (was emails)
+                 fdir: SR.clone().negate(), fdist: 12.5 },        // focus: mirror revenue (rail LEFT, empty gap left of pod)
+  frontend:    { dir: SR.clone().negate(), dist: 12.5, h: 8.0 },  // rail LEFT like revenue → dock in the gap beside the pod (was delivery)
+  exec:        { dir: FRONT.clone(),       dist: 17.5, h: 8.0,    // overview: front row below the pod (was sales)
+                 fdir: SR.clone().negate(), fdist: 13.5 },        // focus: revenue-style row in the open floor (rail is RIGHT)
+  fin:         { dir: FRONT.clone(), dist: 20.5, h: 8.0 },        // front-bottom past the corner; camera-facing
+  engineering: { dir: SR.clone().negate(), dist: 13.5, h: 8.0,    // dock in the open floor to its screen-left (was ops)
+                 fdir: SR.clone().negate(), fdist: 13.5 },
+  devops:      { dir: SR.clone().negate(), dist: 13.5, h: 8.0,
+                 fdir: SR.clone().negate(), fdist: 13.5 },
+  secdata:     { dir: SR.clone(),          dist: 12.5, h: 8.0,
+                 fdir: SR.clone().negate(), fdist: 12.5 },
 };
 
 function smooth(a, b, x) { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
@@ -200,7 +203,7 @@ export function initMcp({ scene, hud, LAYOUT, DEPTS, FR, R, connectors = null })
   const svg = document.createElementNS(svgNS, 'svg');
   svg.id = 'wires';
   hud.insertBefore(svg, hud.firstChild); // under every HUD overlay, above the 3D canvas
-  const PORT_CORNER = { marketing: [-1, 1], emails: [-1, -1], sales: [1, -1], ops: [1, -1], fin: [1, -1], delivery: [-1, -1] };
+  const PORT_CORNER = { exec: [1, -1], revenue: [-1, 1], engineering: [1, -1], frontend: [-1, -1], devops: [1, -1], secdata: [-1, -1], fin: [1, -1], content: [-1, -1] };
   const wires = {}, wirePulses = [];
   Object.keys(BY_DEPT).forEach((dept, ji) => {
     const L = LAYOUT[dept], [cx, cz] = PORT_CORNER[dept];

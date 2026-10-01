@@ -1,0 +1,402 @@
+{
+  "agents": [
+    {
+      "id": "olead",
+      "dept": "exec",
+      "lead": true,
+      "name": "EXEC LEAD"
+    },
+    {
+      "id": "scout",
+      "dept": "exec",
+      "lead": false,
+      "name": "STRATEGY"
+    },
+    {
+      "id": "legal",
+      "dept": "exec",
+      "lead": false,
+      "name": "GENERAL COUNSEL"
+    },
+    {
+      "id": "lexi",
+      "dept": "revenue",
+      "lead": true,
+      "name": "REVENUE LEAD"
+    },
+    {
+      "id": "enzo",
+      "dept": "revenue",
+      "lead": false,
+      "name": "LEAD ENRICHER"
+    },
+    {
+      "id": "ilm",
+      "dept": "revenue",
+      "lead": false,
+      "name": "INBOUND LEADS MANAGER"
+    },
+    {
+      "id": "pros",
+      "dept": "revenue",
+      "lead": false,
+      "name": "PROSPECTOR"
+    },
+    {
+      "id": "piper",
+      "dept": "revenue",
+      "lead": false,
+      "name": "PROPOSAL GENERATOR"
+    },
+    {
+      "id": "folo",
+      "dept": "revenue",
+      "lead": false,
+      "name": "FOLLOW UPS"
+    },
+    {
+      "id": "ada",
+      "dept": "revenue",
+      "lead": false,
+      "name": "PPC MANAGER"
+    },
+    {
+      "id": "iggy",
+      "dept": "revenue",
+      "lead": false,
+      "name": "SOCIAL MEDIA"
+    },
+    {
+      "id": "dlead",
+      "dept": "engineering",
+      "lead": true,
+      "name": "ENGINEERING LEAD"
+    },
+    {
+      "id": "pco",
+      "dept": "engineering",
+      "lead": false,
+      "name": "SERVICE BUILDER"
+    },
+    {
+      "id": "crep",
+      "dept": "engineering",
+      "lead": false,
+      "name": "API DESIGNER"
+    },
+    {
+      "id": "cass",
+      "dept": "engineering",
+      "lead": false,
+      "name": "DB MIGRATOR"
+    },
+    {
+      "id": "dasst",
+      "dept": "engineering",
+      "lead": false,
+      "name": "INTEGRATIONS"
+    },
+    {
+      "id": "ona",
+      "dept": "engineering",
+      "lead": false,
+      "name": "BUG FIXER"
+    },
+    {
+      "id": "mlead",
+      "dept": "frontend",
+      "lead": true,
+      "name": "FRONTEND LEAD"
+    },
+    {
+      "id": "gfx",
+      "dept": "frontend",
+      "lead": false,
+      "name": "UI DESIGNER"
+    },
+    {
+      "id": "vid",
+      "dept": "frontend",
+      "lead": false,
+      "name": "MOBILE DEV"
+    },
+    {
+      "id": "riley",
+      "dept": "frontend",
+      "lead": false,
+      "name": "WEB BUILDER"
+    },
+    {
+      "id": "qa",
+      "dept": "devops",
+      "lead": true,
+      "name": "DEVOPS LEAD"
+    },
+    {
+      "id": "dash",
+      "dept": "devops",
+      "lead": false,
+      "name": "CD DEPLOYER"
+    },
+    {
+      "id": "report",
+      "dept": "devops",
+      "lead": false,
+      "name": "SMOKE TESTER"
+    },
+    {
+      "id": "imail",
+      "dept": "devops",
+      "lead": false,
+      "name": "MONITORING ENGINEER"
+    },
+    {
+      "id": "vmail",
+      "dept": "devops",
+      "lead": false,
+      "name": "RELEASE MANAGER"
+    },
+    {
+      "id": "comply",
+      "dept": "secdata",
+      "lead": true,
+      "name": "SECDATA LEAD"
+    },
+    {
+      "id": "recon",
+      "dept": "secdata",
+      "lead": false,
+      "name": "DATA ANALYST"
+    },
+    {
+      "id": "kmail",
+      "dept": "secdata",
+      "lead": false,
+      "name": "DASHBOARD BUILDER"
+    },
+    {
+      "id": "alead",
+      "dept": "fin",
+      "lead": true,
+      "name": "FINANCE LEAD"
+    },
+    {
+      "id": "invo",
+      "dept": "fin",
+      "lead": false,
+      "name": "INVOICING"
+    },
+    {
+      "id": "apay",
+      "dept": "fin",
+      "lead": false,
+      "name": "ACCOUNTS PAYABLE"
+    },
+    {
+      "id": "elead",
+      "dept": "content",
+      "lead": true,
+      "name": "CONTENT LEAD"
+    },
+    {
+      "id": "newt",
+      "dept": "content",
+      "lead": false,
+      "name": "NEWSLETTER AGENT"
+    },
+    {
+      "id": "cmail",
+      "dept": "content",
+      "lead": false,
+      "name": "STATUS WRITER"
+    }
+  ],
+  "depts": {
+    "exec": "EXECUTIVE & STRATEGY",
+    "revenue": "REVENUE",
+    "engineering": "ENGINEERING & BACKEND",
+    "frontend": "FRONTEND & MOBILE",
+    "devops": "DEVOPS & QA",
+    "secdata": "SECURITY & DATA",
+    "fin": "FINANCE & BILLING",
+    "content": "CONTENT & COMMS",
+    "brain": "THE BRAIN"
+  },
+  "v1": [
+    {
+      "id": "enzo",
+      "role": "Lead Enrichment Agent",
+      "tagline": "Enriches every signup via FullEnrich — role, company size, mobile, LinkedIn."
+    },
+    {
+      "id": "lexi",
+      "role": "Revenue Lead Agent",
+      "tagline": "Runs the Revenue pod: pipeline, campaigns and the forecast."
+    },
+    {
+      "id": "ona",
+      "role": "Bug Fixer Agent",
+      "tagline": "Triages and fixes reported bugs."
+    },
+    {
+      "id": "pros",
+      "role": "Prospecting Agent",
+      "tagline": "Builds and verifies outbound prospect lists."
+    },
+    {
+      "id": "folo",
+      "role": "Follow-Up Agent",
+      "tagline": "Chases quiet deals on a schedule so none go cold."
+    },
+    {
+      "id": "riley",
+      "role": "Web Builder Agent",
+      "tagline": "Builds and maintains the web app surfaces."
+    },
+    {
+      "id": "newt",
+      "role": "Newsletter Agent",
+      "tagline": "Writes and sends the newsletter signups actually open."
+    },
+    {
+      "id": "ada",
+      "role": "PPC Manager Agent",
+      "tagline": "Runs and scales paid ad campaigns across channels."
+    },
+    {
+      "id": "iggy",
+      "role": "Social Media Agent",
+      "tagline": "Writes and schedules organic social content."
+    },
+    {
+      "id": "vid",
+      "role": "Mobile Dev Agent",
+      "tagline": "Builds and ships the mobile app."
+    },
+    {
+      "id": "gfx",
+      "role": "UI Designer Agent",
+      "tagline": "Designs UI components and visual assets."
+    },
+    {
+      "id": "piper",
+      "role": "Proposal Generator Agent",
+      "tagline": "Drafts and sends proposals from the offer ladder."
+    },
+    {
+      "id": "scout",
+      "role": "Strategy Agent",
+      "tagline": "Tracks competitors and market moves, flags plays worth a look."
+    },
+    {
+      "id": "legal",
+      "role": "General Counsel Agent",
+      "tagline": "Reviews contracts and flags risky clauses before signature."
+    },
+    {
+      "id": "comply",
+      "role": "Secdata Lead Agent",
+      "tagline": "Runs the Secdata pod: compliance, access and analytics."
+    },
+    {
+      "id": "report",
+      "role": "Smoke Tester Agent",
+      "tagline": "Runs the smoke suite after every deploy."
+    },
+    {
+      "id": "alead",
+      "role": "Finance Lead Agent",
+      "tagline": "Runs the Finance pod: invoicing, payables and reconciliation."
+    },
+    {
+      "id": "invo",
+      "role": "Invoicing Agent",
+      "tagline": "Issues and tracks client invoices."
+    },
+    {
+      "id": "apay",
+      "role": "Accounts Payable Agent",
+      "tagline": "Processes and reconciles vendor and contractor payments."
+    },
+    {
+      "id": "recon",
+      "role": "Data Analyst Agent",
+      "tagline": "Builds reports and analyses product + revenue data."
+    },
+    {
+      "id": "elead",
+      "role": "Content Lead Agent",
+      "tagline": "Runs the Content pod: comms, status updates and the newsletter."
+    },
+    {
+      "id": "cmail",
+      "role": "Status Writer Agent",
+      "tagline": "Writes client status updates and replies to scope questions."
+    },
+    {
+      "id": "imail",
+      "role": "Monitoring Engineer Agent",
+      "tagline": "Watches latency, errors and uptime, raises alerts."
+    },
+    {
+      "id": "vmail",
+      "role": "Release Manager Agent",
+      "tagline": "Plans releases and writes the release notes."
+    },
+    {
+      "id": "kmail",
+      "role": "Dashboard Builder Agent",
+      "tagline": "Builds and maintains internal dashboards."
+    },
+    {
+      "id": "ilm",
+      "role": "Inbound Leads Manager Agent",
+      "tagline": "Triages and routes inbound leads to the right rep."
+    },
+    {
+      "id": "dash",
+      "role": "CD Deployer Agent",
+      "tagline": "Runs continuous deployment to staging and prod."
+    },
+    {
+      "id": "mlead",
+      "role": "Frontend Lead Agent",
+      "tagline": "Runs the Frontend pod: UI, mobile and the design system."
+    },
+    {
+      "id": "olead",
+      "role": "Exec Lead Agent",
+      "tagline": "Runs the Exec pod: strategy, priorities and the board pack."
+    },
+    {
+      "id": "dlead",
+      "role": "Engineering Lead Agent",
+      "tagline": "Runs the Engineering pod: services, APIs and the backend roadmap."
+    },
+    {
+      "id": "pco",
+      "role": "Service Builder Agent",
+      "tagline": "Builds and maintains backend services."
+    },
+    {
+      "id": "qa",
+      "role": "Devops Lead Agent",
+      "tagline": "Runs the Devops pod: releases, deploys and uptime."
+    },
+    {
+      "id": "crep",
+      "role": "API Designer Agent",
+      "tagline": "Designs and documents API endpoints."
+    },
+    {
+      "id": "cass",
+      "role": "DB Migrator Agent",
+      "tagline": "Writes and runs database migrations safely."
+    },
+    {
+      "id": "dasst",
+      "role": "Integrations Agent",
+      "tagline": "Wires up and maintains third-party integrations."
+    }
+  ]
+}

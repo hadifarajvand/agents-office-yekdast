@@ -1,9 +1,9 @@
 {
-  "_about": "The 35 agents of your office. Change name, role, does, tools and brief (standing instructions) freely; id, department and lead are fixed (six pods, 35 seats). Put personal edits in office.agents.local.json (gitignored) so git pull never overwrites them. Ask Claude Code in this folder to change agents for you — see CLAUDE.md.",
+  "_about": "The 35 agents of your office. Change name, role, does, tools and brief (standing instructions) freely; id, department and lead are fixed (eight pods, 35 seats). Put personal edits in office.agents.local.json (gitignored) so git pull never overwrites them. Ask Claude Code in this folder to change agents for you — see CLAUDE.md.",
   "agents": [
     {
       "id": "elead",
-      "department": "emails",
+      "department": "content",
       "lead": true,
       "name": "EMAILS LEAD",
       "role": "Inbox Lead",
@@ -15,8 +15,7 @@
     },
     {
       "id": "cmail",
-      "department": "emails",
-      "lead": false,
+      "department": "content",
       "name": "CLIENT EMAILS",
       "role": "Client Email Agent",
       "does": "Answers every client email from the Brain — scope, timelines, results — and never lets one sit past an hour.",
@@ -26,8 +25,7 @@
     },
     {
       "id": "imail",
-      "department": "emails",
-      "lead": false,
+      "department": "devops",
       "name": "INTERNAL EMAILS",
       "role": "Internal Email Agent",
       "does": "Keeps the team inbox moving — triage, summaries of long threads, calendar holds, and the weekly numbers circulated.",
@@ -38,8 +36,7 @@
     },
     {
       "id": "vmail",
-      "department": "emails",
-      "lead": false,
+      "department": "devops",
       "name": "VENDOR EMAILS",
       "role": "Vendor Email Agent",
       "does": "Handles every supplier thread — quotes, renewals, SLAs, outages — and flags anything that changes what we pay.",
@@ -49,8 +46,7 @@
     },
     {
       "id": "kmail",
-      "department": "emails",
-      "lead": false,
+      "department": "secdata",
       "name": "CONTRACTOR EMAILS",
       "role": "Contractor Email Agent",
       "does": "Talks to the freelancers — briefs out, hours in, invoice questions answered against the contract.",
@@ -60,7 +56,7 @@
     },
     {
       "id": "lexi",
-      "department": "sales",
+      "department": "revenue",
       "lead": true,
       "name": "SALES LEAD",
       "role": "Sales Team Lead Agent",
@@ -72,8 +68,7 @@
     },
     {
       "id": "enzo",
-      "department": "sales",
-      "lead": false,
+      "department": "revenue",
       "name": "LEAD ENRICHER",
       "role": "Prospect Enrichment Agent",
       "does": "Enriches every signup via FullEnrich — role, company size, mobile, LinkedIn.",
@@ -83,8 +78,7 @@
     },
     {
       "id": "ilm",
-      "department": "sales",
-      "lead": false,
+      "department": "revenue",
       "name": "INBOUND LEADS MANAGER",
       "role": "Inbound Leads Manager",
       "does": "Owns every lead that comes to us — qualifies it within the hour, routes the hot ones to a rep, books the calls.",
@@ -96,8 +90,7 @@
     },
     {
       "id": "pros",
-      "department": "sales",
-      "lead": false,
+      "department": "revenue",
       "name": "PROSPECTOR",
       "role": "Outbound Prospecting Agent",
       "does": "Builds fresh outbound lead lists to ICP spec — verified before anyone dials.",
@@ -108,8 +101,7 @@
     },
     {
       "id": "piper",
-      "department": "sales",
-      "lead": false,
+      "department": "revenue",
       "name": "PROPOSALS",
       "role": "Proposal Agent",
       "does": "Turns a deal brief into a proposal + send-ready email in minutes.",
@@ -120,8 +112,7 @@
     },
     {
       "id": "folo",
-      "department": "sales",
-      "lead": false,
+      "department": "revenue",
       "name": "FOLLOW UPS",
       "role": "Second-Touch & Revival Agent",
       "does": "Chases everything that went quiet — unanswered calls, post-demo silence, stalled deals.",
@@ -132,7 +123,7 @@
     },
     {
       "id": "mlead",
-      "department": "marketing",
+      "department": "frontend",
       "lead": true,
       "name": "MARKETING LEAD",
       "role": "Marketing Lead",
@@ -145,8 +136,7 @@
     },
     {
       "id": "riley",
-      "department": "marketing",
-      "lead": false,
+      "department": "frontend",
       "name": "RESEARCH",
       "role": "Daily Research Agent",
       "does": "Scans the sales-tech industry and competitors every morning at 6am.",
@@ -159,8 +149,7 @@
     },
     {
       "id": "newt",
-      "department": "marketing",
-      "lead": false,
+      "department": "content",
       "name": "NEWSLETTER",
       "role": "Newsletter Creator Agent",
       "does": "Writes the monthly newsletter your signups actually open.",
@@ -171,8 +160,7 @@
     },
     {
       "id": "gfx",
-      "department": "marketing",
-      "lead": false,
+      "department": "frontend",
       "name": "GRAPHICS DESIGNER",
       "role": "Marketing Design Agent",
       "does": "Designs everything marketing ships — ads, carousels, decks — on one brand kit.",
@@ -182,8 +170,7 @@
     },
     {
       "id": "ada",
-      "department": "marketing",
-      "lead": false,
+      "department": "revenue",
       "name": "META ADS",
       "role": "Meta Ads Agent",
       "does": "Watches every campaign hourly; flags what to scale, kill or fix.",
@@ -194,8 +181,7 @@
     },
     {
       "id": "iggy",
-      "department": "marketing",
-      "lead": false,
+      "department": "revenue",
       "name": "INSTAGRAM ORGANIC",
       "role": "Instagram Organic Content Agent",
       "does": "Runs the IG content engine — hooks, reels, carousels. Nothing posts without the owner.",
@@ -206,8 +192,7 @@
     },
     {
       "id": "vid",
-      "department": "marketing",
-      "lead": false,
+      "department": "frontend",
       "name": "VIDEO EDITOR",
       "role": "Video Editing Agent",
       "does": "Cuts every video marketing ships — reels, ads, demos — rendered frame-perfect on HyperFrames.",
@@ -218,7 +203,7 @@
     },
     {
       "id": "olead",
-      "department": "ops",
+      "department": "exec",
       "lead": true,
       "name": "OPERATIONS LEAD",
       "role": "Operations Lead",
@@ -231,8 +216,7 @@
     },
     {
       "id": "scout",
-      "department": "ops",
-      "lead": false,
+      "department": "exec",
       "name": "INTEL",
       "role": "Competitor & Industry Analysis Agent",
       "does": "Turns Research’s raw findings into “here’s what we should do about it.”",
@@ -242,8 +226,7 @@
     },
     {
       "id": "legal",
-      "department": "ops",
-      "lead": false,
+      "department": "exec",
       "name": "LEGAL REVIEW",
       "role": "Agreement Review Agent",
       "does": "Reads every agreement before it goes out and gives it a second lens.",
@@ -254,8 +237,8 @@
     },
     {
       "id": "comply",
-      "department": "ops",
-      "lead": false,
+      "department": "secdata",
+      "lead": true,
       "name": "COMPLIANCE CHECKER",
       "role": "Regulatory Watch Agent",
       "does": "Watches government and regulator sites daily and reports what changed.",
@@ -266,8 +249,7 @@
     },
     {
       "id": "report",
-      "department": "ops",
-      "lead": false,
+      "department": "devops",
       "name": "INTERNAL REPORTING",
       "role": "Company Reporting Agent",
       "does": "Builds the reports and keeps every company dashboard current.",
@@ -278,8 +260,7 @@
     },
     {
       "id": "dash",
-      "department": "ops",
-      "lead": false,
+      "department": "devops",
       "name": "INTERNAL DASHBOARDS",
       "role": "Dashboards Agent",
       "does": "Builds and keeps the internal dashboards honest — every tile traces to a number in the Brain, refreshed on schedule.",
@@ -302,7 +283,6 @@
     {
       "id": "invo",
       "department": "fin",
-      "lead": false,
       "name": "INVOICING",
       "role": "Invoicing Agent",
       "does": "Raises every invoice, chases every overdue — politely and relentlessly.",
@@ -314,7 +294,6 @@
     {
       "id": "apay",
       "department": "fin",
-      "lead": false,
       "name": "ACCOUNTS PAYABLE",
       "role": "Accounts Payable Agent",
       "does": "Audits every card charge and contractor invoice against what we actually agreed to pay.",
@@ -324,8 +303,7 @@
     },
     {
       "id": "recon",
-      "department": "fin",
-      "lead": false,
+      "department": "secdata",
       "name": "RECONCILIATION",
       "role": "Accounts Reconciliation Agent",
       "does": "Matches every bank line to an invoice or bill. Unmatched = investigated.",
@@ -336,7 +314,7 @@
     },
     {
       "id": "dlead",
-      "department": "delivery",
+      "department": "engineering",
       "lead": true,
       "name": "DELIVERY LEAD",
       "role": "Delivery Lead",
@@ -348,8 +326,7 @@
     },
     {
       "id": "pco",
-      "department": "delivery",
-      "lead": false,
+      "department": "engineering",
       "name": "PROJECT CO-ORDINATOR",
       "role": "Project Co-ordinator",
       "does": "Keeps every project plan true — milestones, sign-offs, hours — and moves things before they become late.",
@@ -359,8 +336,8 @@
     },
     {
       "id": "qa",
-      "department": "delivery",
-      "lead": false,
+      "department": "devops",
+      "lead": true,
       "name": "QUALITY ASSURANCE CHECKER",
       "role": "QA Checker",
       "does": "Nothing reaches a client until it passes: links, spelling, brand rules, numbers, the flows a client will actually click.",
@@ -370,8 +347,7 @@
     },
     {
       "id": "crep",
-      "department": "delivery",
-      "lead": false,
+      "department": "engineering",
       "name": "CLIENT REPORTS",
       "role": "Client Reports Agent",
       "does": "Writes every client status and results report from the numbers in the Brain — same format, every month, on time.",
@@ -382,8 +358,7 @@
     },
     {
       "id": "cass",
-      "department": "delivery",
-      "lead": false,
+      "department": "engineering",
       "name": "CLIENT ASSETS",
       "role": "Client Assets Agent",
       "does": "Every logo, file, export and final lives in the right place, named right, synced to the client portal.",
@@ -394,8 +369,7 @@
     },
     {
       "id": "dasst",
-      "department": "delivery",
-      "lead": false,
+      "department": "engineering",
       "name": "DESIGNER ASSISTANT",
       "role": "Designer Assistant",
       "does": "Takes the routine design work off the designer — templates, resizes, mockups, brand sheets — on brand, every time.",
@@ -405,8 +379,7 @@
     },
     {
       "id": "ona",
-      "department": "delivery",
-      "lead": false,
+      "department": "engineering",
       "name": "ONBOARDER",
       "role": "Onboarding Concierge (High-Usage)",
       "does": "Texts high-usage new users and gets them set up like a human would.",

@@ -6,13 +6,13 @@
 //   allowedTools()      → the --allowedTools list an agent gets (connected · allow/deny · web)
 //   summary()           → what /api/mcp returns and what the top bar draws
 //
-// office.config.json →  "mcp": { "allow": [], "deny": [], "departments": { "<server>": ["sales"] } }
+// office.config.json →  "mcp": { "allow": [], "deny": [], "departments": { "<server>": ["revenue"] } }
 //   allow  — empty = every connected server; otherwise only these (name, id or key)
 //   deny   — servers the agents may see in the bar but never call
 //   departments — which pods a server is wired to (default: a built-in map, else every pod)
 import { spawn } from 'node:child_process';
 
-export const DEPT_KEYS = ['emails', 'sales', 'marketing', 'ops', 'fin', 'delivery'];
+export const DEPT_KEYS = ['exec', 'revenue', 'engineering', 'frontend', 'devops', 'secdata', 'fin', 'content'];
 
 // known brands → logo key in src/mcplogos.js. Anything else gets a generated tile.
 const ALIASES = {
@@ -25,13 +25,13 @@ const ALIASES = {
 };
 // which pods a known brand feeds (mirrors the demo's MCP_BY_DEPT)
 const DEPTS_BY_KEY = {
-  meta: ['marketing'], canva: ['marketing', 'delivery'], loops: ['marketing'], beehiiv: ['marketing'], hyperframes: ['marketing'],
-  clarity: ['marketing'], notion: DEPT_KEYS, gmail: ['emails', 'sales', 'ops', 'fin', 'delivery'],
-  fullenrich: ['sales'], imessage: ['sales'], apollo: ['sales'], pandadoc: ['ops', 'delivery'], xero: ['fin'], stripe: ['fin'],
-  slack: ['emails', 'ops', 'delivery'], googledrive: ['ops', 'delivery', 'fin'], googlecalendar: ['emails', 'sales', 'delivery'],
-  playwright: ['marketing', 'ops'], github: ['ops', 'delivery'], linear: ['ops', 'delivery'], jira: ['ops', 'delivery'],
-  hubspot: ['sales', 'marketing'], salesforce: ['sales'], zapier: DEPT_KEYS, figma: ['marketing', 'delivery'],
-  webflow: ['marketing', 'delivery'], higgsfield: ['marketing'], territool: ['sales'],
+  meta: ['revenue'], canva: ['revenue', 'content'], loops: ['revenue'], beehiiv: ['revenue'], hyperframes: ['revenue'],
+  clarity: ['revenue'], notion: DEPT_KEYS, gmail: ['content', 'revenue', 'devops', 'fin', 'engineering'],
+  fullenrich: ['revenue'], imessage: ['revenue'], apollo: ['revenue'], pandadoc: ['devops', 'engineering'], xero: ['fin'], stripe: ['fin'],
+  slack: ['content', 'devops', 'engineering'], googledrive: ['devops', 'engineering', 'fin'], googlecalendar: ['content', 'revenue', 'engineering'],
+  playwright: ['engineering', 'devops'], github: ['engineering', 'devops'], linear: ['engineering', 'devops'], jira: ['engineering', 'devops'],
+  hubspot: ['revenue'], salesforce: ['revenue'], zapier: DEPT_KEYS, figma: ['revenue', 'frontend'],
+  webflow: ['revenue', 'frontend'], higgsfield: ['revenue'], territool: ['revenue'],
 };
 
 export const norm = s => String(s).toLowerCase().replace(/^claude\.ai\s+/, '').replace(/\s+mcp$/, '').replace(/[^a-z0-9]/g, '');

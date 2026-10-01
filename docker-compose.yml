@@ -1,0 +1,44 @@
+services:
+  app:
+    build: .
+    ports:
+      - "4520:4520"
+    env_file:
+      - .env.local
+    environment:
+      PORT: "4520"
+      AO_BRAIN: /brain
+      DATABASE_URL: postgresql://office:office@postgres:5432/office
+      REDIS_URL: redis://redis:6379/0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./brain-yekdast:/brain
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: office
+      POSTGRES_PASSWORD: office
+      POSTGRES_DB: office
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U office"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+
+volumes:
+  pgdata:
+  redisdata:

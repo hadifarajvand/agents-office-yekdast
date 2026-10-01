@@ -46,9 +46,9 @@ await step('roster: office.agents.json validates', async () => {
 });
 await step('roster: bad edits are refused, not applied', async () => {
   const { validate } = await import('./roster.mjs');
-  const r = validate({ agents: [{ id: 'newt', name: 'PODCAST NOTES', department: 'sales', lead: true, colour: 'red' }, { id: 'ghost', name: 'X' }] });
+  const r = validate({ agents: [{ id: 'newt', name: 'PODCAST NOTES', department: 'revenue', lead: true, colour: 'red' }, { id: 'ghost', name: 'X' }] });
   const n = r.agents.find(a => a.id === 'newt');
-  if (n.name !== 'PODCAST NOTES' || n.department !== 'marketing' || n.lead) throw new Error('validation let a fixed field through');
+  if (n.name !== 'PODCAST NOTES' || n.department !== 'content' || n.lead) throw new Error('validation let a fixed field through');
   if (r.problems.length < 4) throw new Error('expected four problems, got ' + r.problems.length);
 });
 await step('roster: brief is accepted and trimmed', async () => {
@@ -98,25 +98,25 @@ await step('lessons: a correction is recorded and standing rules come back', asy
 await step('interview: the lead asks five questions, then writes briefs + a skill into the brain', async () => {
   const onboard = await import('./onboard.mjs'); const { loadRoster } = await import('./roster.mjs'); const { loadSkills } = await import('./skills.mjs'); const os = await import('node:os');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ao-onboard-')); const brain = path.join(tmp, 'brain'), data = path.join(tmp, 'data'); fs.mkdirSync(brain);
-  const agents = loadRoster(brain).agents; const dept = agents.filter(a => a.department === 'sales'); const lead = dept.find(a => a.lead);
+  const agents = loadRoster(brain).agents; const dept = agents.filter(a => a.department === 'revenue'); const lead = dept.find(a => a.lead);
   const stub = async () => JSON.stringify({ briefs: [{ id: 'lexi', brief: 'Every deal gets a next step with a date.' }, { id: 'piper', brief: 'Three options, recommend the middle.' }, { id: 'ghost', brief: 'x' }],
     skill: { name: 'Wholesale Quote', description: 'How we quote a wholesale account', agents: ['piper'], body: '# Quoting a wholesale account\nUse this for any quote to a trade customer.\n## Steps\n1. Check the account in 30-Customers.\n## The shape\nFollow template.md.\n## Rules\n- Never discount.', template: '# Quote for {account}\n## Lines\n## Terms' }, try: 'quote Harbour Hardware for 40 units' });
-  const ctx = { dept: 'sales', deptName: 'Sales', lead, agents: dept, connected: ['Gmail'], brainPath: brain, dataDir: data, ask: stub, business: 'Test Co' };
+  const ctx = { dept: 'revenue', deptName: 'Revenue', lead, agents: dept, connected: ['Gmail'], brainPath: brain, dataDir: data, ask: stub, business: 'Test Co' };
   if (await onboard.handle('what are you working on?', ctx) !== null) throw new Error('ordinary chat was captured');
-  const r0 = await onboard.handle('set up', ctx); if (!/Question 1 of 5/.test(r0.reply) || !onboard.active(data, 'sales')) throw new Error('did not start: ' + r0.reply.slice(0, 80));
+  const r0 = await onboard.handle('set up', ctx); if (!/Question 1 of 5/.test(r0.reply) || !onboard.active(data, 'revenue')) throw new Error('did not start: ' + r0.reply.slice(0, 80));
   const r1 = await onboard.handle('We sell to trade accounts.', ctx); if (!/Question 2 of 5/.test(r1.reply)) throw new Error('no second question');
   await onboard.handle('Quoting a wholesale account: check the account, price from the ladder, send.', ctx); await onboard.handle('skip', ctx); await onboard.handle('never discount', ctx);
   const r5 = await onboard.handle('Gmail and our bookkeeper', ctx);
-  if (onboard.active(data, 'sales')) throw new Error('interview still active after the last answer');
+  if (onboard.active(data, 'revenue')) throw new Error('interview still active after the last answer');
   if (!r5.wrote || r5.wrote.briefs.length !== 2 || !r5.wrote.skill || r5.wrote.skill.name !== 'wholesale-quote') throw new Error('write-up wrong: ' + JSON.stringify(r5.wrote));
   if (!r5.wrote.problems.some(p => /ghost/.test(p))) throw new Error('an agent outside the department was accepted');
   const merged = loadRoster(brain); if (merged.agents.find(a => a.id === 'piper').brief !== 'Three options, recommend the middle.' || merged.problems.length) throw new Error('brief not merged into the brain roster: ' + merged.problems);
   const sk = loadSkills(brain, merged.agents); const w = sk.skills.find(x => x.name === 'wholesale-quote');
   if (!w || w.source !== 'brain' || !w.agents.includes('piper') || !w.files.some(f => f.name === 'template.md') || sk.problems.length) throw new Error('skill not loadable: ' + sk.problems);
-  if (!onboard.isSetUp(merged.agents, sk, 'sales') || onboard.isSetUp(merged.agents, sk, 'fin')) throw new Error('setUp flag wrong');
-  const c = await onboard.handle('set up', ctx); await onboard.handle('cancel', ctx); if (onboard.active(data, 'sales')) throw new Error('cancel did not clear');
+  if (!onboard.isSetUp(merged.agents, sk, 'revenue') || onboard.isSetUp(merged.agents, sk, 'fin')) throw new Error('setUp flag wrong');
+  const c = await onboard.handle('set up', ctx); await onboard.handle('cancel', ctx); if (onboard.active(data, 'revenue')) throw new Error('cancel did not clear');
   fs.rmSync(tmp, { recursive: true, force: true });
-  return `5 questions · 2 briefs merged · skill wholesale-quote→piper with template · sales set up, fin not · cancel clears`;
+  return `5 questions · 2 briefs merged · skill wholesale-quote→piper with template · revenue set up, fin not · cancel clears`;
 });
 await step('connectors: claude mcp list parses', async () => {
   const m = await import('./mcp.mjs');
@@ -157,24 +157,24 @@ await step('routines: plain words become a schedule', async () => {
 });
 await step('routines: outside Emails, Accounting and Sales is refused, bad ones named', async () => {
   const rt = await import('./routines.mjs'); const { loadRoster } = await import('./roster.mjs'); const agents = loadRoster().agents;
-  const bad = rt.validate({ id: 'x', dept: 'marketing', agent: 'iggy', text: 'post the reel', when: { kind: 'daily', at: '09:00' } }, agents);
-  if (!bad.problems.some(p => /later release/.test(p))) throw new Error('marketing routine not refused: ' + bad.problems);
-  if (!/Emails, Accounting and Sales/.test(rt.refusal('ops'))) throw new Error('refusal sentence');
+  const bad = rt.validate({ id: 'x', dept: 'engineering', agent: 'dlead', text: 'post the reel', when: { kind: 'daily', at: '09:00' } }, agents);
+  if (!bad.problems.some(p => /later release/.test(p))) throw new Error('engineering routine not refused: ' + bad.problems);
+  if (!/Content, Finance and Revenue/.test(rt.refusal('engineering'))) throw new Error('refusal sentence');
   const wrong = rt.validate({ dept: 'fin', agent: 'ghost', text: 'x', when: { kind: 'weekly', days: [] } }, agents);
   if (!wrong.problems.some(p => /no agent/.test(p)) || !wrong.problems.some(p => /not complete/.test(p))) throw new Error('unknown agent / incomplete schedule not named: ' + wrong.problems);
   const cross = rt.validate({ dept: 'fin', agent: 'lexi', text: 'x', when: { kind: 'daily', at: '09:00' } }, agents);
-  if (!cross.problems.some(p => /is in Sales, not Accounting/.test(p))) throw new Error('cross-department agent not named: ' + cross.problems);
-  const good = rt.validate({ dept: 'emails', agent: 'elead', text: 'Triage the overnight inbox', when: { kind: 'weekdays', at: '08:00' } }, agents);
+  if (!cross.problems.some(p => /is in Revenue, not Finance/.test(p))) throw new Error('cross-department agent not named: ' + cross.problems);
+  const good = rt.validate({ dept: 'content', agent: 'elead', text: 'Triage the overnight inbox', when: { kind: 'weekdays', at: '08:00' } }, agents);
   if (good.problems.length || good.routine.id !== 'triage-the-overnight-inbox' || good.routine.needsOk !== true) throw new Error('a good routine did not validate: ' + JSON.stringify(good));
-  const dup = rt.validate({ id: 'triage-the-overnight-inbox', dept: 'emails', agent: 'elead', text: 'x', when: { kind: 'daily', at: '09:00' } }, agents, [good.routine]);
+  const dup = rt.validate({ id: 'triage-the-overnight-inbox', dept: 'content', agent: 'elead', text: 'x', when: { kind: 'daily', at: '09:00' } }, agents, [good.routine]);
   if (!dup.problems.some(p => /share this id/.test(p))) throw new Error('duplicate id not named');
   if (rt.guessNeedsOk('list the overdue invoices') || !rt.guessNeedsOk('send the reminders') || !rt.guessNeedsOk('draft replies to unanswered client emails')) throw new Error('needs-OK guess');
-  return 'marketing refused · unknown agent, wrong department, incomplete schedule, duplicate id all named · needsOk defaults on';
+  return 'engineering refused · unknown agent, wrong department, incomplete schedule, duplicate id all named · needsOk defaults on';
 });
 await step('routines: due fires once, a missed run catches up marked LATE, then the clock moves on', async () => {
   const rt = await import('./routines.mjs'); const { loadRoster } = await import('./roster.mjs'); const os = await import('node:os');
   const agents = loadRoster().agents; const brain = fs.mkdtempSync(path.join(os.tmpdir(), 'ao-routines-')); const data = path.join(brain, 'data');
-  rt.save(brain, [{ id: 'a', dept: 'emails', agent: 'elead', title: 'A', text: 'triage', when: { kind: 'weekdays', at: '08:00' } }, { id: 'p', dept: 'sales', agent: 'folo', title: 'P', text: 'chase', when: { kind: 'daily', at: '10:00' }, paused: true, needsOk: false }]);
+  rt.save(brain, [{ id: 'a', dept: 'content', agent: 'elead', title: 'A', text: 'triage', when: { kind: 'weekdays', at: '08:00' } }, { id: 'p', dept: 'revenue', agent: 'folo', title: 'P', text: 'chase', when: { kind: 'daily', at: '10:00' }, paused: true, needsOk: false }]);
   const l = rt.load(brain, agents); if (l.problems.length || l.routines.length !== 2) throw new Error('load: ' + l.problems);
   const st = rt.loadState(data); const now = Date.now();
   const { list } = rt.withState(l.routines, st, now); if (!(st.a.nextAt > now) || list.find(r => r.id === 'p').nextAt !== null) throw new Error('nextAt not set / paused not null');
@@ -186,7 +186,7 @@ await step('routines: due fires once, a missed run catches up marked LATE, then 
   if (rt.due(l.routines, st, now).length) throw new Error('fired twice');
   const s2 = rt.loadState(data); if (s2.a.lastTaskId !== 't1') throw new Error('state not saved');
   const soon = { kind: 'minutes', every: 2 }; st.a.nextAt = now - 30 * 1000; const d2 = rt.due(l.routines, st, now); if (d2.length !== 1 || d2[0].late) throw new Error('a run 30 s past its minute is not late');
-  const m = rt.matchRoutine(list, 'emails', 'the triage one'); if (!m || m.id !== 'a') throw new Error('match by words');
+  const m = rt.matchRoutine(list, 'content', 'the triage one'); if (!m || m.id !== 'a') throw new Error('match by words');
   fs.rmSync(brain, { recursive: true, force: true });
   return 'due once · 2 h late → one catch-up marked LATE · paused never fires · state persists · words match a routine';
 });
@@ -243,9 +243,9 @@ else {
     await page.goto('file://' + path.join(ROOT, 'dist', 'command-centre-v2.html') + '?s=check'); await page.waitForTimeout(3000);
     await step('smoke: loads without page errors', async () => { if (errors.length) throw new Error(errors[0]); });
     await step('smoke: 35 agents at their desks', async () => { const n = await page.evaluate(() => Object.keys(window.CC.R).length); if (n !== 35) throw new Error('agents: ' + n); return n + ' agents'; });
-    await step('smoke: six department cards + the Brain tag', async () => {
+    await step('smoke: eight department cards + the Brain tag', async () => {
       const t = await page.evaluate(() => [...document.querySelectorAll('.badge .b-name')].map(e => e.textContent.trim()));
-      for (const k of ['EMAILS', 'SALES', 'MARKETING', 'OPERATIONS', 'FINANCE', 'DELIVERY', 'THE BRAIN']) if (!t.some(x => x.startsWith(k))) throw new Error('missing card ' + k);
+      for (const k of ['EXEC', 'REVENUE', 'ENGINEERING', 'FRONTEND', 'DEVOPS', 'SECDATA', 'FINANCE', 'CONTENT', 'THE BRAIN']) if (!t.some(x => x.startsWith(k))) throw new Error('missing card ' + k);
     });
     await step('smoke: task panel has rows and counts', async () => {
       const n = await page.evaluate(() => document.querySelectorAll('.tp-row').length); if (n < 10) throw new Error('rows: ' + n);
@@ -253,14 +253,14 @@ else {
       return n + ' rows';
     });
     await step('smoke: command bar adds a task in demo mode', async () => {
-      await page.click('.tp-dd'); await page.click('.tp-menu button[data-k="marketing"]');
+      await page.click('.tp-dd'); await page.click('.tp-menu button[data-k="revenue"]');
       await page.fill('.tp-in', 'cut a 15 second teaser from the demo reel'); await page.keyboard.press('Enter'); await page.waitForTimeout(600);
       const hint = await page.evaluate(() => document.querySelector('.tp-hint').textContent); if (!/Added/.test(hint)) throw new Error('hint: ' + hint);
       const row = await page.evaluate(() => [...document.querySelectorAll('.tp-row .tp-t')].some(e => /teaser/i.test(e.textContent))); if (!row) throw new Error('row not in the feed');
       return hint.trim().slice(0, 60);
     });
     await step('smoke: a routine typed in the bar lands in SCHEDULED (demo)', async () => {
-      await page.click('.tp-dd'); await page.click('.tp-menu button[data-k="emails"]');
+      await page.click('.tp-dd'); await page.click('.tp-menu button[data-k="content"]');
       await page.fill('.tp-in', 'every weekday at 8am, triage the inbox and tell me what needs me');
       await page.evaluate(() => document.querySelector('.tp-in').dispatchEvent(new Event('input', { bubbles: true })));
       await page.waitForFunction(() => /Routine/.test(document.querySelector('.tp-hint').textContent), null, { timeout: 5000 }).catch(() => {});
@@ -278,9 +278,9 @@ else {
       await page.keyboard.press('Escape'); await page.waitForTimeout(400);
       await page.evaluate(() => window.CC.tasks.rtAct(window.CC.routines()[0].id, 'run')); await page.waitForTimeout(500);
       const fired = await page.evaluate(() => window.CC.tasks.tasks.some(t => t.routine && /triage the inbox/i.test(t.title))); if (!fired) throw new Error('RUN NOW did not make a task');
-      await page.click('.tp-dd'); await page.click('.tp-menu button[data-k="marketing"]');
+      await page.click('.tp-dd'); await page.click('.tp-menu button[data-k="engineering"]');
       await page.fill('.tp-in', 'every day at 9am post the reel'); await page.keyboard.press('Enter'); await page.waitForTimeout(400);
-      const no = await page.evaluate(() => document.querySelector('.tp-hint').textContent); if (!/later release/.test(no)) throw new Error('marketing not refused: ' + no);
+      const no = await page.evaluate(() => document.querySelector('.tp-hint').textContent); if (!/later release/.test(no)) throw new Error('engineering not refused: ' + no);
       const still = await page.evaluate(() => window.CC.routines().length); if (still !== 1) throw new Error('a refused routine was added');
       const opts = await page.evaluate(() => [...document.querySelectorAll('.tp-model option')].map(o => o.value).join(',') + '|' + document.querySelector('.tp-model').value); if (opts !== 'sonnet,opus,fable|sonnet') throw new Error('model menu: ' + opts);
       const eff = await page.evaluate(() => [...document.querySelectorAll('.tp-effort option')].map(o => o.value).join(',') + '|' + document.querySelector('.tp-effort').value); if (eff !== ',low,medium,high,xhigh,max|') throw new Error('effort menu: ' + eff);
@@ -288,14 +288,14 @@ else {
       await page.fill('.tp-in', 'line one\nline two\nline three'); await page.evaluate(() => document.querySelector('.tp-in').dispatchEvent(new Event('input', { bubbles: true }))); await page.waitForTimeout(200);
       const grown = await page.evaluate(() => document.querySelector('.tp-in').offsetHeight); if (grown < 50) throw new Error('box did not grow: ' + grown + 'px');
       await page.click('.tp-big-btn'); await page.waitForTimeout(300);
-      const bigOn = await page.evaluate(() => document.getElementById('tpBig').classList.contains('on') && document.querySelector('.tb-in').value === document.querySelector('.tp-in').value && document.querySelector('.tb-dept').textContent === 'MARKETING'); if (!bigOn) throw new Error('big editor did not open with the text');
+      const bigOn = await page.evaluate(() => document.getElementById('tpBig').classList.contains('on') && document.querySelector('.tb-in').value === document.querySelector('.tp-in').value && document.querySelector('.tb-dept').textContent === 'ENGINEERING & BACKEND'); if (!bigOn) throw new Error('big editor did not open with the text');
       await page.type('.tb-in', ' and more'); await page.waitForTimeout(200);
-      const back = await page.evaluate(() => document.querySelector('.tp-in').value.endsWith(' and more') && /MARKETING LEAD|Goes to|Probably/.test(document.querySelector('.tb-hint').textContent)); if (!back) throw new Error('big editor did not mirror back');
+      const back = await page.evaluate(() => document.querySelector('.tp-in').value.endsWith(' and more') && /ENGINEERING LEAD|Goes to|Probably/.test(document.querySelector('.tb-hint').textContent)); if (!back) throw new Error('big editor did not mirror back');
       await page.keyboard.press('Escape'); await page.waitForTimeout(200);
       const bigOff = await page.evaluate(() => !document.getElementById('tpBig').classList.contains('on')); if (!bigOff) throw new Error('Esc did not close the big editor');
       await page.fill('.tp-in', ''); await page.evaluate(() => document.querySelector('.tp-in').dispatchEvent(new Event('input', { bubbles: true }))); await page.evaluate(() => document.querySelector('.tp-in').blur()); await page.click('.tp-chip[data-f="all"]'); // hand the keys back, feed back to All
       const rest = await page.evaluate(() => document.querySelector('.tp-in').offsetHeight); if (rest > 34) throw new Error('box did not shrink back: ' + rest + 'px');
-      return 'hint says the schedule · SCHEDULED row + next-up strip + board column · RUN NOW fires · marketing refused · box grows + big editor mirrors';
+      return 'hint says the schedule · SCHEDULED row + next-up strip + board column · RUN NOW fires · engineering refused · box grows + big editor mirrors';
     });
     await step('smoke: department focus opens the chat rail', async () => {
       await page.keyboard.press('1'); await page.waitForTimeout(1800);
@@ -361,28 +361,28 @@ else {
     });
     await step('server: the lead offers the interview when a department is not set up', async () => {
       const lead = up.agents.find(a => a.id === 'lexi'); if (lead.interviewer !== true) throw new Error('lexi is not the interviewer');
-      if (typeof up.setup?.sales !== 'boolean') throw new Error('no setup map');
+      if (typeof up.setup?.revenue !== 'boolean') throw new Error('no setup map');
       const r = await (await fetch(base + '/api/lessons')).json(); if (!Array.isArray(r.agents)) throw new Error('no lessons endpoint');
-      return `sales set up: ${up.setup.sales} · lessons dir ${path.basename(r.dir)}`;
+      return `revenue set up: ${up.setup.revenue} · lessons dir ${path.basename(r.dir)}`;
     });
     await step('server: /api/routines lists the timetable and names the departments', async () => {
-      const r = await (await fetch(base + '/api/routines')).json(); if (!Array.isArray(r.routines) || JSON.stringify(r.depts) !== '["emails","fin","sales"]') throw new Error(JSON.stringify(r).slice(0, 120));
+      const r = await (await fetch(base + '/api/routines')).json(); if (!Array.isArray(r.routines) || JSON.stringify(r.depts) !== '["content","fin","revenue"]') throw new Error(JSON.stringify(r).slice(0, 120));
       if (typeof up.routines?.count !== 'number') throw new Error('health has no routines');
       return `${r.routines.length} routines${r.routines.length ? ' · next ' + (r.routines.filter(x => x.nextAt).sort((a, b) => a.nextAt - b.nextAt)[0]?.title || '—') : ''} · ${path.basename(path.dirname(r.path))}/${path.basename(r.path)}`;
     });
     await step('server: a routine outside Emails, Accounting and Sales is refused with a sentence', async () => {
-      const r = await fetch(base + '/api/routines', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: 'marketing', text: 'every day at 9am post the reel' }) });
+      const r = await fetch(base + '/api/routines', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: 'engineering', text: 'every day at 9am post the reel' }) });
       const j = await r.json(); if (r.status !== 400 || !j.refused || !/later release/.test(j.error)) throw new Error(r.status + ' ' + JSON.stringify(j));
-      const t = await fetch(base + '/api/routines', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: 'emails', text: 'every weekday, triage the inbox' }) });
+      const t = await fetch(base + '/api/routines', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: 'content', text: 'every weekday, triage the inbox' }) });
       const k = await t.json(); if (t.status !== 400 || !k.needsTime) throw new Error('missing time not asked back: ' + JSON.stringify(k));
-      const n = await fetch(base + '/api/routines', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: 'sales', text: 'chase the quiet deals' }) });
+      const n = await fetch(base + '/api/routines', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: 'revenue', text: 'chase the quiet deals' }) });
       const m = await n.json(); if (n.status !== 400 || !m.noSchedule) throw new Error('no schedule not named: ' + JSON.stringify(m));
       return j.error;
     });
-    await step('server: rejects an empty task', async () => { const r = await fetch(base + '/api/tasks', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"dept":"sales","text":""}' }); if (r.status !== 400) throw new Error('status ' + r.status); });
+    await step('server: rejects an empty task', async () => { const r = await fetch(base + '/api/tasks', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"dept":"revenue","text":""}' }); if (r.status !== 400) throw new Error('status ' + r.status); });
     if (LIVE) {
       await step('live: Claude routes a task', async () => {
-        const r = await fetch(base + '/api/tasks', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: 'emails', text: 'reply to a client asking when their September report will arrive' }) });
+        const r = await fetch(base + '/api/tasks', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: 'content', text: 'reply to a client asking when their September report will arrive' }) });
         if (!r.ok) throw new Error((await r.json()).error); const t = await r.json(); globalThis.__t = t; return `${t.agent} · ${t.title}`;
       });
       await step('live: the agent delivers and the note is saved', async () => {
@@ -392,7 +392,7 @@ else {
         return `${d.result.length} chars · read ${d.read.join(', ')} · ${d.note}.md`;
       });
       await step('live: a two-minute routine fires on the server, runs and lands', async () => {
-        const r = await fetch(base + '/api/routines', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: 'emails', text: 'every 2 minutes, list what is in the inbox that needs me today' }) });
+        const r = await fetch(base + '/api/routines', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: 'content', text: 'every 2 minutes, list what is in the inbox that needs me today' }) });
         const j = await r.json(); if (!r.ok) throw new Error(j.error); const id = j.routine.id;
         try {
           if (!j.routine.nextAt || j.routine.desc !== 'every 2 min') throw new Error('routine wrong: ' + JSON.stringify(j.routine));
@@ -404,7 +404,7 @@ else {
         } finally { await fetch(`${base}/api/routines/${id}`, { method: 'DELETE' }); }
       });
       await step('live: a task set to Opus runs on Opus and says so', async () => {
-        const r = await fetch(base + '/api/tasks', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: 'sales', text: 'one line: what should the next follow-up to a quiet lead say', model: 'opus' }) });
+        const r = await fetch(base + '/api/tasks', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: 'revenue', text: 'one line: what should the next follow-up to a quiet lead say', model: 'opus' }) });
         if (!r.ok) throw new Error((await r.json()).error); const t = await r.json(); if (t.model !== 'opus') throw new Error('task.model ' + t.model);
         const d = await (await fetch(`${base}/api/tasks/${t.id}/run`, { method: 'POST' })).json(); if (d.error) throw new Error(d.result);
         if (d.modelUsed !== 'opus' || d.modelFrom !== 'task' || !/opus/.test(String(d.modelId))) throw new Error(`ran on ${d.modelId} (${d.modelUsed} from ${d.modelFrom})`);
@@ -424,7 +424,7 @@ else {
           const mode = await page.evaluate(() => document.querySelector('.tp-mode').textContent); if (!/LIVE/.test(mode)) throw new Error('panel not live: ' + mode);
           const before = await page.evaluate(() => window.CC.brain.nodes.length);
           const known = await page.evaluate(() => window.CC.tasks.tasks.filter(t => t.live).map(t => t.id));
-          await page.click('.tp-dd'); await page.click('.tp-menu button[data-k="marketing"]');
+          await page.click('.tp-dd'); await page.click('.tp-menu button[data-k="revenue"]');
           await page.fill('.tp-in', 'write three hook lines for a reel about why most businesses ignore their inbox'); await page.keyboard.press('Enter');
           await page.waitForFunction(() => /Added|couldn/i.test(document.querySelector('.tp-hint').textContent), { timeout: 150000 });
           const hint = await page.evaluate(() => document.querySelector('.tp-hint').textContent); if (!/Added/.test(hint)) throw new Error(hint);

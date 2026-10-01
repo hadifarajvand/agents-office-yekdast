@@ -4,8 +4,9 @@
 // by a department lead in chat, or by Claude Code). Run state — when each one is next due, when
 // it last ran — lives in data/routines.json so the brain file stays clean config.
 //
-// This release: routines are for Emails, Accounting and Sales only. The other departments get
-// them later; a routine for one of them is refused with a sentence, not an error code.
+// This release: routines are for Content, Finance and Revenue only (the direct successors of the
+// old Emails/Accounting/Sales pods). The other departments get them later; a routine for one of
+// them is refused with a sentence, not an error code.
 //
 //   { "id": "inbox-triage", "dept": "emails", "agent": "elead",
 //     "title": "Triage the overnight inbox", "text": "Triage the overnight inbox: what needs me, …",
@@ -18,8 +19,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, nextRun, valid } from './src/when.js';
 
-export const ALLOWED = ['emails', 'fin', 'sales'];
-export const NAMES = { emails: 'Emails', fin: 'Accounting', sales: 'Sales', marketing: 'Marketing', ops: 'Operations', delivery: 'Delivery' };
+export const ALLOWED = ['content', 'fin', 'revenue'];
+export const NAMES = { content: 'Content', fin: 'Finance', revenue: 'Revenue', exec: 'Exec', engineering: 'Engineering', frontend: 'Frontend', devops: 'Devops', secdata: 'Secdata' };
 export const file = brainPath => path.join(brainPath, 'Agents Office', 'routines.json');
 export const stateFile = dataDir => path.join(dataDir, 'routines.json');
 export const LATE_AFTER = 90 * 1000; // a run more than 90 s past its minute was missed (asleep, or the office was off) → runs once, marked LATE
@@ -27,9 +28,9 @@ export const LATE_AFTER = 90 * 1000; // a run more than 90 s past its minute was
 const slug = t => String(t).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
 const readJSON = (p, fallback) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return fallback; } };
 
-/** "Routines come to Marketing in a later release. This release: Emails, Accounting, Sales." */
+/** "Routines come to Engineering in a later release. This release: Content, Finance, Revenue." */
 export function refusal(dept) {
-  return `Routines come to ${NAMES[dept] || dept} in a later release. This release: Emails, Accounting and Sales.`;
+  return `Routines come to ${NAMES[dept] || dept} in a later release. This release: Content, Finance and Revenue.`;
 }
 
 /** Normalise + check one routine against the roster. Returns { routine, problems }. Fixed fields are kept as given; bad ones are named. */

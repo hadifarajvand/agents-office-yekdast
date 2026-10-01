@@ -31,10 +31,12 @@ export const MCP_LOGOS = {
 // EVERY dept (own loom like gmail), Microsoft Clarity joins marketing, EMAILS replaces support,
 // DELIVERY is new). claude + chatgpt are the model layer — wired to the Brain, not a dept dock.
 export const MCP_BY_DEPT = {
-  marketing: ['meta','canva','loops','beehiiv','hyperframes','clarity','notion'],
-  emails:    ['gmail','notion'],
-  sales:     ['fullenrich','imessage','apollo','gmail','notion'],
-  ops:       ['pandadoc','gmail','notion'],
-  fin:       ['xero','gmail','stripe','notion'],
-  delivery:  ['canva','pandadoc','gmail','notion'],
+  exec:        ['gmail','notion'],
+  revenue:     ['meta','canva','loops','beehiiv','hyperframes','clarity','fullenrich','imessage','apollo','gmail','notion'],
+  engineering: ['pandadoc','gmail','notion'],
+  frontend:    ['canva','pandadoc','gmail','notion'],
+  devops:      ['pandadoc','gmail','notion'],
+  secdata:     ['gmail','notion'],
+  fin:         ['xero','gmail','stripe','notion'],
+  content:     ['gmail','notion'],
 };
