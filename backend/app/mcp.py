@@ -72,9 +72,24 @@ class MCPRegistry:
         self.cfg_mcp = {"allow": [], "deny": [], "departments": {}}
         self.cfg_web = True
 
-    def configure(self, cfg: dict) -> None:
+    def configure(self, cfg: dict, valid_depts: set[str] | None = None) -> None:
         self.cfg_mcp = {"allow": [], "deny": [], "departments": {}, **(cfg.get("mcp") or {})}
         self.cfg_web = cfg.get("tools", {}).get("web") is not False
+        if valid_depts is not None:
+            self._assert_depts_known(valid_depts)
+
+    def _assert_depts_known(self, valid_depts: set[str]) -> None:
+        """Fail loud if a connector's department wiring names a department that
+        doesn't exist in the live roster, instead of silently dropping it at
+        request time (see `_depts_for`)."""
+        bad = {d for v in DEPTS_BY_KEY.values() for d in v if d not in valid_depts}
+        for v in (self.cfg_mcp.get("departments") or {}).values():
+            bad |= {d for d in v if d not in valid_depts}
+        if bad:
+            raise ValueError(
+                f"mcp department wiring references unknown department(s) {sorted(bad)}; "
+                f"known departments are {sorted(valid_depts)}"
+            )
 
     def _matches(self, s: dict, x: str) -> bool:
         n = norm(x)

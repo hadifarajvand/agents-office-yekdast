@@ -24,7 +24,7 @@ from .skills import load_skills
 
 app = FastAPI()
 cfg = load_config()
-mcp_registry.configure({"mcp": cfg.mcp, "tools": cfg.tools})
+mcp_registry.configure({"mcp": cfg.mcp, "tools": cfg.tools}, valid_depts=set(DEPTS.keys()))
 
 HTML = ROOT / "dist" / "command-centre-v2.html"
 VERSION = "4.0.0-langgraph"

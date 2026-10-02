@@ -1,3 +1,5 @@
+import pytest
+
 from app.mcp import MCPRegistry
 
 
@@ -35,3 +37,22 @@ def test_prompt_text_lists_usable_connectors_and_rules():
     text = r.prompt_text([])
     assert "Gmail" in text
     assert "ONLY when the owner's request" in text
+
+
+def test_configure_accepts_known_departments():
+    from app.mcp import DEPT_KEYS
+    r = MCPRegistry()
+    r.configure({"mcp": {"departments": {"gmail": ["content", "revenue"]}}}, valid_depts=set(DEPT_KEYS))
+
+
+def test_configure_raises_on_unknown_department_in_config():
+    r = MCPRegistry()
+    with pytest.raises(ValueError, match="unknown department"):
+        r.configure({"mcp": {"departments": {"gmail": ["content", "not-a-real-dept"]}}}, valid_depts={"content", "revenue", "fin"})
+
+
+def test_configure_raises_on_unknown_department_in_defaults():
+    r = MCPRegistry()
+    with pytest.raises(ValueError, match="unknown department"):
+        # DEPTS_BY_KEY always has entries; a valid_depts set missing all of them must fail loud.
+        r.configure({"mcp": {}}, valid_depts={"not-a-real-dept"})
