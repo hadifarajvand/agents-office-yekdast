@@ -22,7 +22,7 @@ from langgraph.graph import END, StateGraph
 
 from .. import brain as brainmod
 from .. import learn
-from ..llm import ask, ask_haiku_json
+from ..llm import ask, ask_haiku_json, ask_with_tools
 from ..mcp import registry as mcp_registry
 from ..models import effort_for, model_for
 from ..roster import Agent
@@ -66,16 +66,48 @@ async def route(dept: str, text: str, agents: list[Agent]) -> dict:
     return data
 
 
+MAX_TOOL_STEPS = 8
+
+
 class SpecialistState(TypedDict):
     system: str
     user: str
     model_key: str
+    dept: str
+    agent_tools: list[str]
     result: str
 
 
 async def _specialist_node(state: SpecialistState) -> SpecialistState:
-    text = await ask(state["system"], state["user"], model_key=state["model_key"])
-    return {**state, "result": text}
+    """ReAct-style loop (Task 2): each iteration lets the model call a tool or
+    finish. Every tool-call event is checked against mcp_registry.call_allowed()
+    fresh, right before that specific call runs — never once up front for the
+    whole loop — so a later step can't ride on an earlier step's authorization."""
+    dept = state.get("dept", "")
+    tools = mcp_registry.tools_for(state.get("agent_tools") or [])
+    tools_by_name = {t.name: t for t in tools}
+    messages: list[dict] = [
+        {"role": "system", "content": state["system"]},
+        {"role": "user", "content": state["user"]},
+    ]
+    result = ""
+    for _ in range(MAX_TOOL_STEPS):
+        step = await ask_with_tools(messages, tools, model_key=state["model_key"])
+        if not step["tool_calls"]:
+            result = step["content"]
+            break
+        messages.append({"role": "assistant", "content": step["content"], "tool_calls": step["tool_calls"]})
+        for call in step["tool_calls"]:
+            key = mcp_registry.key_of(f'mcp__{call["name"]}__x') or call["name"]
+            allowed, refusal = mcp_registry.call_allowed(dept, key)
+            if not allowed:
+                tool_result = refusal
+            else:
+                tool = tools_by_name.get(call["name"])
+                tool_result = await tool.ainvoke(call["args"]) if tool else "tool not found"
+            messages.append({"role": "tool", "tool_call_id": call["id"], "content": tool_result})
+        result = step["content"]
+    return {**state, "result": result}
 
 
 _graph = StateGraph(SpecialistState)
@@ -146,7 +178,10 @@ async def run_task(
     e = effort_for(task.get("effort"), task.get("routineEffort"), agent.effort, office_effort, m["model"])
 
     config = {"configurable": {"thread_id": task.get("id", "no-task-id")}}
-    out = await _compiled.ainvoke({"system": system, "user": user, "model_key": m["model"], "result": ""}, config=config)
+    out = await _compiled.ainvoke(
+        {"system": system, "user": user, "model_key": m["model"], "dept": task["dept"], "agent_tools": agent.tools, "result": ""},
+        config=config,
+    )
     return {
         "result": out["result"],
         "skills": skills.names(agent),

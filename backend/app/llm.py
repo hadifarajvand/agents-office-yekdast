@@ -11,6 +11,7 @@ import os
 import re
 
 from langchain_anthropic import ChatAnthropic
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from .mcp import registry as mcp_registry
 from .models import HAIKU_MODEL_ID, model_id
@@ -43,6 +44,35 @@ async def ask_haiku_json(system: str, user: str) -> dict:
     resp = await llm.ainvoke([("system", system), ("human", user)])
     text = resp.content if isinstance(resp.content, str) else str(resp.content)
     return parse_json(text)
+
+
+async def ask_with_tools(messages: list[dict], tools: list, *, model_key: str | None = None, max_tokens: int = 4096) -> dict:
+    """One step of a tool-calling loop (Task 2's ReAct-style specialist loop).
+
+    `messages` is role-tagged dicts: {"role": "system"|"user"|"assistant"|"tool", ...}
+    (assistant carries optional "tool_calls"; tool carries "tool_call_id"). Returns
+    {"content": str, "tool_calls": [{"name", "args", "id"}, ...]} — empty tool_calls
+    means the model is done and `content` is the final answer.
+    """
+    mid = model_id(model_key) if model_key else model_id("sonnet")
+    llm = _client(mid, max_tokens)
+    if tools:
+        llm = llm.bind_tools(tools)
+    lc_messages = []
+    for m in messages:
+        role = m["role"]
+        if role == "system":
+            lc_messages.append(SystemMessage(content=m["content"]))
+        elif role == "user":
+            lc_messages.append(HumanMessage(content=m["content"]))
+        elif role == "assistant":
+            lc_messages.append(AIMessage(content=m.get("content") or "", tool_calls=m.get("tool_calls") or []))
+        elif role == "tool":
+            lc_messages.append(ToolMessage(content=str(m["content"]), tool_call_id=m["tool_call_id"]))
+    resp = await llm.ainvoke(lc_messages)
+    content = resp.content if isinstance(resp.content, str) else str(resp.content)
+    tool_calls = [{"name": tc["name"], "args": tc["args"], "id": tc["id"]} for tc in (resp.tool_calls or [])]
+    return {"content": content, "tool_calls": tool_calls}
 
 
 def parse_json(text: str) -> dict:

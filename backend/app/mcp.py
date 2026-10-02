@@ -162,6 +162,27 @@ class MCPRegistry:
     def usable(self) -> list[dict]:
         return [s for s in self.servers if s["status"] == "connected" and self._allowed(s)]
 
+    def call_allowed(self, dept: str, key: str) -> tuple[bool, str | None]:
+        """Call-time policy gate (Task 2): checked fresh on every tool-call event
+        during the specialist loop, never cached from a decision made earlier in
+        the loop or from what's merely named in the prompt (mcp.py's existing
+        prompt_text() filtering stays as defense-in-depth, not the enforcement
+        point). Returns (allowed, refusal_message)."""
+        s = next((x for x in self.servers if x.get("key") == key or x["id"] == key), None)
+        if not s or not self._allowed(s):
+            return False, f"Access denied: {key} not wired to {dept} department"
+        if dept not in self._depts_for(s["name"], s.get("key")):
+            return False, f"Access denied: {s['name']} not wired to {dept} department"
+        return True, None
+
+    def tools_for(self, agent_tools: list[str]) -> list:
+        """Tool objects for the specialist loop (Task 2), one per usable server
+        this agent usually reaches for. Empty until real langchain-mcp-adapters
+        clients are wired in (servers list is only populated via from_init/tests
+        today) — the loop and the call-time gate above are ready for that swap
+        without further code changes."""
+        return []
+
     def allowed_tools(self) -> list[str]:
         t = [f'mcp__{s["id"]}' for s in self.usable()]
         if self.cfg_web:

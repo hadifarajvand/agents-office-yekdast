@@ -64,9 +64,13 @@ def mock_llm(monkeypatch):
     async def fake_ask(system, user, model_key=None):
         return "mocked agent output"
 
+    async def fake_ask_with_tools(messages, tools, model_key=None, max_tokens=4096):
+        return {"content": "mocked agent output", "tool_calls": []}
+
     monkeypatch.setattr(engine, "ask_haiku_json", fake_ask_haiku_json)
     monkeypatch.setattr(engine, "ask", fake_ask)
-    return {"ask_haiku_json": fake_ask_haiku_json, "ask": fake_ask}
+    monkeypatch.setattr(engine, "ask_with_tools", fake_ask_with_tools)
+    return {"ask_haiku_json": fake_ask_haiku_json, "ask": fake_ask, "ask_with_tools": fake_ask_with_tools}
 
 
 @pytest.fixture
@@ -185,11 +189,11 @@ def test_approve_acks_immediately_before_background_work_finishes(client, fake_s
 
     finish_event = asyncio.Event()
 
-    async def slow_ask(system, user, model_key=None):
+    async def slow_ask_with_tools(messages, tools, model_key=None, max_tokens=4096):
         await finish_event.wait()
-        return "finally done"
+        return {"content": "finally done", "tool_calls": []}
 
-    monkeypatch.setattr(engine, "ask", slow_ask)
+    monkeypatch.setattr(engine, "ask_with_tools", slow_ask_with_tools)
 
     r = client.post(f"/api/tasks/{created['id']}/approve")
     # The HTTP response must come back before the slow background work completes —
