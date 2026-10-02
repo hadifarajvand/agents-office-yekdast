@@ -17,6 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TypedDict
 
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, StateGraph
 
 from .. import brain as brainmod
@@ -81,7 +82,19 @@ _graph = StateGraph(SpecialistState)
 _graph.add_node("specialist", _specialist_node)
 _graph.set_entry_point("specialist")
 _graph.add_edge("specialist", END)
+
 _compiled = _graph.compile()
+
+
+def compile_graph(checkpointer: BaseCheckpointSaver | None = None) -> None:
+    """Recompile the module-level graph, optionally with a durable checkpointer.
+
+    Called from main.py's startup hook once the checkpointer's Postgres
+    connection is ready; the import-time compile() above keeps tests and
+    any other caller that runs before startup working without one.
+    """
+    global _compiled
+    _compiled = _graph.compile(checkpointer=checkpointer)
 
 
 async def run_task(
@@ -132,7 +145,8 @@ async def run_task(
     m = model_for(task.get("model"), task.get("routineModel"), agent.model, office_model)
     e = effort_for(task.get("effort"), task.get("routineEffort"), agent.effort, office_effort, m["model"])
 
-    out = await _compiled.ainvoke({"system": system, "user": user, "model_key": m["model"], "result": ""})
+    config = {"configurable": {"thread_id": task.get("id", "no-task-id")}}
+    out = await _compiled.ainvoke({"system": system, "user": user, "model_key": m["model"], "result": ""}, config=config)
     return {
         "result": out["result"],
         "skills": skills.names(agent),

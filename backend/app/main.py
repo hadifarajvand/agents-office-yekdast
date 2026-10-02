@@ -7,10 +7,14 @@ from __future__ import annotations
 
 import asyncio
 import time
+from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 
+import psycopg
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from psycopg.rows import dict_row
 
 from . import db, learn, routines as routines_mod, when as whenmod
 from .brain import brain_summary
@@ -22,7 +26,27 @@ from .onboard import active as onboard_active, is_set_up, setup_map
 from .roster import DEPTS, load_roster
 from .skills import load_skills
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    async with AsyncExitStack() as stack:
+        conn = await stack.enter_async_context(
+            await psycopg.AsyncConnection.connect(
+                db.DATABASE_URL, autocommit=True, prepare_threshold=0, row_factory=dict_row,
+            )
+        )
+        saver = AsyncPostgresSaver(conn)
+        await saver.setup()
+        engine.compile_graph(checkpointer=saver)
+        await db.get_pool()
+        task = asyncio.create_task(_tick_routines())
+        try:
+            yield
+        finally:
+            task.cancel()
+
+
+app = FastAPI(lifespan=lifespan)
 cfg = load_config()
 mcp_registry.configure({"mcp": cfg.mcp, "tools": cfg.tools}, valid_depts=set(DEPTS.keys()))
 
@@ -410,12 +434,6 @@ async def _tick_routines():
         except Exception:
             pass
         await asyncio.sleep(20)
-
-
-@app.on_event("startup")
-async def startup():
-    await db.get_pool()
-    asyncio.create_task(_tick_routines())
 
 
 # ---------- chat ----------
