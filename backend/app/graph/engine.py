@@ -22,6 +22,7 @@ from langgraph.graph import END, StateGraph
 
 from .. import brain as brainmod
 from .. import learn
+from .. import policy
 from ..llm import ask, ask_haiku_json, ask_with_tools
 from ..mcp import registry as mcp_registry
 from ..models import effort_for, model_for
@@ -75,6 +76,8 @@ class SpecialistState(TypedDict):
     model_key: str
     dept: str
     agent_tools: list[str]
+    agent_id: str
+    brain_path: str
     result: str
 
 
@@ -82,8 +85,13 @@ async def _specialist_node(state: SpecialistState) -> SpecialistState:
     """ReAct-style loop (Task 2): each iteration lets the model call a tool or
     finish. Every tool-call event is checked against mcp_registry.call_allowed()
     fresh, right before that specific call runs — never once up front for the
-    whole loop — so a later step can't ride on an earlier step's authorization."""
+    whole loop — so a later step can't ride on an earlier step's authorization.
+    Task 3: every call (allowed or denied) is appended to the MCP audit log,
+    redacted before it's written; a tool result or exception is redacted before
+    it's fed back into the conversation."""
     dept = state.get("dept", "")
+    agent_id = state.get("agent_id", "")
+    brain_path = state.get("brain_path", "")
     tools = mcp_registry.tools_for(state.get("agent_tools") or [])
     tools_by_name = {t.name: t for t in tools}
     messages: list[dict] = [
@@ -99,15 +107,27 @@ async def _specialist_node(state: SpecialistState) -> SpecialistState:
         messages.append({"role": "assistant", "content": step["content"], "tool_calls": step["tool_calls"]})
         for call in step["tool_calls"]:
             key = mcp_registry.key_of(f'mcp__{call["name"]}__x') or call["name"]
-            allowed, refusal = mcp_registry.call_allowed(dept, key)
+            allowed, refusal_msg = mcp_registry.call_allowed(dept, key)
             if not allowed:
-                tool_result = refusal
+                tool_result = refusal_msg
+                reason = refusal_msg
             else:
                 tool = tools_by_name.get(call["name"])
-                tool_result = await tool.ainvoke(call["args"]) if tool else "tool not found"
+                reason = ""
+                try:
+                    tool_result = await tool.ainvoke(call["args"]) if tool else "tool not found"
+                except Exception as exc:
+                    tool_result = policy.redact(f"tool call failed: {exc}")
+                    reason = tool_result
+            tool_result = policy.redact(str(tool_result))
+            if brain_path:
+                policy.append_audit_log(
+                    Path(brain_path),
+                    policy.audit_log_line(agent_id, dept, key, call["name"], str(call["args"]), allowed, reason),
+                )
             messages.append({"role": "tool", "tool_call_id": call["id"], "content": tool_result})
         result = step["content"]
-    return {**state, "result": result}
+    return {**state, "result": policy.redact(result)}
 
 
 _graph = StateGraph(SpecialistState)
@@ -150,6 +170,8 @@ async def run_task(
         f"You are {persona(agent)} at this company.",
         agent_brief(agent, skills, brain_path),
         mcp_registry.prompt_text(agent.tools),
+        policy.UNTRUSTED_CONTENT_RULE,
+        policy.OUTPUT_CONTRACT,
     ]
     if biz:
         system_parts.append(f"COMPANY CONTEXT\n{biz}")
@@ -179,7 +201,10 @@ async def run_task(
 
     config = {"configurable": {"thread_id": task.get("id", "no-task-id")}}
     out = await _compiled.ainvoke(
-        {"system": system, "user": user, "model_key": m["model"], "dept": task["dept"], "agent_tools": agent.tools, "result": ""},
+        {
+            "system": system, "user": user, "model_key": m["model"], "dept": task["dept"],
+            "agent_tools": agent.tools, "agent_id": agent.id, "brain_path": str(brain_path), "result": "",
+        },
         config=config,
     )
     return {
@@ -196,8 +221,11 @@ async def chat(agent: Agent, text: str, history: list[dict], agents: list[Agent]
         f"You are {persona(agent)}, chatting with the owner.",
         agent_brief(agent, skills, brain_path),
         mcp_registry.prompt_text(agent.tools),
+        policy.UNTRUSTED_CONTENT_RULE,
+        policy.OUTPUT_CONTRACT,
     ] if p)
     hist_text = "\n".join(f"{h.get('role', 'owner')}: {h.get('text', '')}" for h in (history or [])[-6:])
     user = f"{hist_text}\n\nowner: {text}" if hist_text else text
     m = model_for(None, None, agent.model, office_model)
-    return await ask(system, user, model_key=m["model"])
+    reply = await ask(system, user, model_key=m["model"])
+    return policy.redact(reply)

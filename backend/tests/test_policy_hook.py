@@ -36,7 +36,7 @@ def test_call_allowed_denies_server_not_wired_to_department():
     r = make_registry()
     allowed, refusal = r.call_allowed("fin", "gmail")
     assert allowed is False
-    assert refusal == "Access denied: Gmail not wired to fin department"
+    assert refusal == "I can't do that — it's outside my scope (Gmail not wired to fin department). Route this to the owner."
 
 
 def test_call_allowed_permits_server_wired_to_department():
@@ -52,13 +52,14 @@ def test_call_allowed_denies_server_outside_allow_deny_policy():
     r.servers = [r._make("Stripe", "", "connected")]
     allowed, refusal = r.call_allowed("fin", "stripe")
     assert allowed is False
-    assert refusal == "Access denied: stripe not wired to fin department"
+    assert refusal == "I can't do that — it's outside my scope (stripe not wired to fin department). Route this to the owner."
 
 
-def test_specialist_loop_rechecks_every_call_allow_then_deny(monkeypatch):
+def test_specialist_loop_rechecks_every_call_allow_then_deny(monkeypatch, tmp_path):
     """Step 1 calls an allowed tool (gmail, content dept) and succeeds. Step 2 attempts
     a disallowed tool (stripe, content dept isn't wired to it) and is blocked — proving
-    the gate is re-run per call, not decided once for the whole task."""
+    the gate is re-run per call, not decided once for the whole task. Also proves both
+    the allowed and denied calls are written to the audit log (Task 3)."""
     r = make_registry()
     monkeypatch.setattr(engine, "mcp_registry", r)
 
@@ -81,7 +82,7 @@ def test_specialist_loop_rechecks_every_call_allow_then_deny(monkeypatch):
 
     out = asyncio.run(engine._specialist_node({
         "system": "s", "user": "u", "model_key": "haiku",
-        "dept": "content", "agent_tools": [], "result": "",
+        "dept": "content", "agent_tools": [], "agent_id": "newt", "brain_path": str(tmp_path), "result": "",
     }))
 
     assert out["result"] == "done"
@@ -90,10 +91,18 @@ def test_specialist_loop_rechecks_every_call_allow_then_deny(monkeypatch):
 
     tool_messages = [m for msgs in call_log for m in msgs if m["role"] == "tool"]
     assert tool_messages[0]["content"] == "gmail result"
-    assert tool_messages[1]["content"] == "Access denied: Stripe not wired to content department"
+    assert tool_messages[1]["content"] == (
+        "I can't do that — it's outside my scope (Stripe not wired to content department). Route this to the owner."
+    )
+
+    log_path = tmp_path / "Agents Office" / "audit" / "mcp-access.log"
+    lines = log_path.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 2
+    assert "newt (content) | gmail | gmail" in lines[0] and "✓allowed" in lines[0]
+    assert "newt (content) | stripe | stripe" in lines[1] and "✗denied" in lines[1]
 
 
-def test_specialist_loop_stops_after_max_tool_steps(monkeypatch):
+def test_specialist_loop_stops_after_max_tool_steps(monkeypatch, tmp_path):
     r = make_registry()
     monkeypatch.setattr(engine, "mcp_registry", r)
 
@@ -107,7 +116,7 @@ def test_specialist_loop_stops_after_max_tool_steps(monkeypatch):
 
     out = asyncio.run(engine._specialist_node({
         "system": "s", "user": "u", "model_key": "haiku",
-        "dept": "content", "agent_tools": [], "result": "",
+        "dept": "content", "agent_tools": [], "agent_id": "newt", "brain_path": str(tmp_path), "result": "",
     }))
 
     assert out["result"] == "still working"

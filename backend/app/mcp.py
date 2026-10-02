@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import re
 
+from . import policy
+
 DEPT_KEYS = ["exec", "revenue", "engineering", "frontend", "devops", "secdata", "fin", "content"]
 
 ALIASES = {
@@ -170,9 +172,9 @@ class MCPRegistry:
         point). Returns (allowed, refusal_message)."""
         s = next((x for x in self.servers if x.get("key") == key or x["id"] == key), None)
         if not s or not self._allowed(s):
-            return False, f"Access denied: {key} not wired to {dept} department"
+            return False, policy.refusal(f"{key} not wired to {dept} department", "the owner")
         if dept not in self._depts_for(s["name"], s.get("key")):
-            return False, f"Access denied: {s['name']} not wired to {dept} department"
+            return False, policy.refusal(f"{s['name']} not wired to {dept} department", "the owner")
         return True, None
 
     def tools_for(self, agent_tools: list[str]) -> list:
