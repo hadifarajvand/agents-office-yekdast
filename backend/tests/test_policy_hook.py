@@ -81,7 +81,7 @@ def test_specialist_loop_rechecks_every_call_allow_then_deny(monkeypatch, tmp_pa
     monkeypatch.setattr(engine, "ask_with_tools", fake_ask_with_tools)
 
     out = asyncio.run(engine._specialist_node({
-        "system": "s", "user": "u", "model_key": "haiku",
+        "system": "s", "task_title": "t", "task_text": "u", "model_key": "haiku",
         "dept": "content", "agent_tools": [], "agent_id": "newt", "brain_path": str(tmp_path), "result": "",
     }))
 
@@ -115,7 +115,7 @@ def test_specialist_loop_stops_after_max_tool_steps(monkeypatch, tmp_path):
     monkeypatch.setattr(engine, "ask_with_tools", always_calls_tool)
 
     out = asyncio.run(engine._specialist_node({
-        "system": "s", "user": "u", "model_key": "haiku",
+        "system": "s", "task_title": "t", "task_text": "u", "model_key": "haiku",
         "dept": "content", "agent_tools": [], "agent_id": "newt", "brain_path": str(tmp_path), "result": "",
     }))
 

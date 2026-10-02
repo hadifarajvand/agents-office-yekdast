@@ -9,13 +9,16 @@ background, so the caller sees "doing" long before the agent's result is ready.
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from langgraph.checkpoint.memory import InMemorySaver
 
 from app import db
 from app.graph import engine
 from app.main import app
+from app.roster import defaults as default_agents
 
 
 @pytest.fixture
@@ -71,6 +74,39 @@ def mock_llm(monkeypatch):
     monkeypatch.setattr(engine, "ask", fake_ask)
     monkeypatch.setattr(engine, "ask_with_tools", fake_ask_with_tools)
     return {"ask_haiku_json": fake_ask_haiku_json, "ask": fake_ask, "ask_with_tools": fake_ask_with_tools}
+
+
+@pytest.fixture
+def graph_checkpointer():
+    """Task 4's approve/reject flow resumes a graph paused at the "gate" node, which
+    needs a real checkpointer to persist across calls — the module-level default has
+    none. Compile with an in-memory one for the duration of each test, then restore."""
+    engine.compile_graph(checkpointer=InMemorySaver())
+    yield
+    engine.compile_graph(checkpointer=None)
+
+
+def _skills_stub():
+    return type("S", (), {"names": lambda self, a: [], "prompt_text": lambda self, a: ""})()
+
+
+def _seed_waiting_task(task: dict):
+    """Mirrors the real route into "waiting": a routine firing with needsOk=True calls
+    run_task(mode="draft"), which pauses the graph at "gate" rather than completing."""
+    agent = next(a for a in default_agents() if a.department == task["dept"])
+    # asyncio.run() closes its loop on exit, leaving this thread with no default
+    # loop — fatal for a test that goes on to construct its own asyncio.Event().
+    # Run on an explicit loop and install a fresh default one afterward instead.
+    loop = asyncio.new_event_loop()
+    try:
+        loop.run_until_complete(engine.run_task(
+            task, None, "draft", agent, default_agents(), _skills_stub(),
+            brain_path=Path("."), office_model=None, office_effort=None,
+        ))
+    finally:
+        loop.close()
+        asyncio.set_event_loop(asyncio.new_event_loop())
+    task["state"] = "waiting"
 
 
 @pytest.fixture
@@ -183,9 +219,9 @@ def test_run_unknown_task_404(client):
     assert r.status_code == 404
 
 
-def test_approve_acks_immediately_before_background_work_finishes(client, fake_store, monkeypatch):
+def test_approve_acks_immediately_before_background_work_finishes(client, fake_store, monkeypatch, graph_checkpointer):
     created = client.post("/api/tasks", json={"dept": "fin", "text": "chase overdue invoices"}).json()
-    fake_store[created["id"]]["state"] = "waiting"
+    _seed_waiting_task(fake_store[created["id"]])
 
     finish_event = asyncio.Event()
 
@@ -212,9 +248,9 @@ def test_approve_requires_waiting_state(client):
     assert r.status_code == 400
 
 
-def test_reject_acks_immediately(client, fake_store):
+def test_reject_acks_immediately(client, fake_store, graph_checkpointer):
     created = client.post("/api/tasks", json={"dept": "fin", "text": "chase overdue invoices"}).json()
-    fake_store[created["id"]]["state"] = "waiting"
+    _seed_waiting_task(fake_store[created["id"]])
     r = client.post(f"/api/tasks/{created['id']}/reject", json={"feedback": "no, redo this"})
     assert r.status_code == 200
     assert r.json() == {"ok": True, "id": created["id"], "state": "doing"}

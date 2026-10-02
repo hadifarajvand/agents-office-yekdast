@@ -21,7 +21,8 @@ def test_compile_graph_without_checkpointer_runs(monkeypatch):
     monkeypatch.setattr(engine, "ask_with_tools", fake_ask_with_tools)
     engine.compile_graph(checkpointer=None)
     out = asyncio.run(engine._compiled.ainvoke(
-        {"system": "s", "user": "u", "model_key": "haiku", "dept": "fin", "agent_tools": [], "result": ""},
+        {"system": "s", "task_title": "t", "task_text": "u", "model_key": "haiku", "dept": "fin",
+         "agent_tools": [], "result": ""},
         config={"configurable": {"thread_id": "t1"}},
     ))
     assert out["result"] == "ok"
@@ -37,7 +38,8 @@ def test_compile_graph_with_checkpointer_persists_state(monkeypatch):
     config = {"configurable": {"thread_id": "persist-me"}}
 
     asyncio.run(engine._compiled.ainvoke(
-        {"system": "s", "user": "u", "model_key": "haiku", "dept": "fin", "agent_tools": [], "result": ""}, config=config,
+        {"system": "s", "task_title": "t", "task_text": "u", "model_key": "haiku", "dept": "fin",
+         "agent_tools": [], "result": ""}, config=config,
     ))
     state = engine._compiled.get_state(config)
     assert state.values["result"] == "first run"
@@ -59,4 +61,36 @@ def test_run_task_works_through_recompiled_graph(monkeypatch, tmp_path: Path):
         brain_path=tmp_path, office_model=None, office_effort=None,
     ))
     assert out["result"] == "drafted"
+    engine.compile_graph(checkpointer=None)
+
+
+def test_draft_pauses_and_approve_resumes_same_thread(monkeypatch, tmp_path: Path):
+    """Task 4: a "draft" run pauses at the "gate" node (via interrupt_before) instead
+    of running to completion, and resume_task() continues that exact paused thread —
+    via the durable checkpoint, not a fresh run_task() call — once the owner approves."""
+    calls: list[str] = []
+
+    async def fake_ask_with_tools(messages, tools, model_key=None, max_tokens=4096):
+        is_approve = any("owner approved" in m.get("content", "") for m in messages if m["role"] == "user")
+        calls.append("approve" if is_approve else "draft")
+        return {"content": "approved and sent" if is_approve else "here is the draft", "tool_calls": []}
+
+    monkeypatch.setattr(engine, "ask_with_tools", fake_ask_with_tools)
+    engine.compile_graph(checkpointer=InMemorySaver())
+    agents = defaults()
+    agent = next(a for a in agents if a.department == "fin")
+    skills = type("S", (), {"names": lambda self, a: [], "prompt_text": lambda self, a: ""})()
+    task = {"id": "task-pause", "dept": "fin", "title": "chase invoices", "text": "chase overdue invoices"}
+
+    out = asyncio.run(engine.run_task(
+        task, None, "draft", agent, agents, skills, brain_path=tmp_path, office_model=None, office_effort=None,
+    ))
+    assert out["result"] == "here is the draft"
+    assert calls == ["draft"]
+    assert asyncio.run(engine.is_paused("task-pause")) is True
+
+    out2 = asyncio.run(engine.resume_task("task-pause", "approve", None, skills, agent))
+    assert out2["result"] == "approved and sent"
+    assert calls == ["draft", "approve"]
+    assert asyncio.run(engine.is_paused("task-pause")) is False
     engine.compile_graph(checkpointer=None)

@@ -132,7 +132,7 @@ def test_specialist_node_redacts_tool_result_end_to_end(monkeypatch, tmp_path):
     monkeypatch.setattr(engine, "ask_with_tools", fake_ask_with_tools)
 
     out = asyncio.run(engine._specialist_node({
-        "system": "s", "user": "u", "model_key": "haiku",
+        "system": "s", "task_title": "t", "task_text": "u", "model_key": "haiku",
         "dept": "fin", "agent_tools": [], "agent_id": "newt", "brain_path": str(tmp_path), "result": "",
     }))
 
@@ -163,7 +163,7 @@ def test_specialist_node_redacts_exception_text_end_to_end(monkeypatch, tmp_path
     monkeypatch.setattr(engine, "ask_with_tools", fake_ask_with_tools)
 
     out = asyncio.run(engine._specialist_node({
-        "system": "s", "user": "u", "model_key": "haiku",
+        "system": "s", "task_title": "t", "task_text": "u", "model_key": "haiku",
         "dept": "fin", "agent_tools": [], "agent_id": "newt", "brain_path": str(tmp_path), "result": "",
     }))
 

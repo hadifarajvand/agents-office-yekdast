@@ -15,7 +15,7 @@ in serve.mjs, so the existing frontend's HTTP contract is untouched. LangGraph o
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TypedDict
+from typing import Optional, TypedDict
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, StateGraph
@@ -72,13 +72,39 @@ MAX_TOOL_STEPS = 8
 
 class SpecialistState(TypedDict):
     system: str
-    user: str
+    task_title: str
+    task_text: str
+    task_plan: list[str]
+    routine_name: str
+    mode: Optional[str]
+    feedback: Optional[str]
+    draft: str
     model_key: str
     dept: str
     agent_tools: list[str]
     agent_id: str
     brain_path: str
     result: str
+
+
+def _build_user(state: SpecialistState) -> str:
+    parts = [f"Task: {state['task_title']}", state["task_text"]]
+    if state.get("task_plan"):
+        parts.append("Plan: " + "; ".join(state["task_plan"]))
+    if state.get("routine_name"):
+        parts.append(f"(This is routine \"{state['routine_name']}\" firing on schedule.)")
+    mode = state.get("mode")
+    if mode == "draft":
+        parts.append("Prepare everything but send/post/pay nothing yet — this will wait for the owner's OK.")
+    elif mode == "approve":
+        parts.append("The owner approved this. Carry out the outbound step now.")
+        if state.get("draft"):
+            parts.append(f"Previously drafted:\n{state['draft']}")
+    elif mode == "routine":
+        parts.append("This is read-only — report back, do not send/post/pay/change anything.")
+    if state.get("feedback"):
+        parts.append(f"The owner sent this feedback, revise accordingly: {state['feedback']}")
+    return "\n\n".join(parts)
 
 
 async def _specialist_node(state: SpecialistState) -> SpecialistState:
@@ -88,7 +114,12 @@ async def _specialist_node(state: SpecialistState) -> SpecialistState:
     whole loop — so a later step can't ride on an earlier step's authorization.
     Task 3: every call (allowed or denied) is appended to the MCP audit log,
     redacted before it's written; a tool result or exception is redacted before
-    it's fed back into the conversation."""
+    it's fed back into the conversation.
+
+    Task 4: this node runs twice per approval round — once to draft (mode
+    "draft"), once to send after the owner's OK (mode "approve") — with a
+    real graph pause at the "gate" node in between, so the second pass is a
+    resumption of the same thread/checkpoint rather than a fresh call."""
     dept = state.get("dept", "")
     agent_id = state.get("agent_id", "")
     brain_path = state.get("brain_path", "")
@@ -96,7 +127,7 @@ async def _specialist_node(state: SpecialistState) -> SpecialistState:
     tools_by_name = {t.name: t for t in tools}
     messages: list[dict] = [
         {"role": "system", "content": state["system"]},
-        {"role": "user", "content": state["user"]},
+        {"role": "user", "content": _build_user(state)},
     ]
     result = ""
     for _ in range(MAX_TOOL_STEPS):
@@ -127,15 +158,32 @@ async def _specialist_node(state: SpecialistState) -> SpecialistState:
                 )
             messages.append({"role": "tool", "tool_call_id": call["id"], "content": tool_result})
         result = step["content"]
-    return {**state, "result": policy.redact(result)}
+    result = policy.redact(result)
+    new_state = {**state, "result": result}
+    if state.get("mode") == "draft":
+        new_state["draft"] = result
+    return new_state
+
+
+async def _gate_node(state: SpecialistState) -> SpecialistState:
+    """No-op node that exists only as the interrupt_before target: it marks
+    the point where a "draft" pass pauses for the owner's approve/reject,
+    durably, via the compiled graph's checkpointer."""
+    return state
+
+
+def _route_after_specialist(state: SpecialistState) -> str:
+    return "gate" if state.get("mode") == "draft" else END
 
 
 _graph = StateGraph(SpecialistState)
 _graph.add_node("specialist", _specialist_node)
+_graph.add_node("gate", _gate_node)
 _graph.set_entry_point("specialist")
-_graph.add_edge("specialist", END)
+_graph.add_conditional_edges("specialist", _route_after_specialist, {"gate": "gate", END: END})
+_graph.add_edge("gate", "specialist")
 
-_compiled = _graph.compile()
+_compiled = _graph.compile(interrupt_before=["gate"])
 
 
 def compile_graph(checkpointer: BaseCheckpointSaver | None = None) -> None:
@@ -144,9 +192,25 @@ def compile_graph(checkpointer: BaseCheckpointSaver | None = None) -> None:
     Called from main.py's startup hook once the checkpointer's Postgres
     connection is ready; the import-time compile() above keeps tests and
     any other caller that runs before startup working without one.
+
+    Task 4 (human-in-the-loop): the plan names LangGraph's dynamic
+    interrupt()/Command(resume=...) API. That API requires Python 3.11+ to
+    propagate its config contextvar through an async node call (confirmed via
+    direct reproduction: it raises "RuntimeError: Called get_config outside
+    of a runnable context" on this project's Python 3.9 venv, root-caused to
+    langgraph's ASYNCIO_ACCEPTS_CONTEXT check). The static interrupt_before
+    mechanism used here — paired with aget_state/aupdate_state/ainvoke(None,
+    ...) in resume_task() below — achieves the same genuine pause-and-resume
+    over the durable Postgres checkpointer without that version requirement.
     """
     global _compiled
-    _compiled = _graph.compile(checkpointer=checkpointer)
+    _compiled = _graph.compile(checkpointer=checkpointer, interrupt_before=["gate"])
+
+
+async def is_paused(task_id: str) -> bool:
+    config = {"configurable": {"thread_id": task_id}}
+    snap = await _compiled.aget_state(config)
+    return bool(snap.next)
 
 
 async def run_task(
@@ -179,30 +243,16 @@ async def run_task(
         system_parts.append(f"RELEVANT NOTES\n{notes_text}")
     system = "\n\n".join(p for p in system_parts if p)
 
-    user_parts = [f"Task: {task['title']}", task["text"]]
-    if task.get("plan"):
-        user_parts.append("Plan: " + "; ".join(task["plan"]))
-    if task.get("routine"):
-        user_parts.append(f"(This is routine \"{task['routine']}\" firing on schedule.)")
-    if mode == "draft":
-        user_parts.append("Prepare everything but send/post/pay nothing yet — this will wait for the owner's OK.")
-    elif mode == "approve":
-        user_parts.append("The owner approved this. Carry out the outbound step now.")
-        if task.get("draft"):
-            user_parts.append(f"Previously drafted:\n{task['draft']}")
-    elif mode == "routine":
-        user_parts.append("This is read-only — report back, do not send/post/pay/change anything.")
-    if feedback:
-        user_parts.append(f"The owner sent this feedback, revise accordingly: {feedback}")
-    user = "\n\n".join(user_parts)
-
     m = model_for(task.get("model"), task.get("routineModel"), agent.model, office_model)
     e = effort_for(task.get("effort"), task.get("routineEffort"), agent.effort, office_effort, m["model"])
 
     config = {"configurable": {"thread_id": task.get("id", "no-task-id")}}
     out = await _compiled.ainvoke(
         {
-            "system": system, "user": user, "model_key": m["model"], "dept": task["dept"],
+            "system": system, "task_title": task["title"], "task_text": task["text"],
+            "task_plan": task.get("plan") or [], "routine_name": task.get("routine") or "",
+            "mode": mode, "feedback": feedback, "draft": task.get("draft") or "",
+            "model_key": m["model"], "dept": task["dept"],
             "agent_tools": agent.tools, "agent_id": agent.id, "brain_path": str(brain_path), "result": "",
         },
         config=config,
@@ -213,6 +263,25 @@ async def run_task(
         "modelUsed": m["model"], "modelFrom": m["from"],
         "effortUsed": e["effort"], "effortFrom": e["from"],
     }
+
+
+async def resume_task(task_id: str, mode: str, feedback: str | None, skills: Skills, agent: Agent) -> dict:
+    """Resume a graph paused at the "gate" node (Task 4): update the paused
+    checkpoint's state with the owner's decision, then continue the same
+    thread from that pause point — carrying forward the draft/system fields
+    already in the checkpoint rather than rebuilding them from scratch.
+
+    as_node="gate" matters: aupdate_state's default attributes the patch to
+    whichever node *wrote* the pending checkpoint (here, "specialist"), which
+    re-runs that node's own outgoing conditional edge against the new state
+    and — since mode is no longer "draft" — routes straight to END without
+    ever re-entering specialist. Attributing the update to "gate" instead
+    makes it walk gate's actual edge (gate -> specialist unconditionally),
+    so specialist genuinely re-executes with the owner's decision."""
+    config = {"configurable": {"thread_id": task_id}}
+    await _compiled.aupdate_state(config, {"mode": mode, "feedback": feedback}, as_node="gate")
+    out = await _compiled.ainvoke(None, config=config)
+    return {"result": out["result"], "skills": skills.names(agent)}
 
 
 async def chat(agent: Agent, text: str, history: list[dict], agents: list[Agent], skills: Skills, brain_path: Path,

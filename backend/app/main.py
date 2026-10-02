@@ -262,7 +262,7 @@ async def approve_or_reject_task(task_id: str, req: Request):
             t = await db.get_task(task_id)
             try:
                 mode = "approve" if is_approve else "draft"
-                out = await _execute(t, feedback, mode)
+                out = await engine.resume_task(task_id, mode, feedback, refresh_skills(), find_agent(t["agent"]))
                 if is_approve:
                     t["result"] = (t.get("result") or "") + "\n\n" + out["result"]
                     t["state"] = "done"
