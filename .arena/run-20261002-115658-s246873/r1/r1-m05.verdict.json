@@ -1,0 +1,11 @@
+{
+  "match": "r1-m05",
+  "scores": {
+    "a003": {"correctness": 7, "completeness": 8, "specificity": 8, "robustness": 7, "clarity": 8, "fatal": false},
+    "a005": {"correctness": 8, "completeness": 9, "specificity": 9, "robustness": 9, "clarity": 8, "fatal": false}
+  },
+  "winner": "a005",
+  "reason": "a005 verified the exact Gmail connector-matrix discrepancy (content/revenue vs the plan's revenue/success) and correctly reframed the flaky npm run check count, while a003's final solution still asserts a false fixed '37/38 verified' figure and only generically flags the connector matrix without checking it.",
+  "survived": ["test_api_contract.py CREATE/already-exists contradiction", "applyRoster() does not patch tools", "brain-level roster override is an empty no-op", "collision-margin arithmetic independently reproducible from LAYOUT"],
+  "standing": {"a003": ["unaddressed self-found flaw: 'npm run check passes 37/38, verified by running it' is not a stable/true fact (actual runs show 34-37/38 with a flaky smoke layer)"], "a005": ["three-naming-layers count framing (minor, judged as adequately rebutted)"]}
+}

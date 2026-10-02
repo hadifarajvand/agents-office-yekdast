@@ -1,0 +1,18 @@
+{
+  "match": "r1-m02",
+  "scores": {
+    "a009": {"correctness": 5, "completeness": 9, "specificity": 8, "robustness": 4, "clarity": 8, "fatal": false},
+    "a018": {"correctness": 9, "completeness": 9, "specificity": 9, "robustness": 10, "clarity": 9, "fatal": false}
+  },
+  "winner": "a018",
+  "reason": "a018's corrected main.py line-range citations (190-216 / 219-260) are verified exactly right against the live file, while a009's 'fix' for the same attack (192-220 / 221-263) is itself wrong by several lines — a fix that broke something else, and all three attacks a018 took turned out to misquote text not present in its actual revised solution.",
+  "survived": [
+    "a018 vs attack1 (flaky-check-count framed as '36/38 confirmed'): quoted text does not appear in a018's solution, which says 37/38 with an explicit flakiness caveat",
+    "a018 vs attack2 (github/gitlab department lists merged): a018's solution lists github and gitlab as separate keys with separate department lists, matching office.config.local.json exactly",
+    "a018 vs attack3 (src/data.js 'lines 10-13' mis-citation): a018's solution cites 'lines 11-16' for the V4 comment, not '10-13'; no mis-citation present"
+  ],
+  "standing": {
+    "a009": ["attack4 (main.py line-range drift): a009's conceded 'fix' states run_or_revise_task spans 192-220 and approve_or_reject_task spans 221-263, but direct inspection of backend/app/main.py shows the real spans are 190-216 and 219-260 (decorators included, function ends at its return statement) — a009's corrected citation is itself incorrect, so the underlying accuracy problem the attack raised is still unresolved even though a009 believes it fixed it"],
+    "a018": []
+  }
+}

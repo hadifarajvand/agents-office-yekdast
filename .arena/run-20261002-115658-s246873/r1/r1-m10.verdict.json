@@ -1,0 +1,11 @@
+{
+  "match": "r1-m10",
+  "scores": {
+    "a016": {"correctness": 9, "completeness": 9, "specificity": 9, "robustness": 9, "clarity": 9, "fatal": false},
+    "a008": {"correctness": 6, "completeness": 7, "specificity": 8, "robustness": 4, "clarity": 8, "fatal": false}
+  },
+  "winner": "a016",
+  "reason": "Both correctly found the department-scheme headline bug, but a008's revised npm-run-check baseline (35/38, three failures) is itself wrong against a direct re-run (actually 34/38, four failures, missing 'command bar adds a task in demo mode') while a016's revised baseline exactly matches a direct re-run, and a016 also caught the main.py:454-456 404-vs-500 contract-table error that a008 missed entirely.",
+  "survived": ["a016 fixed the 37/38 npm-check-baseline FATAL by re-running and reporting the correct 34/38 figure", "a016 rebutted the override-chain MAJOR by explicitly opening brain-yekdast/Agents Office/agents.json and showing it is an empty override", "a016 fixed the undeclared-tolerance MAJOR by adding an explicit exact-vs-block-citation verification standard", "a016 fixed the MINOR by adding the Task 11 pilot-department gap as verdict correction #6"],
+  "standing": {"a016": [], "a008": ["judge-found: revised npm-run-check baseline (35/38, missing the 'command bar adds a task in demo mode' failure) is itself factually wrong against a direct re-run (actual: 34/38, four failures) — no attacker caught this, but it was verified directly", "judge-found: never checks or reports the main.py:454-456 404-vs-500 API-contract-table discrepancy that a016 caught"]}
+}

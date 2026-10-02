@@ -1,0 +1,14 @@
+{
+  "match": "r1-m09",
+  "scores": {
+    "a006": {"correctness": 8, "completeness": 8, "specificity": 9, "robustness": 7, "clarity": 8, "fatal": false},
+    "a015": {"correctness": 9, "completeness": 9, "specificity": 9, "robustness": 9, "clarity": 8, "fatal": false}
+  },
+  "winner": "a015",
+  "reason": "a015's original solution independently caught the false main.py:454-456 citation and the stale Task-7-already-implemented framing without needing an attack to surface them, while a006 missed both until a015's attack forced two concessions (one MAJOR), and a006's own re-verified npm-run-check count still disagrees with the judge's own re-run (flaky but left as an unresolved discrepancy).",
+  "survived": [],
+  "standing": {
+    "a006": ["npm run check pass-count/failure-list discrepancy left unresolved (judge's own re-run produced yet a third distinct set of failures, confirming flakiness a006's rebuttal doesn't fully address)"],
+    "a015": []
+  }
+}
