@@ -1,0 +1,12 @@
+Agents Office (Yekdast fork)
+
+This repository is a fork of "Agents Office" by AJ Sahni
+(https://github.com/ajsahni/agents-office), licensed under the
+PolyForm Noncommercial License 1.0.0 (see LICENSE).
+
+Required Notice: Copyright AJ Sahni (https://github.com/ajsahni/agents-office)
+
+Modifications in this fork (Python/LangGraph backend, job pipeline, sandbox,
+connectors and frontend changes) are by the fork's owner and are distributed
+under the same license. Use is limited to noncommercial purposes as defined
+by the license.

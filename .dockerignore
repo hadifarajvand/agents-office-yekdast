@@ -6,3 +6,10 @@ dist
 .env.local
 .env
 *.pyc
+.arena
+graphify-out
+brain-yekdast
+brain/Agents Office
+.claude
+**/__pycache__
+**/.pytest_cache

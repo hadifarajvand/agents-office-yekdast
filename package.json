@@ -1,7 +1,7 @@
 {
-  "name": "agents-office",
-  "version": "3.6.1-beta.1",
-  "description": "Agents Office v3 (Beta) \u2014 a 3D isometric office where AI agents do real work on your own Claude login",
+  "name": "agents-office-yekdast",
+  "version": "0.1.0",
+  "description": "Internal workshop platform: a 3D office front end over a LangGraph job pipeline (fork of AJ Sahni's Agents Office, PolyForm Noncommercial).",
   "type": "module",
   "private": true,
   "scripts": {
@@ -14,15 +14,10 @@
   "engines": {
     "node": ">=20"
   },
-  "dependencies": {
-    "d3-force": "^3.0.0"
-  },
   "devDependencies": {
+    "d3-force": "^3.0.0",
     "esbuild": "^0.28.1",
-    "three": "^0.185.1",
-    "playwright-core": "^1.62.0"
-  },
-  "optionalDependencies": {
-    "@anthropic-ai/sdk": "^0.80.0"
+    "playwright-core": "^1.62.0",
+    "three": "^0.185.1"
   }
 }

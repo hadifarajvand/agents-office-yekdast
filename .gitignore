@@ -13,3 +13,9 @@ brain/Agents Office/
 .DS_Store
 *.backup-*
 .graphify-venv/
+.arena/
+graphify-out/
+brain-yekdast/Agents Office/*
+!brain-yekdast/Agents Office/agents-office.md
+.pytest_cache/
+backend/**/.pytest_cache/

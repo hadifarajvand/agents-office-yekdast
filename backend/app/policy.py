@@ -70,7 +70,7 @@ def _one_line(value: str) -> str:
 
 
 def refusal(reason: str, route_to: str, artifact: str = "") -> str:
-    """The exact refusal protocol wording from GUARDRAILS.md, used whenever a
+    """The exact refusal protocol wording from PLAN.md section 3 (Rules), used whenever a
     tool call or action is denied by the policy gate."""
     msg = f"I can't do that — it's outside my scope ({reason}). Route this to {route_to}."
     if artifact:
