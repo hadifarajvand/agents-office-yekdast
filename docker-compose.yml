@@ -1,44 +1,132 @@
-services:
-  app:
-    build: .
-    ports:
-      - "${APP_HOST_PORT:-4520}:4520"
-    env_file:
-      - .env.local
-    environment:
-      PORT: "4520"
-      AO_BRAIN: /brain
-      DATABASE_URL: postgresql://office:office@postgres:5432/office
-      REDIS_URL: redis://redis:6379/0
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - ${AO_BRAIN_HOST:-./brain-yekdast}:/brain
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
+# Infrastructure for the office. Nothing here is started by the tests.
+#
+#   docker compose up -d postgres egress router-gateway     # the always-on pieces
+#   uvicorn backend.app.main:app --host 127.0.0.1 --port 4520   # the app, natively (default)
+#   docker compose --profile app up -d                       # or the app in a container (see note)
+#
+# Networks
+#   ao-internal  internal:true — no route to the internet. Build-job containers live here
+#                and can reach ONLY `egress` (package registries) and `router-gateway`.
+#   ao-egress    normal — only `egress` and `router-gateway` are attached, to reach out.
+#   ao-core      the app and its database.
+#
+# Note on the app container: starting job sandboxes needs a Docker API. Mounting the
+# real socket into the app would give it host-root, so the `app` profile talks to a
+# socket proxy that exposes only container create/start/wait/logs/delete. The default is
+# to run the app natively on the owner's machine, which has the same power without
+# adding another container to trust.
 
+name: agents-office
+
+services:
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: office
-      POSTGRES_PASSWORD: office
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-office}
       POSTGRES_DB: office
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks: [ao-core]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U office"]
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
-  redis:
-    image: redis:7-alpine
+  # Package-registry proxy for build jobs: allow-listed domains only, everything logged.
+  egress:
+    image: ubuntu/squid:latest   # pin a digest after the first successful run
     volumes:
-      - redisdata:/data
+      - ./infra/egress/squid.conf:/etc/squid/squid.conf:ro
+      - ./infra/egress/allowlist.txt:/etc/squid/allowlist.txt:ro
+    networks:
+      ao-internal: {}
+      ao-egress: {}
+    restart: unless-stopped
+
+  # Model access for build jobs: forwards /v1/* to the 9router proxy on the host and adds
+  # the router key, so the key never enters a job container.
+  router-gateway:
+    image: nginx:1.27-alpine
+    environment:
+      ROUTER_API_KEY: ${ROUTER_API_KEY:?set ROUTER_API_KEY in .env.local}
+      ROUTER_UPSTREAM: ${ROUTER_UPSTREAM:-http://host.docker.internal:20128}
+    volumes:
+      - ./infra/router-gateway/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      ao-internal: {}
+      ao-egress: {}
+    restart: unless-stopped
+
+  docker-proxy:
+    profiles: [app]
+    image: tecnativa/docker-socket-proxy:latest   # pin a digest after the first successful run
+    environment:
+      CONTAINERS: 1
+      POST: 1
+      DELETE: 1
+      IMAGES: 0
+      EXEC: 0
+      VOLUMES: 0
+      NETWORKS: 0
+      SERVICES: 0
+      SWARM: 0
+      SECRETS: 0
+      BUILD: 0
+      COMMIT: 0
+      INFO: 1
+      VERSION: 1
+      PING: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [ao-core]
+    restart: unless-stopped
+
+  app:
+    profiles: [app]
+    build: .
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      PORT: "4520"
+      AO_BRAIN: /brain
+      DATABASE_URL: postgresql://office:${POSTGRES_PASSWORD:-office}@postgres:5432/office
+      DOCKER_HOST: tcp://docker-proxy:2375
+      ROUTER_BASE_URL: ${ROUTER_BASE_URL:-http://host.docker.internal:20128}
+      AO_ALLOWED_HOSTS: localhost,127.0.0.1
+    ports:
+      - "127.0.0.1:${APP_HOST_PORT:-4520}:4520"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${AO_BRAIN_HOST:-./brain-yekdast}:/brain
+      - ./data:/app/data
+    networks: [ao-core, ao-egress]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      docker-proxy:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-H", "Host: localhost", "http://127.0.0.1:4520/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+networks:
+  ao-core: {}
+  ao-egress: {}
+  ao-internal:
+    name: ao-internal     # fixed name: sandbox.container_spec attaches job containers to it
+    internal: true
 
 volumes:
   pgdata:
-  redisdata:

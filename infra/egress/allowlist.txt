@@ -1,0 +1,5 @@
+# One domain per line; a leading dot matches subdomains. Keep this list minimal and
+# review every addition: anything listed here can also carry data OUT of a build job.
+registry.npmjs.org
+registry.yarnpkg.com
+nodejs.org

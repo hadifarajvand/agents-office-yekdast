@@ -79,6 +79,10 @@ class FakeDeployer:
         self.exposed: list[int] = []
         self.stopped = 0
         self.probe_ok = True
+        self.auth_ok = True
+
+    async def auth_configured(self, preview):
+        return {"ok": self.auth_ok, "detail": "basic auth set" if self.auth_ok else "no auth layer"}
 
     async def deploy_preview(self, job, patch_path):
         self.deployed += 1
@@ -240,15 +244,24 @@ async def test_tier2_always_needs_the_owner(env):
     assert job["pending"][0] == {"stage": "exposure", "roles": ["owner"], "needsOwner": True}
 
 
-async def test_unauthenticated_access_blocks_exposure(env):
-    env.dep.probe_ok = False  # the app answers 200 without credentials
+async def test_missing_auth_layer_blocks_exposure_before_any_route_exists(env):
+    env.dep.auth_ok = False
     jid = await start(env, tier=1)
     await owner(env, jid)  # verify
     job = await db.get_job(jid)
-    assert job["stages"]["exposure"]["attempts"] >= 1 and env.dep.exposed == []
-    assert job["status"] in ("parked", "waiting") and not job["preview"]["url"]
-    fails = [a for a in await db.list_approvals(jid) if a["stage"] == "exposure"]
-    assert fails == [] or all(a["verdict"] == "FAIL" for a in fails)
+    assert job["status"] == "parked" and "exposure" in job["parkReason"]
+    assert env.dep.exposed == []  # no public route was ever created
+
+
+async def test_a_public_route_that_answers_without_credentials_is_taken_down(env):
+    env.dep.probe_ok = False  # the route is up but does not refuse anonymous requests
+    jid = await start(env, tier=1)
+    await owner(env, jid)  # verify
+    await owner(env, jid)  # exposure: the owner's click; the route is applied and probed
+    job = await db.get_job(jid)
+    assert env.dep.exposed == [1] and env.dep.stopped == 1
+    assert job["status"] == "parked" and "taken down" in job["parkReason"]
+    assert job["preview"]["url"] is None and job["preview"]["stopped"] is True and job["tier"] == 0
 
 
 # ---------- review rules ----------

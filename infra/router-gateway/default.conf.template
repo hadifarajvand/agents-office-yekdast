@@ -1,0 +1,22 @@
+# Forwards model calls from build-job containers to the 9router proxy and adds the key.
+# envsubst fills ${ROUTER_UPSTREAM} and ${ROUTER_API_KEY} at container start.
+server {
+    listen 8080;
+    client_max_body_size 20m;
+
+    location = /healthz { return 200 "ok\n"; }
+
+    # Only the model API paths; nothing else on the router (its dashboard, key
+    # management, usage pages) is reachable from a job.
+    location /v1/ {
+        proxy_pass ${ROUTER_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization "Bearer ${ROUTER_API_KEY}";
+        proxy_set_header x-api-key "${ROUTER_API_KEY}";
+        proxy_buffering off;
+        proxy_read_timeout 900s;
+    }
+
+    location / { return 404; }
+}

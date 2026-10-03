@@ -162,7 +162,8 @@ async def _specialist_node(state: SpecialistState) -> SpecialistState:
             break
         messages.append({"role": "assistant", "content": step["content"], "tool_calls": step["tool_calls"]})
         for call in step["tool_calls"]:
-            key = mcp_registry.key_of(f'mcp__{call["name"]}__x') or call["name"]
+            key = (mcp_registry.server_of_tool(call["name"])
+                   or mcp_registry.key_of(f'mcp__{call["name"]}__x') or call["name"])
             boundary_hit = _boundary_violation(state.get("agent_boundaries") or {}, call["name"])
             if boundary_hit:
                 allowed = False

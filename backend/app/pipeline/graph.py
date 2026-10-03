@@ -158,13 +158,34 @@ def _gate_node(stage: str):
 
 
 async def _apply_exposure(state: JobState) -> dict:
-    if state.get("route") in ("park", "kill") or await jobs.is_killed(state["job_id"]):
-        return {"route": "kill"} if await jobs.is_killed(state["job_id"]) else {}
-    from .stages import apply_exposure
-    out = await apply_exposure(state)
-    if out.get("preview"):
-        await jobs.touch(state["job_id"], preview=out["preview"], tier=out["preview"].get("tier", 0))
-    return out
+    """Runs only after every key for the requested tier is recorded. Adds the public
+    route with auth, then immediately probes it without credentials; if access is not
+    refused the app is stopped, the preview is withdrawn, and the job parks at "preview"."""
+    jid = state["job_id"]
+    if state.get("route") in ("park", "kill") or await jobs.is_killed(jid):
+        return {"route": "kill"} if await jobs.is_killed(jid) else {}
+    tier = int(state.get("requested_tier", 0))
+    prev = dict(state.get("preview") or {})
+    if tier <= 0 or prev.get("tier") == tier:
+        return {}
+    from .ports import get_deps
+    from .stages import _evidence
+    dep = get_deps().deployer
+    job = await db.get_job(jid)
+    res = await dep.apply_exposure(job, prev, tier)
+    prev.update(url=res.get("url"), tier=tier)
+    probe = await dep.probe_unauthenticated(prev)
+    await _evidence(state, "exposure", "probe", "request without credentials is refused", bool(probe.get("ok")),
+                    {"status": probe.get("status"), "url": prev.get("url")}, "authprobe")
+    if not probe.get("ok"):
+        await dep.stop(job, prev)
+        withdrawn = {**prev, "url": None, "tier": 0, "stopped": True}
+        await jobs.touch(jid, preview=withdrawn, tier=0)
+        return {**await _park(jid, "preview", "the public route answered without credentials; the app was taken down"),
+                "preview": withdrawn}
+    await jobs.touch(jid, preview=prev, tier=tier)
+    await jobs.event(jid, f"exposed at tier {tier}")
+    return {"preview": prev}
 
 
 async def _park_node(state: JobState) -> dict:
@@ -240,8 +261,9 @@ def build_graph() -> StateGraph:
                                 {nxt: nxt, s: s, f"{s}_gate": f"{s}_gate", "park": "park", "finish": "finish"} if nxt != "finish"
                                 else {"finish": "finish", s: s, f"{s}_gate": f"{s}_gate", "park": "park"})
     # apply_exposure -> handoff
-    g.add_conditional_edges("apply_exposure", lambda st: "finish" if st.get("route") == "kill" else "handoff",
-                            {"finish": "finish", "handoff": "handoff"})
+    g.add_conditional_edges("apply_exposure",
+                            lambda st: {"kill": "finish", "park": "park"}.get(st.get("route", ""), "handoff"),
+                            {"finish": "finish", "park": "park", "handoff": "handoff"})
     g.add_conditional_edges("park", lambda st: {"resume": "resume", "kill": "finish"}.get(st.get("route", ""), "finish"),
                             {"resume": "resume_router", "finish": "finish"})
     g.add_node("resume_router", lambda st: {"route": ""})

@@ -74,6 +74,8 @@ class MCPRegistry:
         self.cfg_mcp = {"allow": [], "deny": [], "departments": {}}
         self.cfg_web = True
         self.web_bound = False  # set True only when a real web search/fetch tool is wired
+        self.bound_tools: dict[str, list] = {}   # server key -> LangChain tools actually connected
+        self._tool_server: dict[str, str] = {}   # tool name -> server key
 
     def configure(self, cfg: dict, valid_depts: set[str] | None = None) -> None:
         self.cfg_mcp = {"allow": [], "deny": [], "departments": {}, **(cfg.get("mcp") or {})}
@@ -178,13 +180,31 @@ class MCPRegistry:
             return False, policy.refusal(f"{s['name']} not wired to {dept} department", "the owner")
         return True, None
 
+    def attach_tools(self, server_key: str, tools: list, name: str | None = None) -> None:
+        """Register real tools for a connector (e.g. GitHub read-only) and mark it connected."""
+        self.bound_tools[server_key] = list(tools)
+        for t in tools:
+            self._tool_server[t.name] = server_key
+        sid = tool_id(name or server_key)
+        if not any(x["id"] == sid for x in self.servers):
+            self.servers.append(self._make(name or server_key, "", "connected"))
+        for x in self.servers:
+            if x["id"] == sid:
+                x["status"] = "connected"
+                x["tools"] = [t.name for t in tools]
+
+    def server_of_tool(self, tool_name: str) -> str | None:
+        return self._tool_server.get(tool_name)
+
     def tools_for(self, agent_tools: list[str]) -> list:
-        """Tool objects for the specialist loop (Task 2), one per usable server
-        this agent usually reaches for. Empty until real langchain-mcp-adapters
-        clients are wired in (servers list is only populated via from_init/tests
-        today) — the loop and the call-time gate above are ready for that swap
-        without further code changes."""
-        return []
+        """Tools this agent may be handed: only those of connectors it names in its
+        `tools` list. The call-time gate (call_allowed) still checks every single call."""
+        wanted = {norm(t) for t in (agent_tools or [])}
+        out = []
+        for key, tools in self.bound_tools.items():
+            if norm(key) in wanted:
+                out.extend(tools)
+        return out
 
     def allowed_tools(self) -> list[str]:
         t = [f'mcp__{s["id"]}' for s in self.usable()]

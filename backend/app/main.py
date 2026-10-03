@@ -68,11 +68,20 @@ async def lifespan(_app: FastAPI):
     saver = AsyncPostgresSaver(pool)
     await saver.setup()
     engine.compile_graph(checkpointer=saver)
+    from .deps import build_deps
+    from .pipeline import exposure as pipeline_exposure
+    from .pipeline import graph as pipeline_graph
+    from .pipeline.ports import set_deps
+    problems = pipeline_exposure.validate_config(cfg, agents_list())
+    if problems:
+        raise RuntimeError("pipeline configuration is unsafe: " + "; ".join(problems))
+    pipeline_graph.compile_pipeline(checkpointer=saver)
+    set_deps(build_deps())
     try:
-        from .pipeline import graph as pipeline_graph
-        pipeline_graph.compile_pipeline(checkpointer=saver)
-    except ImportError:
-        pass
+        from .connectors import github
+        mcp_registry.attach_tools("github", await github.read_tools(), name="GitHub")
+    except Exception as e:
+        log.info("GitHub tools not attached: %s", e)
     llm.on_usage(_record_cost)
     n = await db.fail_interrupted_tasks()
     if n:
@@ -660,8 +669,6 @@ async def chat(req: Request):
     return {"reply": reply, "routines": False, "read": [], "tools": []}
 
 
-try:  # the job pipeline (Phase 2) mounts its own router
-    from .pipeline.api import router as pipeline_router
-    app.include_router(pipeline_router)
-except ImportError:
-    pass
+from .pipeline.api import router as pipeline_router  # noqa: E402
+
+app.include_router(pipeline_router)

@@ -122,33 +122,23 @@ async def preview(state: dict) -> dict:
 
 
 async def exposure(state: dict) -> dict:
-    """Evidence for the exposure decision. Tier 0 needs none; a gated preview needs
-    proof that access without credentials is refused, taken by a real request."""
+    """Evidence for the exposure decision. Tier 0 needs none. A gated preview needs proof
+    that the authentication layer is configured and that every security check passed; the
+    unauthenticated-request probe can only run once the route exists, so it runs right
+    after apply_exposure and rolls the app back if it fails."""
     tier = int(state.get("requested_tier", 0))
     if tier <= 0:
         await _evidence(state, "exposure", "check", "stays private (Tier 0)", True, {"tier": 0}, "private")
         return {}
     prev = state.get("preview") or {}
-    probe = await get_deps().deployer.probe_unauthenticated(prev)
-    await _evidence(state, "exposure", "probe", "request without credentials is refused", bool(probe.get("ok")),
-                    {"status": probe.get("status"), "target": "internal URL behind the auth layer"}, "authprobe")
-    patch = (state.get("patch") or {}).get("path")
-    sec = [e for e in await db.list_evidence(state["job_id"]) if e["stage"] == "security"]
-    await _evidence(state, "exposure", "check", "security checks all passed", all(e.get("ok") for e in sec) and bool(sec),
-                    {"checks": [e["title"] for e in sec], "patch": patch}, "secsummary")
+    auth = await get_deps().deployer.auth_configured(prev)
+    await _evidence(state, "exposure", "check", "authentication layer is configured on the app", bool(auth.get("ok")),
+                    {"detail": str(auth.get("detail", ""))[:500]}, "authcfg")
+    sec = [e for e in await db.list_evidence(state["job_id"]) if e["stage"] == "security"
+           and e["body"].get("attempt") == int(state.get("loops", {}).get("security", 0))]
+    await _evidence(state, "exposure", "check", "all security checks passed", bool(sec) and all(e.get("ok") for e in sec),
+                    {"checks": [e["title"] for e in sec]}, "secsummary")
     return {}
-
-
-async def apply_exposure(state: dict) -> dict:
-    """Runs only after every key for the requested tier is recorded."""
-    tier = int(state.get("requested_tier", 0))
-    prev = dict(state.get("preview") or {})
-    if tier <= 0 or prev.get("tier") == tier:
-        return {}
-    job = await db.get_job(state["job_id"])
-    res = await get_deps().deployer.apply_exposure(job, prev, tier)
-    prev.update(url=res.get("url"), tier=tier)
-    return {"preview": prev}
 
 
 async def handoff(state: dict) -> dict:

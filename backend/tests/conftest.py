@@ -31,5 +31,7 @@ def fake_db(monkeypatch):
 def isolated_brain(monkeypatch, tmp_path):
     """Point the app at a throwaway brain so tests never write into ./brain."""
     from app import main
+    from app.config import load_config
     monkeypatch.setattr(main.cfg, "brain_path", tmp_path)
+    monkeypatch.setattr(load_config(), "brain_path", tmp_path)
     return tmp_path

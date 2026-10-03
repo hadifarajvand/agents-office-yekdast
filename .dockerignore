@@ -13,3 +13,4 @@ brain/Agents Office
 .claude
 **/__pycache__
 **/.pytest_cache
+data/

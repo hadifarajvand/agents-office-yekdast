@@ -76,7 +76,9 @@ DEFAULTS: dict = {
     "sandbox": {
         "runtime": "runc",  # set "runsc" for gVisor on a Linux host
         "network": "ao-internal",
-        "proxy": "http://egress:3128",
+        "proxy": "http://egress:3128",              # squid: package registries only
+        "router_gateway": "http://router-gateway:8080",  # nginx: adds the router key, forwards to 9router
+        "no_proxy": "router-gateway,localhost,127.0.0.1",
         "cpus": 2.0,
         "memory": "4g",
         "pids": 512,
@@ -91,10 +93,15 @@ DEFAULTS: dict = {
         # Exact tool names must be confirmed against the installed server version (laptop runbook S5);
         # any tool annotated destructiveHint is refused even if listed here.
         "project": "previews",
+        "preview_domain_env": "DOKPLOY_PREVIEW_DOMAIN",  # e.g. preview.example.com; one host per job below it
+        "source_repo_env": "PREVIEW_REPO_URL",           # private git repo Dokploy builds previews from
+        "source_token_env": "PREVIEW_REPO_TOKEN",        # token limited to THAT repo only (write)
+        "app_port": 3000,
         "tool_allowlist": [
             "project-one", "project-all", "application-one", "application-create",
-            "application-update", "application-saveGitProvider", "application-deploy",
-            "application-redeploy", "application-stop", "domain-create", "domain-byApplicationId",
+            "application-update", "application-saveGitProvider", "application-saveBuildType",
+            "application-deploy", "application-redeploy", "application-stop",
+            "security-create", "domain-create", "domain-byApplicationId",
         ],
     },
     "github": {"token_env": "GITHUB_TOKEN", "url": "https://api.githubcopilot.com/mcp/readonly", "readonly": True},
