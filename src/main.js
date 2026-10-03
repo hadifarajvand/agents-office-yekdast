@@ -11,6 +11,7 @@ import { initMcp } from './mcp.js';
 import { loadConnectors } from './connectors.js';
 import { initTasks } from './tasks.js';
 import { initBrain } from './brain.js';
+import { initCalendar } from './calendar.js';
 let tasks = null; // V3 task boards — initialised after the rail constants exist
 
 /* ---------- renderer / scene / camera ---------- */
@@ -496,9 +497,10 @@ addEventListener('pointerup', (e) => {
 });
 addEventListener('keydown', (e) => {
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return; // typing in the bar, the big editor or a menu never fires a hotkey
-  if (e.key === 'Escape') { if (brain.isOpen()) brain.close(); else if (tasks && tasks.isOpen()) tasks.close(); else zoomOut(); }
+  if (e.key === 'Escape') { if (calendar && calendar.isOpen() && calendar.popOpen()) calendar.closePop(); else if (calendar && calendar.isOpen()) calendar.close(); else if (brain.isOpen()) brain.close(); else if (tasks && tasks.isOpen()) tasks.close(); else zoomOut(); }
   else if (e.key === 'g' || e.key === 'G') brain.toggle(); // V3.6: the full-screen Brain graph
   else if (e.key === 'b' || e.key === 'B') { if (tasks) tasks.toggle(); } // V3: the company-wide board
+  else if (e.key === 'p' || e.key === 'P') { if (calendar) calendar.toggle(); } // the calendar — tasks and routines on their days
   else if (e.key === '+' || e.key === '=') zoomStep(1.5);
   else if (e.key === '-' || e.key === '_') zoomStep(1 / 1.5);
   else if (e.key === '0') zoomOut();
@@ -1354,6 +1356,14 @@ tasks = initTasks({
   getFocused: () => focused, getZoom: () => view.zoom, getFocusDim: () => focusDim,
   toScreen: (p) => toScreen(p), reframe,
 });
+const calendar = initCalendar({
+  tasks: tasks.tasks, routines: tasks.routines, agentOf: tasks.agentOf, DEPTS, DEPT_KEYS,
+  RT_DEPTS: tasks.RT_DEPTS, rtRefuse: tasks.rtRefuse,
+  create: tasks.create, createRoutine: tasks.createRoutine, cancelTask: tasks.cancelTask, rtAct: tasks.rtAct,
+  openAgent, esc, isLive: tasks.isLive, officeModel: tasks.officeModel, MODEL_KEYS: tasks.MODEL_KEYS,
+  modelName: tasks.modelName, currentDept: tasks.currentDept,
+});
+if (calendar) document.getElementById('topCal').addEventListener('click', () => calendar.toggle());
 view.target.set(...overviewPos());
 addEventListener('resize', () => { if (!focused && !tween) view.target.set(...overviewPos()); });
 

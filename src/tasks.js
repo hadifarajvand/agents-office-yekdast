@@ -473,6 +473,47 @@ export function initTasks(ctx) {
     syncPills(); dirty = true; if (railAgent) railFor(railAgent);
   }
   const post = (p, b) => fetch(API + p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b || {}) }).then(r => r.json()).catch(e => { console.warn('office:', e.message); return null; });
+  /* ---------- calendar.js's API: create a task / routine for a given day, cancel a task ---------- */
+  async function create({ dept: k, text, model, effort }) {
+    text = String(text || '').trim().replace(/[.!]+$/, '');
+    if (!text) return null;
+    if (live) {
+      try {
+        const r = await fetch(API + '/tasks', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: k, text, model: model || undefined, effort: effort || undefined }) });
+        if (!r.ok) throw new Error((await r.json()).error || r.statusText);
+        const st = await r.json();
+        const t = mk({ agent: st.agent, title: st.title, text: st.text, plan: st.plan, why: st.why, by: 'you', live: true, sid: st.id, model: st.model, modelUsed: st.model || officeModel, modelFrom: st.model ? 'task' : 'office', effort: st.effort });
+        touch(t, 'added'); spawnEmote(R[t.agent], '📋');
+        return t;
+      } catch (e) { console.warn('office:', e.message); const { agent: a } = route(k, text); return addTask(a.id, text, 'you'); }
+    }
+    const { agent: a } = route(k, text);
+    const t = addTask(a.id, text, 'you');
+    if (t) { t.modelUsed = model || officeModel; t.modelFrom = model ? 'task' : 'office'; const ef = effortUsedFor(t.modelUsed); t.effortUsed = ef.effort || ''; t.effortFrom = ef.from; }
+    return t;
+  }
+  async function createRoutine({ dept: k, text, when, needsOk, model, effort }) {
+    text = String(text || '').trim().replace(/[.!]+$/, '');
+    if (!text || !when) return null;
+    if (live) {
+      const j = await post('/routines', { dept: k, text, when, needsOk, model: model || undefined, effort: effort || undefined });
+      if (!j || !j.routine) return null;
+      setRoutines([...routines.filter(x => x.id !== j.routine.id), j.routine]);
+      filter = 'sched'; render(true);
+      return j.routine;
+    }
+    const { agent: a } = route(k, text);
+    const r = addRoutine(k, a.id, text, when, needsOk);
+    r.model = model || undefined; r.effort = effort || undefined;
+    filter = 'sched'; render(true);
+    return r;
+  }
+  async function cancelTask(t) {
+    if (!t) return;
+    if (live && t.sid) await fetch(`${API}/tasks/${t.sid}`, { method: 'DELETE' }).catch(() => {});
+    const i = tasks.indexOf(t); if (i >= 0) tasks.splice(i, 1);
+    dirty = true;
+  }
   function syncPills() { // C2: the clock chip on the desk
     for (const id in R) {
       const n = agentRoutines(id).length, pill = R[id].pill; let s = pill.querySelector('.rt');
@@ -876,5 +917,6 @@ export function initTasks(ctx) {
 
   return { tick, toggle, open, close, openFor, isOpen, boardWidth, onFocusChange, onStuck, onResolve,
            handleChat, addTask, revise, rowHTML, setDept, tasks, panelWidth: () => panel.offsetWidth, isLive: () => live,
-           routines, addRoutine, rtAct, railFor, syncPills, refresh: poll, resolveLive, pendingReject, rejectLive, officeModel: () => officeModel, chosenModel, chosenEffort };
+           routines, addRoutine, rtAct, railFor, syncPills, refresh: poll, resolveLive, pendingReject, rejectLive, officeModel: () => officeModel, chosenModel, chosenEffort,
+           create, createRoutine, cancelTask, agentOf, MODEL_KEYS, modelName, currentDept: () => dept, RT_DEPTS, rtRefuse };
 }

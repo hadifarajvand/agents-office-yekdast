@@ -113,34 +113,51 @@ export function parseWhen(input) {
   return null;
 }
 
-/** The REPEAT picker → a schedule. cadence: daily · weekdays · mon…sun · hourly · at: 'HH:MM' */
-export function fromPicker(cadence, at) {
+/** The REPEAT picker → a schedule. cadence: daily · weekdays · mon…sun · hourly · at: 'HH:MM'
+ * start: 'YYYY-MM-DD', optional — a routine that starts on a date: nothing fires before that midnight. */
+export function fromPicker(cadence, at, start) {
   const t = /^\d{2}:\d{2}$/.test(at || '') ? at : '08:00';
-  if (cadence === 'daily') return { kind: 'daily', at: t };
-  if (cadence === 'weekdays') return { kind: 'weekdays', at: t };
-  if (cadence === 'hourly') return { kind: 'hourly', every: 1, from: '09:00', to: '17:00', weekdaysOnly: true };
+  const s = /^\d{4}-\d{2}-\d{2}$/.test(start || '') ? { start } : {};
+  if (cadence === 'daily') return { kind: 'daily', at: t, ...s };
+  if (cadence === 'weekdays') return { kind: 'weekdays', at: t, ...s };
+  if (cadence === 'hourly') return { kind: 'hourly', every: 1, from: '09:00', to: '17:00', weekdaysOnly: true, ...s };
   const d = dayIndex(cadence);
-  if (d >= 0) return { kind: 'weekly', days: [d], at: t };
-  return { kind: 'weekdays', at: t };
+  if (d >= 0) return { kind: 'weekly', days: [d], at: t, ...s };
+  return { kind: 'weekdays', at: t, ...s };
+}
+
+/** "12 Oct" — short date for a routine's start, and for calendar day labels. */
+export function shortDate(ts) {
+  const d = new Date(ts);
+  return `${d.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}`;
+}
+
+function startMs(when) {
+  if (!when || !when.start) return 0;
+  const d = new Date(when.start + 'T00:00:00');
+  return isNaN(d.getTime()) ? 0 : d.getTime();
 }
 
 /** A schedule → the words the office says back. */
 export function describe(when) {
   if (!when) return '';
   const at = when.at ? ' · ' + when.at : '';
+  const from = when.start && startMs(when) > Date.now() ? ` · from ${shortDate(startMs(when))}` : '';
+  let base = '';
   switch (when.kind) {
     case 'minutes': return `every ${when.every} min`;
     case 'hourly': return (when.every > 1 ? `every ${when.every} hours` : 'every hour') + (when.from ? ` ${when.from}–${when.to}` : '') + (when.weekdaysOnly ? ' · weekdays' : '');
-    case 'daily': return 'every day' + at;
-    case 'weekdays': return 'every weekday' + at;
+    case 'daily': base = 'every day' + at; break;
+    case 'weekdays': base = 'every weekday' + at; break;
     case 'weekly': {
       const d = (when.days || []);
-      if (d.length === 7) return 'every day' + at;
-      if (d.length === 2 && d.includes(0) && d.includes(6)) return 'weekends' + at;
-      return (d.length === 1 ? DAYS[d[0]][0].toUpperCase() + DAYS[d[0]].slice(1) + 's' : d.map(i => SHORT[i]).join(', ')) + at;
+      base = (d.length === 7 ? 'every day' : d.length === 2 && d.includes(0) && d.includes(6) ? 'weekends'
+        : (d.length === 1 ? DAYS[d[0]][0].toUpperCase() + DAYS[d[0]].slice(1) + 's' : d.map(i => SHORT[i]).join(', '))) + at;
+      break;
     }
+    default: return '';
   }
-  return '';
+  return base + from;
 }
 
 /** Is the schedule complete enough to run? */
@@ -158,6 +175,8 @@ const mins = s => { const [h, m] = s.split(':').map(Number); return h * 60 + m; 
 /** The next time the schedule is due, strictly after `from` (ms, local time). */
 export function nextRun(when, from = Date.now()) {
   if (!valid(when)) return null;
+  const sm = startMs(when);
+  if (sm && from < sm) from = sm - 1; // nothing fires before the start date
   const f = new Date(from);
   if (when.kind === 'minutes') { const step = when.every * 60000; return Math.floor(from / step) * step + step; }
   if (when.kind === 'hourly') {
@@ -180,6 +199,13 @@ export function nextRun(when, from = Date.now()) {
     if (allowed.includes(d.getDay())) return d.getTime();
   }
   return null;
+}
+
+/** Every time the schedule fires in [from, to] — for the calendar's day grid. */
+export function occurrences(when, from, to, limit = 400) {
+  const out = []; let t = nextRun(when, from);
+  while (t && t <= to && out.length < limit) { out.push(t); t = nextRun(when, t); }
+  return out;
 }
 
 /** "in 2 min" · "at 08:00" · "Mon 09:00" · "Fri 16:00" — the countdown the cards show. */

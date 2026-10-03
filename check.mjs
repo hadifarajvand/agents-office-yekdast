@@ -383,10 +383,13 @@ else {
         if (!r.ok) throw new Error((await r.json()).error); const t = await r.json(); globalThis.__t = t; return `${t.agent} · ${t.title}`;
       });
       await step('live: the agent runs the task to done', async () => {
-        const t = globalThis.__t; if (!t) throw new Error('no task'); const r = await fetch(`${base}/api/tasks/${t.id}/run`, { method: 'POST' });
-        if (!r.ok) throw new Error((await r.json()).error); const d = await r.json(); if (d.error) throw new Error(d.result);
-        if (d.state !== 'done' || !d.result) throw new Error('task: ' + JSON.stringify(d).slice(0, 160));
-        return `${d.result.length} chars · model ${d.modelUsed} from ${d.modelFrom}`;
+        const t = globalThis.__t; if (!t) throw new Error('no task');
+        try {
+          const r = await fetch(`${base}/api/tasks/${t.id}/run`, { method: 'POST' });
+          if (!r.ok) throw new Error((await r.json()).error); const d = await r.json(); if (d.error) throw new Error(d.result);
+          if (d.state !== 'done' || !d.result) throw new Error('task: ' + JSON.stringify(d).slice(0, 160));
+          return `${d.result.length} chars · model ${d.modelUsed} from ${d.modelFrom}`;
+        } finally { await fetch(`${base}/api/tasks/${t.id}`, { method: 'DELETE' }); }
       });
       await step('live: a routine fires on the server, waits for approval, and lands', async () => {
         const id = `check-${Date.now()}`;
@@ -402,14 +405,20 @@ else {
           for (let i = 0; i < 20 && !(final && final.state === 'done'); i++) { await new Promise(r => setTimeout(r, 3000)); final = (await (await fetch(base + '/api/tasks')).json()).find(t => t.id === task.id); }
           if (!final || final.state !== 'done' || final.error) throw new Error('never landed: ' + JSON.stringify(final).slice(0, 160));
           return `${final.agent} · ${final.state} · ${final.result.length} chars`;
-        } finally { await fetch(`${base}/api/routines/${id}`, { method: 'DELETE' }); }
+        } finally {
+          await fetch(`${base}/api/routines/${id}`, { method: 'DELETE' });
+          const leftover = (await (await fetch(base + '/api/tasks')).json()).find(t => t.agent === 'invo' && t.title === 'check smoke routine');
+          if (leftover) await fetch(`${base}/api/tasks/${leftover.id}`, { method: 'DELETE' });
+        }
       });
       await step('live: a task set to Opus runs on Opus and says so', async () => {
         const r = await fetch(base + '/api/tasks', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: 'revenue', text: 'one line: what should the next follow-up to a quiet lead say', model: 'opus' }) });
         if (!r.ok) throw new Error((await r.json()).error); const t = await r.json();
-        const d = await (await fetch(`${base}/api/tasks/${t.id}/run`, { method: 'POST' })).json(); if (d.error) throw new Error(d.result);
-        if (d.modelUsed !== 'opus') throw new Error(`ran on ${d.modelUsed} (from ${d.modelFrom})`);
-        return `${d.agent} · opus · from ${d.modelFrom}`;
+        try {
+          const d = await (await fetch(`${base}/api/tasks/${t.id}/run`, { method: 'POST' })).json(); if (d.error) throw new Error(d.result);
+          if (d.modelUsed !== 'opus') throw new Error(`ran on ${d.modelUsed} (from ${d.modelFrom})`);
+          return `${d.agent} · opus · from ${d.modelFrom}`;
+        } finally { await fetch(`${base}/api/tasks/${t.id}`, { method: 'DELETE' }); }
       });
       await step('live: chat answers in persona', async () => {
         const r = await fetch(base + '/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ agent: 'lexi', text: 'what is our proposal win rate?' }) });
