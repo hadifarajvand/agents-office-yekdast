@@ -1,8 +1,11 @@
-// Agents Office — the build loop (Beta).
-//   node check.mjs             build + offline smoke + server smoke (no Claude calls)
-//   CHECK_LIVE=1 node check.mjs  … plus one real routed task and one chat turn through Claude
-// Every step prints ✓ or ✗ with the reason; the process exits 1 if anything failed. This is the
-// loop the Beta was built against: change something, run it, fix what is red, repeat.
+// Agents Office — the build loop.
+//   node check.mjs                      build, data sync, backend tests, offline browser smoke
+//   AO_TEST_DATABASE_URL=postgresql://office:office@localhost:5432/office_ui node check.mjs
+//                                       … plus the live-UI smoke: the real server on that database
+//                                         with scripted models, driven through the Jobs screen
+//   CHECK_REQUIRE_SERVER=1 node check.mjs   fail (instead of skip) when nothing answers on the port
+// Every step prints ✓ or ✗ with the reason; the process exits 1 if anything failed. Nothing here
+// calls a real model, 9router, Docker, GitHub or Dokploy: those are the laptop runbook (PLAN.md §11).
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -19,7 +22,28 @@ const sh = (cmd, args, opts = {}) => new Promise((resolve, reject) => {
   p.on('error', reject);
 });
 const cfg = loadConfig();
-const LIVE = process.env.CHECK_LIVE === '1';
+
+
+/* ---------- browser launcher shared by the smoke sections ---------- */
+let chromium = null;
+try { ({ chromium } = await import('playwright')); } catch { try { ({ chromium } = await import('playwright-core')); } catch {} }
+function findChrome() {
+  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
+  const root = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  if (root && fs.existsSync(root)) {
+    for (const d of fs.readdirSync(root).sort().reverse()) {
+      const p = path.join(root, d, 'chrome-linux', 'chrome');
+      if (/^chromium-/.test(d) && fs.existsSync(p)) return p;
+    }
+  }
+  return undefined;
+}
+async function launch() {
+  const args = ['--enable-unsafe-swiftshader', '--use-angle=swiftshader', '--no-sandbox'];
+  const executablePath = findChrome();
+  try { return await chromium.launch({ args, ...(executablePath ? { executablePath } : {}) }); }
+  catch { return await chromium.launch({ channel: 'chrome', args }); }
+}
 
 /* ---------- 1. build ---------- */
 await step('build: braingraph + bundle', async () => {
@@ -36,211 +60,48 @@ await step('build: graph has linked notes', async () => {
   return `${BRAIN.notes} notes · ${BRAIN.nodes.length} linked · ${BRAIN.links.length} links`;
 });
 
-/* ---------- 1b. the roster + the connector parser ---------- */
-await step('roster: office.agents.json validates', async () => {
-  const { loadRoster } = await import('./roster.mjs');
-  const r = loadRoster();
-  if (r.agents.length !== 35) throw new Error('agents: ' + r.agents.length);
-  if (r.problems.length) throw new Error(r.problems.join(' | '));
-  return `35 agents · ${r.customised} customised${r.files.length ? ' · ' + r.files.join(' + ') : ''}`;
-});
-await step('roster: bad edits are refused, not applied', async () => {
-  const { validate } = await import('./roster.mjs');
-  const r = validate({ agents: [{ id: 'newt', name: 'PODCAST NOTES', department: 'revenue', lead: true, colour: 'red' }, { id: 'ghost', name: 'X' }] });
-  const n = r.agents.find(a => a.id === 'newt');
-  if (n.name !== 'PODCAST NOTES' || n.department !== 'content' || n.lead) throw new Error('validation let a fixed field through');
-  if (r.problems.length < 4) throw new Error('expected four problems, got ' + r.problems.length);
-});
-await step('roster: brief is accepted and trimmed', async () => {
-  const { validate } = await import('./roster.mjs');
-  const r = validate({ agents: [{ id: 'piper', brief: ['Three tiers.', 'Never discount.'] }, { id: 'lexi', brief: 'x'.repeat(2500) }] });
-  if (r.agents.find(a => a.id === 'piper').brief !== 'Three tiers.\nNever discount.') throw new Error('list brief not joined');
-  if (r.agents.find(a => a.id === 'lexi').brief.length !== 2000 || !r.problems.some(p => /brief is over/.test(p))) throw new Error('long brief not trimmed with a warning');
-});
-await step('skills: shipped skills load and bind', async () => {
-  const { loadSkills } = await import('./skills.mjs'); const { loadRoster } = await import('./roster.mjs');
-  const r = loadRoster(); const sk = loadSkills(cfg.brainPath, r.agents);
-  if (sk.problems.length) throw new Error(sk.problems.join(' | '));
-  const piper = r.agents.find(a => a.id === 'piper'), cmail = r.agents.find(a => a.id === 'cmail'), lexi = r.agents.find(a => a.id === 'lexi');
-  if (!sk.names(piper).includes('proposal')) throw new Error('proposal not bound to piper: ' + sk.names(piper));
-  if (!sk.names(cmail).includes('client-reply') || sk.names(lexi).includes('client-reply')) throw new Error('department binding wrong');
-  if (!sk.names(lexi).includes('house-style')) throw new Error('unbound skill did not reach everyone');
-  const txt = sk.promptText(piper); if (!/--- template\.md ---/.test(txt) || !/### proposal/.test(txt)) throw new Error('files beside SKILL.md not inlined');
-  const sum = sk.summary();
-  return `${sum.count} skills (${sum.shipped} shipped, ${sum.brain} in the brain) · ` + sum.skills.map(x => `${x.name}→${x.everyone ? 'everyone' : [...x.agents, ...x.departments].join('+')}`).join(' ');
-});
-await step('skills: a broken skill is refused, not applied', async () => {
-  const { loadSkills } = await import('./skills.mjs'); const { loadRoster } = await import('./roster.mjs');
-  const os = await import('node:os'); const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ao-skills-')); const dir = path.join(tmp, 'Agents Office', 'skills');
-  fs.mkdirSync(path.join(dir, 'ghost'), { recursive: true }); fs.mkdirSync(path.join(dir, 'nofile')); fs.mkdirSync(path.join(dir, 'proposal'));
-  fs.writeFileSync(path.join(dir, 'ghost', 'SKILL.md'), '---\nagents: [nobody]\ncolour: red\n---\n# Ghost\nDo things.');
-  fs.writeFileSync(path.join(dir, 'proposal', 'SKILL.md'), '---\ndescription: Our own proposal skill\nagents: [piper]\n---\n# Ours\nThe brain version.');
-  fs.writeFileSync(path.join(dir, 'oneliner.md'), '---\ndepartments: [fin]\n---\nMonth-end pack rules.');
-  const sk = loadSkills(tmp, loadRoster().agents); fs.rmSync(tmp, { recursive: true, force: true });
-  if (sk.skills.some(x => x.name === 'ghost')) throw new Error('a skill with no valid binding was loaded');
-  if (!sk.problems.some(p => /nobody/.test(p)) || !sk.problems.some(p => /colour/.test(p)) || !sk.problems.some(p => /nofile/.test(p))) throw new Error('problems not reported: ' + sk.problems.join(' | '));
-  const prop = sk.skills.find(x => x.name === 'proposal'); if (!prop || prop.source !== 'brain' || prop.description !== 'Our own proposal skill') throw new Error('the brain skill did not replace the shipped one');
-  if (!sk.skills.find(x => x.name === 'oneliner' && x.departments.includes('fin'))) throw new Error('one-file skill not loaded');
-  return `${sk.problems.length} problems reported · brain proposal wins`;
-});
-await step('lessons: a correction is recorded and standing rules come back', async () => {
-  const learn = await import('./learn.mjs'); const os = await import('node:os');
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ao-learn-')); const a = { id: 'piper', name: 'PROPOSALS', role: 'x', does: 'y' };
-  learn.record(tmp, a, { title: 'Harbourside proposal' }, 'add the booking integration for this one', { standing: false, rule: '' });
-  learn.record(tmp, a, { title: 'Harbourside proposal' }, 'too long — proposals are always one page', { standing: true, rule: 'Keep every proposal to one page.' });
-  learn.record(tmp, a, { title: 'Marina quote' }, 'never quote a discount', { standing: true, rule: 'Never offer a discount.' });
-  const r = learn.read(tmp, 'piper'); const txt = learn.promptText(tmp, a); fs.rmSync(tmp, { recursive: true, force: true });
-  if (r.rules.length !== 2 || r.oneOffs.length !== 1) throw new Error(`rules ${r.rules.length} one-offs ${r.oneOffs.length}`);
-  if (!/^LESSONS/.test(txt) || !/one page/.test(txt) || /booking integration/.test(txt) || /←/.test(txt)) throw new Error('prompt text wrong: ' + txt);
-  if (learn.promptText(tmp, { id: 'nobody' })) throw new Error('no file should mean no block');
-  return `${r.rules.length} standing rules · ${r.oneOffs.length} one-off · agent with no file gets nothing`;
-});
-await step('interview: the lead asks five questions, then writes briefs + a skill into the brain', async () => {
-  const onboard = await import('./onboard.mjs'); const { loadRoster } = await import('./roster.mjs'); const { loadSkills } = await import('./skills.mjs'); const os = await import('node:os');
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ao-onboard-')); const brain = path.join(tmp, 'brain'), data = path.join(tmp, 'data'); fs.mkdirSync(brain);
-  const agents = loadRoster(brain).agents; const dept = agents.filter(a => a.department === 'revenue'); const lead = dept.find(a => a.lead);
-  const stub = async () => JSON.stringify({ briefs: [{ id: 'lexi', brief: 'Every deal gets a next step with a date.' }, { id: 'piper', brief: 'Three options, recommend the middle.' }, { id: 'ghost', brief: 'x' }],
-    skill: { name: 'Wholesale Quote', description: 'How we quote a wholesale account', agents: ['piper'], body: '# Quoting a wholesale account\nUse this for any quote to a trade customer.\n## Steps\n1. Check the account in 30-Customers.\n## The shape\nFollow template.md.\n## Rules\n- Never discount.', template: '# Quote for {account}\n## Lines\n## Terms' }, try: 'quote Harbour Hardware for 40 units' });
-  const ctx = { dept: 'revenue', deptName: 'Revenue', lead, agents: dept, connected: ['Gmail'], brainPath: brain, dataDir: data, ask: stub, business: 'Test Co' };
-  if (await onboard.handle('what are you working on?', ctx) !== null) throw new Error('ordinary chat was captured');
-  const r0 = await onboard.handle('set up', ctx); if (!/Question 1 of 5/.test(r0.reply) || !onboard.active(data, 'revenue')) throw new Error('did not start: ' + r0.reply.slice(0, 80));
-  const r1 = await onboard.handle('We sell to trade accounts.', ctx); if (!/Question 2 of 5/.test(r1.reply)) throw new Error('no second question');
-  await onboard.handle('Quoting a wholesale account: check the account, price from the ladder, send.', ctx); await onboard.handle('skip', ctx); await onboard.handle('never discount', ctx);
-  const r5 = await onboard.handle('Gmail and our bookkeeper', ctx);
-  if (onboard.active(data, 'revenue')) throw new Error('interview still active after the last answer');
-  if (!r5.wrote || r5.wrote.briefs.length !== 2 || !r5.wrote.skill || r5.wrote.skill.name !== 'wholesale-quote') throw new Error('write-up wrong: ' + JSON.stringify(r5.wrote));
-  if (!r5.wrote.problems.some(p => /ghost/.test(p))) throw new Error('an agent outside the department was accepted');
-  const merged = loadRoster(brain); if (merged.agents.find(a => a.id === 'piper').brief !== 'Three options, recommend the middle.' || merged.problems.length) throw new Error('brief not merged into the brain roster: ' + merged.problems);
-  const sk = loadSkills(brain, merged.agents); const w = sk.skills.find(x => x.name === 'wholesale-quote');
-  if (!w || w.source !== 'brain' || !w.agents.includes('piper') || !w.files.some(f => f.name === 'template.md') || sk.problems.length) throw new Error('skill not loadable: ' + sk.problems);
-  if (!onboard.isSetUp(merged.agents, sk, 'revenue') || onboard.isSetUp(merged.agents, sk, 'fin')) throw new Error('setUp flag wrong');
-  const c = await onboard.handle('set up', ctx); await onboard.handle('cancel', ctx); if (onboard.active(data, 'revenue')) throw new Error('cancel did not clear');
-  fs.rmSync(tmp, { recursive: true, force: true });
-  return `5 questions · 2 briefs merged · skill wholesale-quote→piper with template · revenue set up, fin not · cancel clears`;
-});
-await step('connectors: claude mcp list parses', async () => {
-  const m = await import('./mcp.mjs');
-  const l = m.parseList('Checking MCP server health…\n\nclaude.ai Gmail: https://gmailmcp.googleapis.com/mcp/v1 - ✔ Connected\nclaude.ai Meta Ads: https://mcp.facebook.com/ads - ! Needs authentication\nplaywright: npx -y @playwright/mcp@latest - ✔ Connected');
-  if (l.length !== 3) throw new Error('parsed ' + l.length);
-  if (l[0].id !== 'claude_ai_Gmail' || l[0].key !== 'gmail' || l[0].status !== 'connected') throw new Error('gmail: ' + JSON.stringify(l[0]));
-  if (l[1].status !== 'needs-auth' || l[1].key !== 'meta') throw new Error('meta: ' + JSON.stringify(l[1]));
-  if (l[2].depts.length !== 2) throw new Error('playwright depts: ' + l[2].depts);
-});
-
-/* ---------- 1c. routines (V3.5) ---------- */
-await step('routines: plain words become a schedule', async () => {
-  const w = await import('./src/when.js');
-  const cases = [
-    ['every weekday at 8am, triage the inbox and tell me what needs me', 'every weekday · 08:00', 'triage the inbox and tell me what needs me'],
-    ['Every Monday 9am, list the overdue invoices and draft the reminders', 'Mondays · 09:00', 'list the overdue invoices and draft the reminders'],
-    ["match today's bank lines to invoices, daily at 5:30pm", 'every day · 17:30', "match today's bank lines to invoices"],
-    ['every hour between 9am and 5pm on weekdays, qualify new leads', 'every hour 09:00–17:00 · weekdays', 'qualify new leads'],
-    ['chase quiet deals every tuesday and thursday at 10', 'Tue, Thu · 10:00', 'chase quiet deals'],
-    ['on fridays at 4pm this week\'s cash position', 'Fridays · 16:00', "this week's cash position"],
-    ['every 2 minutes say hello', 'every 2 min', 'say hello'],
-    ['every weekend at noon, check the queue', 'weekends · 12:00', 'check the queue'],
-  ];
-  for (const [text, desc, task] of cases) {
-    const r = w.parseWhen(text); if (!r) throw new Error('no schedule found in: ' + text);
-    if (w.describe(r.when) !== desc) throw new Error(`"${text}" → ${w.describe(r.when)}, expected ${desc}`);
-    if (r.text !== task) throw new Error(`"${text}" → task "${r.text}", expected "${task}"`);
-    if (!w.valid(r.when) || !(w.nextRun(r.when) > Date.now())) throw new Error('no next run for ' + desc);
+/* ---------- 1b. the three roster copies agree (they were drifting apart) ---------- */
+await step('data: seed, shipped roster and src/data.js agree on every seat', async () => {
+  const seed = JSON.parse(fs.readFileSync(path.join(ROOT, 'backend', 'app', 'seed', 'roster_seed.json'), 'utf8'));
+  const shipped = JSON.parse(fs.readFileSync(path.join(ROOT, 'office.agents.json'), 'utf8'));
+  const { AGENTS, DEPT_KEYS, DEPTS } = await import('./src/data.js');
+  if (seed.agents.length !== 35 || AGENTS.length !== 35) throw new Error(`seats: seed ${seed.agents.length}, data.js ${AGENTS.length}`);
+  const sd = new Map(seed.agents.map(a => [a.id, a]));
+  for (const a of AGENTS) {
+    const s = sd.get(a.id);
+    if (!s) throw new Error('data.js has a seat the seed lacks: ' + a.id);
+    if (s.dept !== a.dept) throw new Error(`${a.id}: department ${s.dept} (seed) vs ${a.dept} (data.js)`);
+    if (!!s.lead !== !!a.lead) throw new Error(`${a.id}: lead flag differs`);
+    if (s.name !== a.name) throw new Error(`${a.id}: name "${s.name}" (seed) vs "${a.name}" (data.js)`);
   }
-  if (w.parseWhen('reply to a client asking when their September report will arrive within 24 hours')) throw new Error('a plain task was read as a routine');
-  const t = w.parseWhen('every weekday, triage the inbox'); if (!t || !t.needsTime) throw new Error('missing time not asked back');
-  const g = w.parseWhen('every morning triage the inbox'); if (!g || g.when.at !== '08:00' || !g.guessed) throw new Error('"morning" not taken as 08:00 with a flag');
-  const d = w.parseWhen('weekly at 3pm list renewals'); if (!d || !d.needsDay) throw new Error('weekly with no day not asked back');
-  const now = new Date('2026-09-09T17:05:00').getTime(); // a Wednesday
-  const nx = w.nextRun({ kind: 'weekly', days: [1], at: '09:00' }, now); if (new Date(nx).getDay() !== 1 || new Date(nx).getHours() !== 9) throw new Error('Monday 09:00 not next');
-  if (w.untilText(now + 120000, now) !== 'in 2 min' || w.untilText(w.fromPicker('fri', '16:00') && nx, now) !== 'Mon 09:00') throw new Error('countdown text');
-  return `${cases.length} phrasings · asks back for a missing time or day · "morning" → 08:00 flagged`;
+  for (const e of shipped.agents) if (!sd.has(e.id)) throw new Error('office.agents.json names an unknown seat: ' + e.id);
+  const leads = AGENTS.filter(a => a.lead).map(a => a.dept).sort().join(',');
+  if (leads !== [...DEPT_KEYS].sort().join(',')) throw new Error('every department needs exactly one lead: ' + leads);
+  return `35 seats · ${DEPT_KEYS.length} departments · ${shipped.agents.length} shipped overrides`;
 });
-await step('routines: outside Emails, Accounting and Sales is refused, bad ones named', async () => {
-  const rt = await import('./routines.mjs'); const { loadRoster } = await import('./roster.mjs'); const agents = loadRoster().agents;
-  const bad = rt.validate({ id: 'x', dept: 'engineering', agent: 'dlead', text: 'post the reel', when: { kind: 'daily', at: '09:00' } }, agents);
-  if (!bad.problems.some(p => /later release/.test(p))) throw new Error('engineering routine not refused: ' + bad.problems);
-  if (!/Content, Finance and Revenue/.test(rt.refusal('engineering'))) throw new Error('refusal sentence');
-  const wrong = rt.validate({ dept: 'fin', agent: 'ghost', text: 'x', when: { kind: 'weekly', days: [] } }, agents);
-  if (!wrong.problems.some(p => /no agent/.test(p)) || !wrong.problems.some(p => /not complete/.test(p))) throw new Error('unknown agent / incomplete schedule not named: ' + wrong.problems);
-  const cross = rt.validate({ dept: 'fin', agent: 'lexi', text: 'x', when: { kind: 'daily', at: '09:00' } }, agents);
-  if (!cross.problems.some(p => /is in Revenue, not Finance/.test(p))) throw new Error('cross-department agent not named: ' + cross.problems);
-  const good = rt.validate({ dept: 'content', agent: 'elead', text: 'Triage the overnight inbox', when: { kind: 'weekdays', at: '08:00' } }, agents);
-  if (good.problems.length || good.routine.id !== 'triage-the-overnight-inbox' || good.routine.needsOk !== true) throw new Error('a good routine did not validate: ' + JSON.stringify(good));
-  const dup = rt.validate({ id: 'triage-the-overnight-inbox', dept: 'content', agent: 'elead', text: 'x', when: { kind: 'daily', at: '09:00' } }, agents, [good.routine]);
-  if (!dup.problems.some(p => /share this id/.test(p))) throw new Error('duplicate id not named');
-  if (rt.guessNeedsOk('list the overdue invoices') || !rt.guessNeedsOk('send the reminders') || !rt.guessNeedsOk('draft replies to unanswered client emails')) throw new Error('needs-OK guess');
-  return 'engineering refused · unknown agent, wrong department, incomplete schedule, duplicate id all named · needsOk defaults on';
-});
-await step('routines: due fires once, a missed run catches up marked LATE, then the clock moves on', async () => {
-  const rt = await import('./routines.mjs'); const { loadRoster } = await import('./roster.mjs'); const os = await import('node:os');
-  const agents = loadRoster().agents; const brain = fs.mkdtempSync(path.join(os.tmpdir(), 'ao-routines-')); const data = path.join(brain, 'data');
-  rt.save(brain, [{ id: 'a', dept: 'content', agent: 'elead', title: 'A', text: 'triage', when: { kind: 'weekdays', at: '08:00' } }, { id: 'p', dept: 'revenue', agent: 'folo', title: 'P', text: 'chase', when: { kind: 'daily', at: '10:00' }, paused: true, needsOk: false }]);
-  const l = rt.load(brain, agents); if (l.problems.length || l.routines.length !== 2) throw new Error('load: ' + l.problems);
-  const st = rt.loadState(data); const now = Date.now();
-  const { list } = rt.withState(l.routines, st, now); if (!(st.a.nextAt > now) || list.find(r => r.id === 'p').nextAt !== null) throw new Error('nextAt not set / paused not null');
-  if (rt.due(l.routines, st, now).length) throw new Error('fired before its time');
-  st.a.nextAt = now - 2 * 3600 * 1000; st.p.nextAt = now - 3600 * 1000; // the office was off for two hours
-  const d = rt.due(l.routines, st, now); if (d.length !== 1 || d[0].routine.id !== 'a' || !d[0].late) throw new Error('catch-up wrong: ' + JSON.stringify(d.map(x => [x.routine.id, x.late])));
-  rt.advance(st, l.routines[0], now, 't1', true); rt.saveState(data, st);
-  if (!(st.a.nextAt > now) || st.a.runs !== 1 || !st.a.lastLate) throw new Error('advance did not move the clock on');
-  if (rt.due(l.routines, st, now).length) throw new Error('fired twice');
-  const s2 = rt.loadState(data); if (s2.a.lastTaskId !== 't1') throw new Error('state not saved');
-  const soon = { kind: 'minutes', every: 2 }; st.a.nextAt = now - 30 * 1000; const d2 = rt.due(l.routines, st, now); if (d2.length !== 1 || d2[0].late) throw new Error('a run 30 s past its minute is not late');
-  const m = rt.matchRoutine(list, 'content', 'the triage one'); if (!m || m.id !== 'a') throw new Error('match by words');
-  fs.rmSync(brain, { recursive: true, force: true });
-  return 'due once · 2 h late → one catch-up marked LATE · paused never fires · state persists · words match a routine';
+await step('config: office.config.json is valid JSON with no secrets', async () => {
+  const text = fs.readFileSync(path.join(ROOT, 'office.config.json'), 'utf8');
+  JSON.parse(text);
+  if (/(sk-ant-|ghp_|xox[bp]-|AKIA|Bearer\s)/.test(text)) throw new Error('looks like a secret in office.config.json');
 });
 
-/* ---------- 1d. models + the usage gauge (V3.6) ---------- */
-await step('models: three names + five effort levels, one precedence, the right CLI flags', async () => {
-  const m = await import('./src/models.js');
-  if (JSON.stringify(m.MODEL_KEYS) !== '["sonnet","opus","fable","haiku"]' || m.DEFAULT_MODEL !== 'haiku') throw new Error('keys/default');
-  if (m.normModel('Opus') !== 'opus' || m.normModel('claude-sonnet-5') !== 'sonnet' || m.normModel('haiku') !== 'haiku' || m.normModel('') !== null) throw new Error('normModel');
-  const p = (o) => m.modelFor(o);
-  if (p({}).model !== 'haiku' || p({}).from !== 'office') throw new Error('empty → office haiku');
-  if (p({ office: 'opus' }).model !== 'opus' || p({ agent: 'fable', office: 'opus' }).from !== 'agent' || p({ routine: 'opus', agent: 'fable' }).model !== 'opus' || p({ task: 'sonnet', routine: 'opus', agent: 'fable', office: 'opus' }).from !== 'task') throw new Error('precedence');
-  if (p({ task: 'haiku', office: 'opus' }).model !== 'haiku') throw new Error('task haiku must win');
-  if (m.modelArgs('sonnet').join(' ') !== '--model sonnet' || m.modelArgs('opus').join(' ') !== '--model opus --effort high' || m.modelArgs('fable').join(' ') !== '--model fable' || m.modelArgs('nonsense').join(' ') !== '--model haiku') throw new Error('args: ' + m.modelArgs('opus').join(' '));
-  // V3.6.1 effort: five CLI levels, AUTO = the model's own, same precedence then the model
-  if (m.normEffort('Extra high') !== 'xhigh' || m.normEffort('auto') !== null || m.normEffort('turbo') !== null || m.normEffort('MAX') !== 'max') throw new Error('normEffort');
-  const e = (o) => m.effortFor(o);
-  if (e({ model: 'opus' }).effort !== 'high' || e({ model: 'opus' }).from !== 'model' || e({ model: 'sonnet' }).effort !== null) throw new Error('effort falls through to the model');
-  if (e({ office: 'low', model: 'opus' }).effort !== 'low' || e({ agent: 'max', office: 'low' }).from !== 'agent' || e({ routine: 'medium', agent: 'max' }).effort !== 'medium' || e({ task: 'xhigh', routine: 'medium', agent: 'max', office: 'low' }).from !== 'task') throw new Error('effort precedence');
-  if (m.modelArgs('sonnet', 'max').join(' ') !== '--model sonnet --effort max' || m.modelArgs('opus', 'low').join(' ') !== '--model opus --effort low' || m.modelArgs('opus', 'nonsense').join(' ') !== '--model opus --effort high') throw new Error('effort args');
-  const { validate } = await import('./roster.mjs');
-  const r = validate({ agents: [{ id: 'invo', model: 'OPUS', effort: 'High' }, { id: 'lexi', model: 'bogus', effort: 'turbo' }] });
-  if (r.agents.find(a => a.id === 'invo').model !== 'opus' || r.agents.find(a => a.id === 'lexi').model !== '' || !r.problems.some(x => /sonnet, opus, fable or haiku/.test(x))) throw new Error('roster model field');
-  if (r.agents.find(a => a.id === 'invo').effort !== 'high' || r.agents.find(a => a.id === 'lexi').effort !== '' || !r.problems.some(x => /low, medium, high, xhigh or max/.test(x))) throw new Error('roster effort field');
-  const rt = await import('./routines.mjs'); const { loadRoster } = await import('./roster.mjs');
-  const v = rt.validate({ dept: 'fin', agent: 'invo', text: 'x', when: { kind: 'daily', at: '09:00' }, model: 'Fable', effort: 'xhigh' }, loadRoster().agents); if (v.problems.length || v.routine.model !== 'fable' || v.routine.effort !== 'xhigh') throw new Error('routine model/effort field');
-  return 'sonnet · opus (effort high) · fable · haiku (office default) · task > routine > agent > office · roster and routines refuse anything else';
-});
-await step('usage: the gauge parses Claude\'s answer and the office\'s own count sits underneath', async () => {
-  const u = await import('./usage.mjs');
-  const sample = { five_hour: { utilization: 29, resets_at: '2026-09-09T08:20:00.322898+00:00' }, seven_day: { utilization: 39.6, resets_at: '2026-09-12T03:00:00.322921+00:00' } };
-  const p = u.parseUsage(sample); if (!p || p.session.percent !== 29 || p.week.percent !== 40 || !p.session.resetsAt || new Date(p.week.resetsAt).getUTCDay() !== 6) throw new Error('parse: ' + JSON.stringify(p));
-  if (u.parseUsage({ nothing: true }) !== null || u.parseUsage(null) !== null) throw new Error('unknown shape must be null');
-  const now = Date.now(); let st = {};
-  st = u.record(st, { input_tokens: 10, output_tokens: 40, cache_creation_input_tokens: 9000, cache_read_input_tokens: 5000 }, now);
-  st = u.record(st, { input_tokens: 5, output_tokens: 5 }, now + 1000);
-  const f = u.fallback(st, now + 2000); if (f.source !== 'office' || f.window.tokens !== 14060 || f.window.runs !== 2 || f.window.resetsAt !== st.startedAt + u.WINDOW) throw new Error('count: ' + JSON.stringify(f));
-  const later = u.fallback(st, now + u.WINDOW + 1); if (later.window.tokens !== 0 || later.window.runs !== 0 || later.window.startedAt !== null) throw new Error('window did not reset');
-  const tok = u.readToken(); // read into memory only — never printed
-  return `parses percent + reset · unknown shape → null · 2 runs = 14,060 tokens · window resets after 5 h · login token on this machine: ${tok ? 'found' : 'none'}`;
+/* ---------- 1c. the backend's own tests ---------- */
+await step('backend: pytest', async () => {
+  let out;
+  try { out = await sh('python3', ['-m', 'pytest', '-q', '--ignore=tests/e2e', '-p', 'no:cacheprovider'], { cwd: path.join(ROOT, 'backend'), env: { ...process.env } }); }
+  catch (e) { throw new Error('backend tests failed or python deps are missing (pip install -r backend/requirements-dev.txt): ' + e.message); }
+  return out.trim().split('\n').pop();
 });
 
 /* ---------- 2. offline smoke (Playwright) ---------- */
-let chromium = null;
-try { ({ chromium } = await import('playwright')); } catch { try { ({ chromium } = await import('playwright-core')); } catch {} }
 if (!chromium) bad('smoke: playwright', 'not installed — npm i -D playwright-core (uses your Chrome)');
 else {
   let browser = null;
   try {
-    try { browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] }); }
-    catch { browser = await chromium.launch({ channel: 'chrome', args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] }); }
+    browser = await launch();
     const page = await browser.newPage({ viewport: { width: 1512, height: 900 } });
     const errors = []; page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text().slice(0, 120)); });
-    await page.goto('file://' + path.join(ROOT, 'dist', 'command-centre-v2.html') + '?s=check'); await page.waitForTimeout(3000);
+    await page.goto('file://' + path.join(ROOT, 'dist', 'command-centre-v2.html') + '?s=check&norender=1'); await page.waitForTimeout(3000);
     await step('smoke: loads without page errors', async () => { if (errors.length) throw new Error(errors[0]); });
     await step('smoke: 35 agents at their desks', async () => { const n = await page.evaluate(() => Object.keys(window.CC.R).length); if (n !== 35) throw new Error('agents: ' + n); return n + ' agents'; });
     await step('smoke: eight department cards + the Brain tag', async () => {
@@ -256,6 +117,7 @@ else {
       await page.click('.tp-dd'); await page.click('.tp-menu button[data-k="revenue"]');
       await page.fill('.tp-in', 'cut a 15 second teaser from the demo reel'); await page.keyboard.press('Enter'); await page.waitForTimeout(600);
       const hint = await page.evaluate(() => document.querySelector('.tp-hint').textContent); if (!/Added/.test(hint)) throw new Error('hint: ' + hint);
+      await page.waitForFunction(() => [...document.querySelectorAll('.tp-row .tp-t')].some(e => /teaser/i.test(e.textContent)), null, { timeout: 8000 }).catch(() => {});
       const row = await page.evaluate(() => [...document.querySelectorAll('.tp-row .tp-t')].some(e => /teaser/i.test(e.textContent))); if (!row) throw new Error('row not in the feed');
       return hint.trim().slice(0, 60);
     });
@@ -327,106 +189,102 @@ else {
   finally { if (browser) await browser.close(); }
 }
 
-/* ---------- 3. server smoke ---------- */
-{
-  // The Python/FastAPI backend needs Postgres + Redis, reachable only inside
-  // the `docker compose` network (see .env.local's DATABASE_URL/REDIS_URL) —
-  // it cannot be spawned standalone the way serve.mjs could. This block
-  // probes whichever stack is already up on the dev port and skips cleanly
-  // if nothing answers there, instead of failing the whole check run.
-  const port = Number(process.env.PORT) || 4520;
-  const base = `http://localhost:${port}`;
-  const up = await (async () => { try { const r = await fetch(base + '/api/health'); if (r.ok) return await r.json(); } catch {} return null; })();
-  if (!up) ok('server: skipped', `nothing answering on ${base} — run "docker compose up -d" first`);
-  else {
-    ok('server: starts', `${up.backend} · ${up.agents} agents · ${up.depts?.length} depts`);
-    await step('server: serves the office', async () => { const r = await fetch(base + '/'); const t = await r.text(); if (!/AGENTS OFFICE/i.test(t)) throw new Error('html missing'); });
-    await step('server: /api/brain has the live notes', async () => { const g = await (await fetch(base + '/api/brain')).json(); if (typeof g.notes !== 'number' || !Array.isArray(g.names)) throw new Error(JSON.stringify(g).slice(0, 120)); return `${g.notes} notes`; });
-    await step('server: /api/mcp answers (connectors are a follow-up)', async () => {
-      const m = await (await fetch(base + '/api/mcp')).json();
-      if (!Array.isArray(m.servers)) throw new Error('no servers array');
-      return `${m.servers.length} servers · agents get tools: ${m.tools ? 'yes' : 'no'}${m.web ? ' + web' : ''}`;
-    });
-    await step('server: /api/health carries the roster count', async () => { if (typeof up.agents !== 'number' || up.agents !== 35) throw new Error('agents: ' + up.agents); });
-    await step('server: /api/agents lists the roster with job descriptions', async () => {
-      const r = await (await fetch(base + '/api/agents')).json(); const a = r.agents; if (!Array.isArray(a) || a.length !== 35) throw new Error('agents: ' + (a && a.length));
-      if (!a[0].does) throw new Error('no job description'); return `${a.length} agents`;
-    });
-    await step('server: /api/usage always answers', async () => {
-      const r = await fetch(base + '/api/usage'); if (r.status !== 200) throw new Error('status ' + r.status); const u = await r.json();
-      if (!u.ok || !u.source) throw new Error(JSON.stringify(u).slice(0, 120));
-      return u.source === 'claude' ? `Claude's gauge` : `office window (${u.window?.tokens ?? 0} tokens)`;
-    });
-    await step('server: /api/skills lists the skills and who has them', async () => {
-      const s = await (await fetch(base + '/api/skills')).json(); if (!s.count || !Array.isArray(s.skills)) throw new Error('no skills');
-      const proposal = s.skills.find(k => k.name === 'proposal'); if (!proposal?.agents?.includes('piper')) throw new Error('proposal is not bound to piper');
-      return `${s.count} skills · proposal: ${proposal.agents.join(', ')}`;
-    });
-    await step('server: /api/lessons answers', async () => {
-      const r = await fetch(base + '/api/lessons'); if (r.status !== 200) throw new Error('status ' + r.status); await r.json(); return `lessons ok`;
-    });
-    await step('server: /api/routines lists the timetable and names the departments', async () => {
-      const r = await (await fetch(base + '/api/routines')).json(); if (!Array.isArray(r.routines) || JSON.stringify(r.depts) !== '["content","fin","revenue"]') throw new Error(JSON.stringify(r).slice(0, 120));
-      return `${r.routines.length} routines`;
-    });
-    await step('server: a routine outside Content, Finance and Revenue is refused with a sentence', async () => {
-      const r = await fetch(base + '/api/routines', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: 'engineering', agent: 'lexi', title: 'x', text: 'every day at 9am post the reel', when: { kind: 'daily', at: '09:00' } }) });
-      const j = await r.json(); if (r.status !== 400 || !/later release/.test(j.error || '')) throw new Error(r.status + ' ' + JSON.stringify(j));
-      const t = await fetch(base + '/api/routines', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: 'content', agent: 'lexi', title: 'x', text: 'every weekday, triage the inbox' }) });
-      const k = await t.json(); if (t.status !== 400 || !k.error) throw new Error('incomplete schedule not refused: ' + JSON.stringify(k));
-      return j.error;
-    });
-    await step('server: rejects an empty task', async () => { const r = await fetch(base + '/api/tasks', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"dept":"revenue","text":""}' }); if (r.status !== 400) throw new Error('status ' + r.status); });
-    if (LIVE) {
-      await step('live: Claude routes a task', async () => {
-        const r = await fetch(base + '/api/tasks', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: 'content', text: 'reply to a client asking when their September report will arrive' }) });
-        if (!r.ok) throw new Error((await r.json()).error); const t = await r.json(); globalThis.__t = t; return `${t.agent} · ${t.title}`;
+
+/* ---------- 3. live-UI smoke: the real server (real Postgres, scripted models) driven through the page ---------- */
+const DB = process.env.AO_TEST_DATABASE_URL;
+if (!chromium) bad('live-ui: playwright', 'not installed');
+else if (!DB) ok('live-ui: skipped', 'set AO_TEST_DATABASE_URL to drive the real server through the Jobs screen');
+else {
+  const port = 4590 + Math.floor(Math.random() * 9);
+  const brain = fs.mkdtempSync(path.join(fs.realpathSync('/tmp'), 'ao-check-brain-'));
+  let server = null, browser = null;
+  try {
+    await sh('python3', ['-c', "import os, psycopg; c = psycopg.connect(os.environ['AO_TEST_DATABASE_URL'], autocommit=True); c.execute('DROP SCHEMA public CASCADE; CREATE SCHEMA public;')"], { env: { ...process.env } });
+    server = spawn('python3', ['-m', 'tests.ui_server', String(port)], { cwd: path.join(ROOT, 'backend'), env: { ...process.env, DATABASE_URL: DB, AO_BRAIN: brain }, stdio: ['ignore', 'pipe', 'pipe'] });
+    let serverLog = ''; server.stdout.on('data', d => { serverLog += d; }); server.stderr.on('data', d => { serverLog += d; });
+    const base = `http://127.0.0.1:${port}`;
+    let up = false;
+    for (let i = 0; i < 60 && !up; i++) { try { up = (await fetch(base + '/api/health')).ok; } catch {} if (!up) await new Promise(r => setTimeout(r, 500)); }
+    await step('live-ui: the server starts on real Postgres', async () => { if (!up) throw new Error('no answer on ' + base + ': ' + serverLog.slice(-300)); });
+    if (up) {
+      browser = await launch();
+      const page = await browser.newPage({ viewport: { width: 1100, height: 720 } });
+      const errors = []; page.on('pageerror', e => errors.push(e.message));
+      await step('live-ui: the API refuses a request without the office header and a foreign origin', async () => {
+        const noHeader = await page.request.post(base + '/api/tasks', { data: { dept: 'fin', text: 'x' } });
+        if (noHeader.status() !== 403) throw new Error('without X-AO-Client: ' + noHeader.status());
+        const foreign = await page.request.get(base + '/api/health', { headers: { origin: 'https://evil.example' } });
+        if (foreign.status() !== 403) throw new Error('foreign origin: ' + foreign.status());
+        const text = await page.request.post(base + '/api/tasks', { data: 'dept=fin', headers: { 'x-ao-client': 'office', 'content-type': 'text/plain' } });
+        if (text.status() !== 415) throw new Error('text/plain body: ' + text.status());
       });
-      await step('live: the agent runs the task to done', async () => {
-        const t = globalThis.__t; if (!t) throw new Error('no task');
-        try {
-          const r = await fetch(`${base}/api/tasks/${t.id}/run`, { method: 'POST' });
-          if (!r.ok) throw new Error((await r.json()).error); const d = await r.json(); if (d.error) throw new Error(d.result);
-          if (d.state !== 'done' || !d.result) throw new Error('task: ' + JSON.stringify(d).slice(0, 160));
-          return `${d.result.length} chars · model ${d.modelUsed} from ${d.modelFrom}`;
-        } finally { await fetch(`${base}/api/tasks/${t.id}`, { method: 'DELETE' }); }
+      await page.goto(base + '/?norender=1');
+      await page.waitForFunction(() => document.querySelector('.tp-mode') && !document.querySelector('.tp-mode').hidden, null, { timeout: 20000 }).catch(() => {});
+      await step('live-ui: the page goes live and shows no invented work', async () => {
+        const live = await page.evaluate(() => document.querySelector('.tp-mode').textContent);
+        if (live !== 'LIVE') throw new Error('mode badge: ' + live);
+        const demo = await page.evaluate(() => window.CC.tasks.tasks.filter(t => !t.live).length);
+        if (demo) throw new Error(demo + ' demo tasks are still on a live office');
       });
-      await step('live: a routine fires on the server, waits for approval, and lands', async () => {
-        const id = `check-${Date.now()}`;
-        const r = await fetch(base + '/api/routines', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, dept: 'fin', agent: 'invo', title: 'check smoke routine', text: 'say hello in one sentence', when: { kind: 'daily', at: '09:00' }, needsOk: true }) });
-        if (!r.ok) throw new Error((await r.json()).error);
-        try {
-          const fired = await fetch(`${base}/api/routines/${id}/run`, { method: 'POST' }); if (!fired.ok) throw new Error((await fired.json()).error);
-          let task = null;
-          for (let i = 0; i < 20 && !(task && task.state === 'waiting'); i++) { await new Promise(r => setTimeout(r, 3000)); task = (await (await fetch(base + '/api/tasks')).json()).find(t => t.agent === 'invo' && (t.state === 'waiting' || t.state === 'doing')); }
-          if (!task || task.state !== 'waiting') throw new Error('routine never reached waiting: ' + JSON.stringify(task));
-          const approved = await fetch(`${base}/api/tasks/${task.id}/approve`, { method: 'POST' }); const a = await approved.json(); if (!a.ok || a.state !== 'doing') throw new Error('approve: ' + JSON.stringify(a));
-          let final = null;
-          for (let i = 0; i < 20 && !(final && final.state === 'done'); i++) { await new Promise(r => setTimeout(r, 3000)); final = (await (await fetch(base + '/api/tasks')).json()).find(t => t.id === task.id); }
-          if (!final || final.state !== 'done' || final.error) throw new Error('never landed: ' + JSON.stringify(final).slice(0, 160));
-          return `${final.agent} · ${final.state} · ${final.result.length} chars`;
-        } finally {
-          await fetch(`${base}/api/routines/${id}`, { method: 'DELETE' });
-          const leftover = (await (await fetch(base + '/api/tasks')).json()).find(t => t.agent === 'invo' && t.title === 'check smoke routine');
-          if (leftover) await fetch(`${base}/api/tasks/${leftover.id}`, { method: 'DELETE' });
-        }
+      await step('live-ui: a client job runs from the form to the owner’s verdict', async () => {
+        await page.click('#topJobs'); await page.click('#jbNew');
+        await page.fill('#jbForm [name=title]', 'Bakery site'); await page.fill('#jbForm [name=client]', 'Acme Bakery');
+        await page.fill('#jbForm [name=deposit_ref]', 'INV-001 paid');
+        await page.fill('#jbForm [name=description]', 'A small ordering site for a bakery with a menu and an order form.');
+        await page.selectOption('#jbForm [name=requestedTier]', '1');
+        await page.click('#jbForm button[type=submit]');
+        await page.waitForSelector('#jbYes', { timeout: 20000 });
+        const txt = await page.$eval('.jb-banner p', e => e.textContent); if (!/VERIFY/.test(txt)) throw new Error('first gate: ' + txt);
+        const stages = await page.$$eval('.jb-stage b', els => els.map(e => e.textContent.replace(/^\S+\s/, '')));
+        if (stages.join('|') !== 'Intake|Verify|Scope|Build|Security review|Preview deploy|Exposure|Handoff') throw new Error('stage order: ' + stages.join('|'));
+        const stuck = await page.evaluate(() => Object.values(window.CC.R).filter(r => r.state === 'stuck').map(r => r.a.id));
+        if (stuck.join() !== 'olead') throw new Error('the exec lead should be waving, got: ' + stuck.join());
+        return 'eight stages in order · the exec lead waves';
       });
-      await step('live: a task set to Opus runs on Opus and says so', async () => {
-        const r = await fetch(base + '/api/tasks', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dept: 'revenue', text: 'one line: what should the next follow-up to a quiet lead say', model: 'opus' }) });
-        if (!r.ok) throw new Error((await r.json()).error); const t = await r.json();
-        try {
-          const d = await (await fetch(`${base}/api/tasks/${t.id}/run`, { method: 'POST' })).json(); if (d.error) throw new Error(d.result);
-          if (d.modelUsed !== 'opus') throw new Error(`ran on ${d.modelUsed} (from ${d.modelFrom})`);
-          return `${d.agent} · opus · from ${d.modelFrom}`;
-        } finally { await fetch(`${base}/api/tasks/${t.id}`, { method: 'DELETE' }); }
+      await step('live-ui: the exposure gate shows the three keys; the owner approves from the lead’s chat card', async () => {
+        await page.click('#jbYes');
+        await page.waitForFunction(() => /EXPOSURE/.test(document.querySelector('.jb-banner p')?.textContent || ''), null, { timeout: 20000 });
+        const keys = await page.$eval('.jb-main', e => e.innerText); if (!/EXPOSURE · THREE KEYS/.test(keys)) throw new Error('keys row missing');
+        await page.keyboard.press('Escape');
+        if (await page.evaluate(() => document.body.classList.contains('jobsOpen'))) throw new Error('Escape did not close the Jobs screen');
+        const lead = await page.evaluate(() => Object.values(window.CC.R).find(r => r.state === 'stuck')?.a.id);
+        if (lead !== 'comply') throw new Error('the security lead should wave at exposure, got ' + lead);
+        await page.evaluate(id => window.CC.openAgent(id), lead);
+        await page.waitForSelector('.m-appr .a-yes', { timeout: 8000 });
+        await page.click('.m-appr .a-yes');
+        await page.waitForTimeout(2500);
+        await page.click('#topJobs');
+        await page.waitForFunction(() => /NOW GATED/.test(document.querySelector('.jb-main')?.innerText || ''), null, { timeout: 15000 })
+          .catch(() => { throw new Error('tier pill did not become GATED after the owner approved'); });
+        const t = await page.$eval('.jb-main', e => e.innerText);
+        if (!/https:\/\/p1\.example\.test/.test(t)) throw new Error('preview URL missing');
       });
-      await step('live: chat answers in persona', async () => {
-        const r = await fetch(base + '/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ agent: 'lexi', text: 'what is our proposal win rate?' }) });
-        if (!r.ok) throw new Error((await r.json()).error); const j = await r.json(); if (!j.reply) throw new Error('empty reply'); return j.reply.slice(0, 80).replace(/\n/g, ' ');
+      await step('live-ui: the handoff closes the job', async () => {
+        await page.waitForSelector('#jbYes', { timeout: 15000 });
+        await page.click('#jbYes');
+        await page.waitForFunction(() => document.querySelector('.jb-main .jb-badge')?.textContent === 'DONE', null, { timeout: 15000 })
+          .catch(async () => { throw new Error('status: ' + await page.$eval('.jb-main .jb-badge', e => e.textContent)); });
       });
-    } else ok('live: skipped', 'set CHECK_LIVE=1 to route one task and one chat through Claude');
+      await step('live-ui: no page errors', async () => { if (errors.length) throw new Error(errors[0]); });
+    }
+  } catch (e) { bad('live-ui: browser run', e.message); }
+  finally {
+    if (browser) await browser.close();
+    if (server) server.kill('SIGTERM');
+    fs.rmSync(brain, { recursive: true, force: true });
   }
 }
+
+/* ---------- 4. a server already running on the configured port ---------- */
+await step('server: reachable and honest, if one is running', async () => {
+  let r;
+  try { r = await fetch(`http://127.0.0.1:${cfg.port}/api/health`, { signal: AbortSignal.timeout(2500) }); }
+  catch { if (process.env.CHECK_REQUIRE_SERVER === '1') throw new Error(`nothing answers on :${cfg.port}`); return `nothing on :${cfg.port} — skipped (CHECK_REQUIRE_SERVER=1 makes this a failure)`; }
+  const h = await r.json();
+  for (const k of ['ok', 'version', 'agents', 'pipeline', 'roles', 'router']) if (!(k in h)) throw new Error('health lacks ' + k);
+  if (!Array.isArray(h.agents) || h.agents.length !== 35) throw new Error('health.agents should list 35 seats');
+  return `v${h.version} · worker ${h.worker}`;
+});
 
 /* ---------- summary ---------- */
 const fails = results.filter(r => !r[0]);

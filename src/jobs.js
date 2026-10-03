@@ -101,7 +101,12 @@ export function initJobs(ctx) {
   async function poll() {
     if (!isLive()) return;
     try { jobs = await call(''); } catch { return; }
-    if (sel && open) { try { detail = await call('/' + sel); } catch { detail = null; } }
+    if (sel && open) {
+      try { detail = await call('/' + sel); } catch { detail = null; }
+      // the detail is fetched after the list, so it can be newer: use it for the list entry too, or the
+      // banner could show a gate the lead has not been asked to wave at yet
+      if (detail) { const k = jobs.findIndex(x => x.id === detail.id); if (k >= 0) jobs[k] = { ...jobs[k], ...detail, approvals: undefined, evidence: undefined }; }
+    }
     announceGates(); render();
   }
   function announceGates() {
@@ -201,6 +206,8 @@ export function initJobs(ctx) {
   function closeIt() { open = false; ov.classList.remove('on'); document.body.classList.remove('jobsOpen'); }
   btn.onclick = () => (open ? closeIt() : openIt());
   ov.querySelector('#jbClose').onclick = closeIt;
+  // Escape closes the screen even while a field has focus (the page's own hotkeys ignore typing contexts)
+  ov.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); closeIt(); } });
 
   return {
     start(health) { pipe = health && health.pipeline; if (timer) return; poll(); timer = setInterval(poll, 6000); },

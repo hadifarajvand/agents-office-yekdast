@@ -5,10 +5,10 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "docker compose up --build",
+    "start": "docker compose up -d postgres egress router-gateway && backend/.venv/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port 4520",
     "build": "node build.mjs",
     "check": "node check.mjs",
-    "check:live": "CHECK_LIVE=1 node check.mjs",
+    "test:backend": "cd backend && python3 -m pytest -q",
     "graph": "node graph-build.mjs"
   },
   "engines": {
