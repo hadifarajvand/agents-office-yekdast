@@ -9,7 +9,7 @@ The roster lives in `office.agents.json` (shipped defaults) and `office.agents.l
 Each agent looks like:
 
 ```json
-{ "id": "newt", "department": "marketing", "lead": false,
+{ "id": "newt", "department": "content", "lead": false,
   "name": "NEWSLETTER", "role": "Newsletter Creator Agent",
   "does": "Writes the monthly newsletter your signups actually open.",
   "tools": ["beehiiv", "loops"],
@@ -20,9 +20,9 @@ You may change **name, role, does, tools, brief, model**. Keep `name` short and 
 
 The roster is read in this order, later wins: `office.agents.json` → `<brain>/Agents Office/agents.json` → `office.agents.local.json`. The brain is the folder named by `brain` in `office.config.json` (or `office.config.local.json`, which wins). If the owner keeps their roster in the brain, write there instead of the local file.
 
-Fixed, and the office ignores edits to them: `id`, `department`, `lead`. There are **six departments and 35 seats** and that is the office. Do not add or remove agents, departments or pods. When the owner wants a new kind of agent, **rename a seat** in the right department. When they want fewer, leave the seat as is; an idle agent costs nothing.
+Fixed, and the office ignores edits to them: `id`, `department`, `lead`. There are **eight departments and 35 seats** and that is the office. Do not add or remove agents, departments or pods. When the owner wants a new kind of agent, **rename a seat** in the right department. When they want fewer, leave the seat as is; an idle agent costs nothing.
 
-Department keys: `emails` (5 seats) · `sales` (6) · `marketing` (7) · `ops` (6) · `fin` (4) · `delivery` (7). Every department has a lead (Emails, Sales, Marketing, Operations, Accounting, Delivery) and the lead stays the lead.
+Department keys: `exec` (3 seats, EXECUTIVE & STRATEGY) · `revenue` (8, REVENUE) · `engineering` (6, ENGINEERING & BACKEND) · `frontend` (4, FRONTEND & MOBILE) · `devops` (5, DEVOPS & QA) · `secdata` (3, SECURITY & DATA) · `fin` (3, FINANCE & BILLING) · `content` (3, CONTENT & COMMS). Every department has a lead and the lead stays the lead.
 
 After editing: run `npm run check` (it validates the roster and prints every problem), then tell the owner to restart the office (`npm start`). Names, roles and descriptions update on the next page load.
 
@@ -64,7 +64,7 @@ Follow `template.md` beside this file, section for section.
 - short, absolute, one per line
 ```
 
-**Binding.** `agents: [id, id]` for one or more agents (ids from `office.agents.json`; pick the seat whose `does` matches, and say which one you chose). `departments: [emails]` for a whole department (`emails`, `sales`, `marketing`, `ops`, `fin`, `delivery`). Neither binds it to every agent; only do that for a house style, and say so. Unknown ids are refused and a skill with no valid binding is skipped.
+**Binding.** `agents: [id, id]` for one or more agents (ids from `office.agents.json`; pick the seat whose `does` matches, and say which one you chose). `departments: [content]` for a whole department (`exec`, `revenue`, `engineering`, `frontend`, `devops`, `secdata`, `fin`, `content`). Neither binds it to every agent; only do that for a house style, and say so. Unknown ids are refused and a skill with no valid binding is skipped.
 
 **Limits the loader enforces:** `SKILL.md` body 6,000 characters; each file beside it 4,000, all files together 8,000. Readable files are `.md .txt .csv .json .yaml .html`; anything else is listed by name only. Long reference material goes into the brain as ordinary notes, which the agent reads when the task calls for them; the skill just names them.
 
@@ -83,7 +83,7 @@ Two more things the office writes into the brain on its own. Both are plain file
 
 ## Routines: tasks on the office's own clock
 
-When the owner says "every Monday …", "each morning …", "on a schedule", "automatically at …", "make X happen every …", that is a **routine**: a task the office fires by itself at that time and runs without anyone typing. **This release: Emails, Accounting and Sales only** (`emails`, `fin`, `sales`). A routine for any other department is refused by the office; tell the owner it comes in a later release rather than writing one.
+When the owner says "every Monday …", "each morning …", "on a schedule", "automatically at …", "make X happen every …", that is a **routine**: a task the office fires by itself at that time and runs without anyone typing. **This release: Content, Finance and Revenue only** (`content`, `fin`, `revenue`). A routine for any other department is refused by the office; tell the owner it comes in a later release rather than writing one.
 
 **Where:** `<brain>/Agents Office/routines.json` (`<brain>` as above). Create it with `{"routines": []}` if it does not exist. Never write routines anywhere else.
 
@@ -113,7 +113,7 @@ The top bar shows the MCP servers **this machine's Claude Code** is connected to
 "mcp": {
   "allow": [],
   "deny": ["Stripe"],
-  "departments": { "Slack": ["emails", "ops"] }
+  "departments": { "Slack": ["content", "devops"] }
 },
 "tools": { "web": true }
 ```
