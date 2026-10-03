@@ -12,6 +12,16 @@ from fakes import FakeDB  # noqa: E402
 OFFICE_HEADERS = {"X-AO-Client": "office"}
 
 
+@pytest.fixture(autouse=True)
+def fresh_config():
+    """Each test starts from the shipped config; overrides made with monkeypatch.setitem
+    on load_config() do not leak into the next test."""
+    from app.config import load_config
+    load_config.cache_clear()
+    yield
+    load_config.cache_clear()
+
+
 @pytest.fixture
 def fake_db(monkeypatch):
     return FakeDB().install(monkeypatch)

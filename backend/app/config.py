@@ -62,7 +62,8 @@ DEFAULTS: dict = {
         "chat": "kr/glm-5",
     },
     "budget": {"usd_per_job": 1.0, "usd_per_1k_tokens": {"default": 0.0}},
-    "pipeline": {"stages": DEFAULT_STAGES, "deadline_days": 3, "max_review_loops": 2},
+    "pipeline": {"stages": DEFAULT_STAGES, "deadline_days": 3, "max_review_loops": 2,
+                 "owner_gates": ["verify", "handoff"]},  # stages that also need the owner's click
     # Two keys for a gated (Tier 1) preview: an independent security verdict and
     # commercial consent. Neither may be the building department's lead.
     "exposure": {"tier1_owner_clicks": 3, "preview_ttl_days": 7,
@@ -149,7 +150,38 @@ class Config:
         return os.environ.get(env_name, "") if env_name else ""
 
 
+_ENV_KEYS = ("AO_NAME", "AO_BRAIN", "PORT", "AO_MODEL", "ROUTER_BASE_URL", "ROUTER_FORMAT", "AO_WORKER")
+_cache: dict = {"key": None, "cfg": None}
+
+
+def _cache_key() -> tuple:
+    def mt(p: Path):
+        try:
+            return p.stat().st_mtime_ns
+        except OSError:
+            return None
+    return (mt(ROOT / "office.config.json"), mt(ROOT / "office.config.local.json"),
+            tuple(os.environ.get(k) for k in _ENV_KEYS))
+
+
 def load_config() -> Config:
+    """The merged config. Cached until a config file or a relevant environment
+    variable changes, so every module sees one object (tests clear it with
+    `load_config.cache_clear()`)."""
+    key = _cache_key()
+    if _cache["key"] != key or _cache["cfg"] is None:
+        _cache.update(key=key, cfg=_load())
+    return _cache["cfg"]
+
+
+def _clear() -> None:
+    _cache.update(key=None, cfg=None)
+
+
+load_config_cache_clear = _clear
+
+
+def _load() -> Config:
     problems: list[str] = []
     base = _read_json(ROOT / "office.config.json")
     local = _read_json(ROOT / "office.config.local.json")
@@ -187,3 +219,6 @@ def load_config() -> Config:
         sandbox=merged["sandbox"], dokploy=merged["dokploy"], github=merged["github"],
         api=merged["api"], problems=problems,
     )
+
+
+load_config.cache_clear = _clear  # type: ignore[attr-defined]

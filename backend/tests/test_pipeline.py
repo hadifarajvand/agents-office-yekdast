@@ -1,0 +1,420 @@
+"""The job pipeline end to end, with scripted model answers and fake worker/deployer/checks.
+
+What these tests pin down:
+  - the happy path at Tier 0 needs the owner only for the verdict and the handoff;
+  - a gated (Tier 1) preview needs security + commercial keys, plus the owner for the first N;
+  - builders can never approve exposure; the config validator rejects such wiring;
+  - a lead FAIL sends the stage back with reasons, then parks the job after the loop limit;
+  - a PASS needs cited evidence; a failed deterministic check fails without asking a model;
+  - a model other than the pinned one voids a review; the per-job budget parks the job;
+  - approvals are idempotent; kill takes the preview down.
+"""
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import Command
+
+from app import db, llm
+from app.config import load_config
+from app.pipeline import exposure as exp
+from app.pipeline import jobs
+from app.pipeline.api import thread
+from app.pipeline.graph import compile_pipeline
+from app.pipeline.ports import Deps, set_deps
+from app.roster import defaults
+
+GOOD_BRIEF = {"title": "Bakery site", "description": "A small ordering site for a bakery with a menu and an order form.",
+              "client": "Acme Bakery", "deposit_ref": "INV-001 paid", "acceptance": "customers can place an order"}
+
+
+class Script:
+    """Scripted model answers, keyed by what the prompt is for."""
+    def __init__(self):
+        self.review_verdicts: dict[str, list[str]] = {}   # stage -> queue of verdicts ("PASS"/"FAIL"/"NOCITE")
+        self.calls: list[str] = []
+        self.mismatch = False
+
+    async def chat_json(self, system, user, *, role="drafts"):
+        self.calls.append(role)
+        if "reviewing your own team's stage" in system:
+            stage = re.search(r"Stage: (\w+)", user).group(1)
+            q = self.review_verdicts.get(stage, [])
+            v = q.pop(0) if q else "PASS"
+            if self.mismatch:
+                llm.current_meter.get().mismatches.append("pinned kr/glm-5, router answered with other-model")
+            ids = re.findall(r"id=(\S+)", user)
+            if v == "NOCITE":
+                return {"verdict": "PASS", "reasons": ["looks fine"], "cites": []}
+            return {"verdict": v, "reasons": [f"{stage} {v.lower()}"], "cites": ids[:2]}
+        if "verify whether a client job" in system:
+            return {"deposit_real": True, "scope_clear": True, "price_fits_effort": True, "deadline_realistic": True,
+                    "repeatable": True, "risks": [], "summary": "ok"}
+        if "scope a small" in system:
+            return {"acceptance_criteria": ["order form submits"], "tasks": ["build form"], "stack": "next", "estimate_hours": 6}
+        if "client handoff memo" in system:
+            return {"summary": "done", "how_to_open": "open the link", "what_was_built": ["site"], "known_limits": [], "next_steps": []}
+        raise AssertionError("unscripted prompt: " + system[:60])
+
+
+class FakeWorker:
+    def __init__(self):
+        self.runs = 0
+        self.exit_state = "ok"
+        self.models = ["claude-haiku-4-5-20251001"]
+
+    async def run(self, job_dir, brief, limits):
+        self.runs += 1
+        return {"patch_path": str(job_dir / "patch.bundle"), "log_path": str(job_dir / "log.txt"), "tokens": 1000,
+                "usd": 0.01, "models_seen": self.models, "exit_state": self.exit_state}
+
+
+class FakeDeployer:
+    def __init__(self):
+        self.deployed = 0
+        self.exposed: list[int] = []
+        self.stopped = 0
+        self.probe_ok = True
+
+    async def deploy_preview(self, job, patch_path):
+        self.deployed += 1
+        return {"app_id": "app1", "internal_url": "http://app1.internal"}
+
+    async def probe_unauthenticated(self, preview):
+        return {"status": 401 if self.probe_ok else 200, "ok": self.probe_ok}
+
+    async def apply_exposure(self, job, preview, tier):
+        self.exposed.append(tier)
+        return {"url": f"https://p{tier}.example.test"}
+
+    async def stop(self, job, preview):
+        self.stopped += 1
+
+
+class FakeChecks:
+    def __init__(self):
+        self.ok = True
+
+    async def scan(self, patch_path):
+        return [{"name": "secret scan", "ok": self.ok, "detail": "0 hits" if self.ok else "1 hit"},
+                {"name": "dependency audit", "ok": True, "detail": "0 vulnerabilities"}]
+
+
+@pytest.fixture
+def env(fake_db, tmp_path, monkeypatch):
+    cfg = load_config()
+    monkeypatch.setitem(cfg.sandbox, "jobs_dir", str(tmp_path / "jobs"))
+    script, worker, dep, checks = Script(), FakeWorker(), FakeDeployer(), FakeChecks()
+    set_deps(Deps(chat_json=script.chat_json, worker=worker, deployer=dep, checks=checks, jobs_dir=tmp_path))
+    graph = compile_pipeline(InMemorySaver())
+    yield type("Env", (), dict(script=script, worker=worker, dep=dep, checks=checks, graph=graph, db=fake_db, cfg=cfg))
+    set_deps(None)
+
+
+async def start(env, tier=0, brief=None, kind="client"):
+    brief = dict(brief or GOOD_BRIEF)
+    job = jobs.new_job(kind, brief["title"], brief, requested_tier=tier)
+    await db.save_job(job)
+    state = {"job_id": job["id"], "kind": kind, "brief": brief, "requested_tier": tier, "loops": {}, "feedback": "", "route": ""}
+    await env.graph.ainvoke(state, config=thread(job["id"]))
+    return job["id"]
+
+
+async def owner(env, jid, verdict="PASS"):
+    """The owner decides the stage the job is waiting at (what POST /gates does)."""
+    job = await db.get_job(jid)
+    stage = job["pending"][0]["stage"]
+    assert exp.OWNER in job["pending"][0]["roles"], job["pending"]
+    await db.record_approval(jid, stage, exp.OWNER, verdict, "", [], exp.OWNER)
+    await env.graph.ainvoke(Command(resume={"owner": verdict}), config=thread(jid))
+    return stage
+
+
+async def run_to_end(env, jid, limit=12):
+    for _ in range(limit):
+        job = await db.get_job(jid)
+        if job["status"] != "waiting":
+            return job
+        await owner(env, jid)
+    raise AssertionError("never finished")
+
+
+# ---------- configuration ----------
+
+def test_shipped_pipeline_config_is_valid_and_separates_duties():
+    cfg = load_config()
+    assert exp.validate_config(cfg, defaults()) == []
+    for role in ("dlead", "mlead", "qa"):  # engineering, frontend, devops leads
+        assert not exp.can_approve(cfg, role, "exposure")
+    assert exp.can_approve(cfg, "comply", "exposure") and exp.can_approve(cfg, "olead", "exposure")
+    assert exp.can_approve(cfg, exp.OWNER, "exposure")
+    assert not exp.can_approve(cfg, "dlead", "preview")  # a lead approves only its own stage
+    assert exp.can_approve(cfg, "qa", "preview")
+
+
+def test_validator_rejects_a_builder_as_exposure_key(monkeypatch):
+    cfg = load_config()
+    monkeypatch.setitem(cfg.exposure, "keys", {"security": "dlead", "commercial": "olead"})
+    assert any("builders cannot approve exposure" in p for p in exp.validate_config(cfg, defaults()))
+    monkeypatch.setitem(cfg.exposure, "keys", {"security": "comply", "commercial": "comply"})
+    assert any("two different seats" in p for p in exp.validate_config(cfg, defaults()))
+
+
+def test_roles_by_tier():
+    cfg = load_config()
+    assert exp.stage_roles(cfg, "exposure", tier=0) == []
+    assert exp.stage_roles(cfg, "exposure", tier=1, owner_clicks=0) == ["comply", "olead", "owner"]
+    assert exp.stage_roles(cfg, "exposure", tier=1, owner_clicks=3) == ["comply", "olead"]
+    assert exp.stage_roles(cfg, "exposure", tier=2, owner_clicks=99) == ["comply", "olead", "owner"]
+    assert exp.stage_roles(cfg, "verify") == ["olead", "owner"]
+    assert exp.stage_roles(cfg, "build") == ["dlead"]
+
+
+# ---------- the happy path ----------
+
+async def test_tier0_job_needs_the_owner_only_for_verdict_and_handoff(env):
+    jid = await start(env, tier=0)
+    seen = []
+    job = await db.get_job(jid)
+    while job["status"] == "waiting":
+        seen.append(await owner(env, jid))
+        job = await db.get_job(jid)
+    assert seen == ["verify", "handoff"]
+    assert job["status"] == "done"
+    assert all(s["state"] == "approved" for s in job["stages"].values())
+    assert env.dep.deployed == 1 and env.dep.exposed == []
+    assert job["costs"]["tokens"] >= 1000
+    assert job["preview"] is None or job["preview"]["tier"] == 0
+
+
+async def test_every_stage_records_a_lead_approval_with_evidence(env):
+    jid = await start(env)
+    await run_to_end(env, jid)
+    approvals = {(a["stage"], a["role"]) for a in await db.list_approvals(jid)}
+    for stage, lead in (("verify", "olead"), ("scope", "dlead"), ("build", "dlead"), ("security", "comply"),
+                        ("preview", "qa"), ("handoff", "lexi")):
+        assert (stage, lead) in approvals
+    assert ("exposure", "comply") not in approvals  # Tier 0: no exposure decision at all
+
+
+# ---------- exposure ----------
+
+async def test_gated_preview_needs_both_keys_and_the_owner_until_n_clicks(env):
+    jid = await start(env, tier=1)
+    job = await db.get_job(jid)
+    assert job["pending"][0]["stage"] == "verify"
+    await owner(env, jid)
+    job = await db.get_job(jid)
+    assert job["pending"][0]["stage"] == "exposure"
+    assert job["pending"][0]["roles"] == ["owner"]  # both keys already recorded by the graph
+    appr = {a["role"]: a["verdict"] for a in await db.list_approvals(jid) if a["stage"] == "exposure"}
+    assert appr == {"comply": "PASS", "olead": "PASS"}
+    assert env.dep.exposed == []  # nothing public before the owner's click
+    await owner(env, jid)
+    job = await db.get_job(jid)
+    assert env.dep.exposed == [1]
+    assert job["preview"]["tier"] == 1 and job["preview"]["url"].startswith("https://p1")
+    assert job["pending"][0]["stage"] == "handoff"
+
+
+async def test_after_n_owner_clicks_the_two_keys_alone_expose_a_gated_preview(env):
+    for _ in range(3):
+        await env.db.bump_counter("tier1_owner_clicks")
+    jid = await start(env, tier=1)
+    await owner(env, jid)  # verify
+    job = await db.get_job(jid)
+    assert job["pending"][0]["stage"] == "handoff"  # exposure passed without the owner
+    assert env.dep.exposed == [1]
+
+
+async def test_tier2_always_needs_the_owner(env):
+    for _ in range(10):
+        await env.db.bump_counter("tier1_owner_clicks")
+    jid = await start(env, tier=2)
+    await owner(env, jid)
+    job = await db.get_job(jid)
+    assert job["pending"][0] == {"stage": "exposure", "roles": ["owner"], "needsOwner": True}
+
+
+async def test_unauthenticated_access_blocks_exposure(env):
+    env.dep.probe_ok = False  # the app answers 200 without credentials
+    jid = await start(env, tier=1)
+    await owner(env, jid)  # verify
+    job = await db.get_job(jid)
+    assert job["stages"]["exposure"]["attempts"] >= 1 and env.dep.exposed == []
+    assert job["status"] in ("parked", "waiting") and not job["preview"]["url"]
+    fails = [a for a in await db.list_approvals(jid) if a["stage"] == "exposure"]
+    assert fails == [] or all(a["verdict"] == "FAIL" for a in fails)
+
+
+# ---------- review rules ----------
+
+async def test_a_lead_fail_sends_the_stage_back_with_reasons_then_passes(env):
+    env.script.review_verdicts["scope"] = ["FAIL", "PASS"]
+    jid = await start(env)
+    job = await run_to_end(env, jid)
+    assert job["status"] == "done"
+    assert job["stages"]["scope"]["attempts"] == 2
+
+
+async def test_repeated_fails_park_the_job_and_the_owner_can_retry_or_kill(env):
+    env.script.review_verdicts["scope"] = ["FAIL", "FAIL", "FAIL"]
+    jid = await start(env)
+    await owner(env, jid)  # verify
+    job = await db.get_job(jid)
+    assert job["status"] == "parked" and "scope" in job["parkReason"]
+    env.script.review_verdicts["build"] = ["FAIL", "FAIL", "FAIL"]
+    await env.graph.ainvoke(Command(resume={"action": "retry", "note": "try again"}), config=thread(jid))
+    job = await db.get_job(jid)
+    assert job["stages"]["scope"]["state"] == "approved"  # the retry fixed scope ...
+    assert job["status"] == "parked" and "build" in job["parkReason"]  # ... and build then failed review
+    await jobs.touch(jid, status="killed")
+    await env.graph.ainvoke(Command(resume={"action": "kill"}), config=thread(jid))
+    assert (await db.get_job(jid))["status"] == "killed"
+
+
+async def test_pass_without_cited_evidence_is_a_fail(env):
+    env.script.review_verdicts["scope"] = ["NOCITE", "PASS"]
+    jid = await start(env)
+    await run_to_end(env, jid)
+    job = await db.get_job(jid)
+    assert job["stages"]["scope"]["attempts"] == 2
+
+
+async def test_failed_security_check_fails_without_asking_a_model(env):
+    env.checks.ok = False
+    before = len(env.script.calls)
+    jid = await start(env)
+    await owner(env, jid)  # verify -> ... -> security fails
+    job = await db.get_job(jid)
+    assert job["status"] == "parked" and "security" in job["parkReason"]
+    reviews = [c for c in env.script.calls if c == "lead_review"]
+    assert len(reviews) == 3  # verify, scope, build were reviewed by the model; security never reaches it
+    assert env.dep.deployed == 0
+
+
+async def test_a_review_by_the_wrong_model_is_void(env):
+    env.script.mismatch = True
+    jid = await start(env)
+    job = await db.get_job(jid)  # the very first review (verify) is void three times -> parked
+    assert job["status"] == "parked" and "verify" in job["parkReason"]
+    assert "review void" in job["parkReason"] and "other-model" in job["parkReason"]
+
+
+async def test_an_unfinished_build_fails_the_stage(env):
+    env.worker.exit_state = "timeout"
+    jid = await start(env)
+    await owner(env, jid)
+    job = await db.get_job(jid)
+    assert job["status"] == "parked" and "build" in job["parkReason"]
+
+
+async def test_a_swapped_builder_model_fails_the_stage(env):
+    env.worker.models = ["some-free-model"]
+    jid = await start(env)
+    await owner(env, jid)
+    job = await db.get_job(jid)
+    assert job["status"] == "parked" and "build" in job["parkReason"]
+
+
+async def test_incomplete_brief_parks_before_any_model_call(env):
+    bad = {**GOOD_BRIEF, "deposit_ref": ""}
+    jid = await start(env, brief=bad)
+    job = await db.get_job(jid)
+    assert job["status"] == "parked" and "deposit" in job["parkReason"]
+    assert env.script.calls == []
+
+
+async def test_budget_cap_parks_the_job(env, monkeypatch):
+    monkeypatch.setitem(env.cfg.budget, "usd_per_job", 0.005)  # the fake builder reports $0.01
+    jid = await start(env)
+    await owner(env, jid)
+    job = await db.get_job(jid)
+    assert job["status"] == "parked" and "budget" in job["parkReason"]
+
+
+async def test_approvals_are_idempotent(env):
+    jid = await start(env)
+    assert await db.record_approval(jid, "verify", "owner", "PASS", "", [], "owner") is True
+    assert await db.record_approval(jid, "verify", "owner", "PASS", "", [], "owner") is False
+
+
+# ---------- HTTP ----------
+
+@pytest.fixture
+def api(env, isolated_brain, monkeypatch):
+    from contextlib import asynccontextmanager
+    from app.main import app
+    from conftest import OFFICE_HEADERS
+
+    @asynccontextmanager
+    async def lifespan(_):
+        yield
+    monkeypatch.setattr(app.router, "lifespan_context", lifespan)
+    with TestClient(app, headers=OFFICE_HEADERS) as c:
+        yield c
+
+
+def wait_status(api, jid, status, timeout=8.0):
+    import time
+    end = time.time() + timeout
+    while time.time() < end:
+        j = api.get(f"/api/jobs/{jid}").json()
+        if j["status"] == status:
+            return j
+        time.sleep(0.03)
+    raise AssertionError(f"never {status}: {j['status']} {j['pending']}")
+
+
+def test_http_flow_owner_gates_counter_and_kill(api, env):
+    r = api.post("/api/jobs", json={**GOOD_BRIEF, "requestedTier": 1})
+    assert r.status_code == 200
+    jid = r.json()["id"]
+    job = wait_status(api, jid, "waiting")
+    assert job["pending"][0]["stage"] == "verify"
+
+    assert api.post(f"/api/jobs/{jid}/gates/scope", json={"verdict": "PASS"}).status_code == 409  # not waiting there
+    assert api.post(f"/api/jobs/{jid}/gates/verify", json={"verdict": "MAYBE"}).status_code == 400
+    assert api.post(f"/api/jobs/{jid}/gates/verify", json={"verdict": "PASS"}).status_code == 200
+    job = wait_status(api, jid, "waiting")
+    import time
+    end = time.time() + 5
+    while job["pending"] and job["pending"][0]["stage"] != "exposure" and time.time() < end:
+        time.sleep(0.03)
+        job = api.get(f"/api/jobs/{jid}").json()
+    assert job["pending"][0]["stage"] == "exposure"
+    assert api.post(f"/api/jobs/{jid}/gates/exposure", json={"verdict": "PASS"}).status_code == 200
+    assert api.post(f"/api/jobs/{jid}/gates/exposure", json={"verdict": "PASS"}).status_code in (409, 200)
+    assert env.db.counters.get("tier1_owner_clicks") == 1  # counted once
+
+    job = api.get(f"/api/jobs/{jid}").json()
+    assert {a["role"] for a in job["approvals"] if a["stage"] == "exposure"} >= {"comply", "olead", "owner"}
+    assert any(e["kind"] == "probe" for e in job["evidence"])
+
+    killed = api.post(f"/api/jobs/{jid}/kill").json()
+    assert killed["status"] == "killed" and env.dep.stopped == 1
+
+
+def test_http_create_validation(api):
+    assert api.post("/api/jobs", json={"kind": "own", "title": "x"}).status_code == 400
+    assert api.post("/api/jobs", json={"description": "no title"}).status_code == 400
+    assert api.post("/api/jobs", json={"title": "x", "requestedTier": 7}).status_code == 400
+    assert api.get("/api/jobs/missing").status_code == 404
+
+
+async def test_expired_previews_are_taken_down(env):
+    from app.pipeline.janitor import expire_previews
+    jid = await start(env, tier=1)
+    await owner(env, jid)       # verify
+    await owner(env, jid)       # exposure (owner click)
+    job = await db.get_job(jid)
+    assert job["preview"]["tier"] == 1
+    assert await expire_previews(now_ms=job["preview"]["expiresAt"] - 1) == 0
+    assert await expire_previews(now_ms=job["preview"]["expiresAt"] + 1) == 1
+    job = await db.get_job(jid)
+    assert job["preview"]["stopped"] is True and job["preview"]["url"] is None and env.dep.stopped == 1
+    assert await expire_previews(now_ms=job["preview"]["expiresAt"] + 2) == 0  # only once

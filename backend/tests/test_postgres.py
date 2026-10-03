@@ -117,3 +117,47 @@ async def test_paused_task_survives_restart_and_resumes_once(pool, monkeypatch):
     finally:
         engine.compile_graph(checkpointer=None)
         await pool2.close()
+
+
+async def test_pipeline_job_waiting_for_the_owner_survives_a_restart(pool, tmp_path, monkeypatch):
+    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+    from langgraph.types import Command
+    from psycopg_pool import AsyncConnectionPool
+
+    from app import db
+    from app.config import load_config
+    from app.pipeline import jobs
+    from app.pipeline.api import thread
+    from app.pipeline.graph import compile_pipeline
+    from app.pipeline.ports import Deps, set_deps
+    from test_pipeline import GOOD_BRIEF, FakeChecks, FakeDeployer, FakeWorker, Script
+
+    monkeypatch.setitem(load_config().sandbox, "jobs_dir", str(tmp_path / "jobs"))
+    script, worker, dep = Script(), FakeWorker(), FakeDeployer()
+    set_deps(Deps(chat_json=script.chat_json, worker=worker, deployer=dep, checks=FakeChecks(), jobs_dir=tmp_path))
+    saver = AsyncPostgresSaver(pool)
+    await saver.setup()
+    graph = compile_pipeline(saver)
+    job = jobs.new_job("client", "Bakery", dict(GOOD_BRIEF))
+    await db.save_job(job)
+    state = {"job_id": job["id"], "kind": "client", "brief": dict(GOOD_BRIEF), "requested_tier": 0,
+             "loops": {}, "feedback": "", "route": ""}
+    await graph.ainvoke(state, config=thread(job["id"]))
+    assert (await db.get_job(job["id"]))["pending"][0]["stage"] == "verify"
+    await db.record_approval(job["id"], "verify", "owner", "PASS", "", [], "owner")
+
+    # "Restart": a new pool, saver and compiled graph over the same database.
+    await db.close_pool()
+    pool2 = AsyncConnectionPool(URL, kwargs=db.pool_kwargs(), open=False)
+    await pool2.open()
+    try:
+        db._pool = pool2
+        graph2 = compile_pipeline(AsyncPostgresSaver(pool2))
+        await graph2.ainvoke(Command(resume={"owner": "PASS"}), config=thread(job["id"]))
+        j = await db.get_job(job["id"])
+        assert j["pending"][0]["stage"] == "handoff" and j["stages"]["verify"]["state"] == "approved"
+        assert worker.runs == 1 and dep.deployed == 1  # the work after verify ran exactly once
+    finally:
+        db._pool = None
+        await pool2.close()
+        set_deps(None)

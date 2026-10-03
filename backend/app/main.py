@@ -597,6 +597,17 @@ async def _tick_routines():
             raise
         except Exception:
             log.exception("routine tick failed")
+        try:
+            from .pipeline.janitor import expire_previews
+            from .pipeline.ports import get_deps
+            get_deps()  # only when the pipeline is configured
+            await expire_previews()
+        except asyncio.CancelledError:
+            raise
+        except RuntimeError:
+            pass
+        except Exception:
+            log.exception("preview expiry failed")
         await asyncio.sleep(20)
 
 
