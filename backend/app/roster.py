@@ -24,7 +24,7 @@ EDITABLE = ["name", "role", "does", "tools", "brief", "model", "effort", "bounda
 BOUNDARIES_LIST_MAX = 20
 BOUNDARIES_ITEM_MAX = 200
 BRIEF_MAX = 2000
-MODELS = ["sonnet", "opus", "fable"]
+MODELS = ["sonnet", "opus", "fable", "haiku"]
 EFFORTS = ["low", "medium", "high", "xhigh", "max"]
 
 _SEED_PATH = Path(__file__).resolve().parent / "seed" / "roster_seed.json"
@@ -118,7 +118,7 @@ def validate(doc, base: list[Agent] | None = None) -> dict:
             elif m in MODELS:
                 a.model = m
             else:
-                problems.append(f'"{eid}": model must be sonnet, opus or fable (got "{e["model"]}") — kept {a.model or "the office default"}')
+                problems.append(f'"{eid}": model must be sonnet, opus, fable or haiku (got "{e["model"]}") — kept {a.model or "the office default"}')
         if "effort" in e:
             v = str(e["effort"] or "").lower().strip()
             if not v:

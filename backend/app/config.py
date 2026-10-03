@@ -12,7 +12,7 @@ DEFAULTS = {
     "name": "Agents Office",
     "brain": "./brain",
     "port": 4520,
-    "model": "sonnet",
+    "model": "haiku",
     "mcp": {"allow": [], "deny": [], "departments": {}},
     "tools": {"web": True},
 }

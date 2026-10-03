@@ -28,11 +28,20 @@ def test_brief_trimmed_over_limit():
     assert len(updated.brief) == 2000
 
 
-def test_model_must_be_one_of_three():
+def test_model_accepts_haiku_now_a_valid_choice():
     base = defaults()
     seat = base[0]
     r = validate({"agents": [{"id": seat.id, "model": "haiku"}]}, base)
-    assert any("must be sonnet, opus or fable" in p for p in r["problems"])
+    assert not any("must be sonnet, opus, fable or haiku" in p for p in r["problems"])
+    updated = next(a for a in r["agents"] if a.id == seat.id)
+    assert updated.model == "haiku"
+
+
+def test_model_rejects_unknown_value():
+    base = defaults()
+    seat = base[0]
+    r = validate({"agents": [{"id": seat.id, "model": "bogus"}]}, base)
+    assert any("must be sonnet, opus, fable or haiku" in p for p in r["problems"])
 
 
 def test_boundaries_parsed_and_capped():

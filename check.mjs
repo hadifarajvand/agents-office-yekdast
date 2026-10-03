@@ -194,13 +194,13 @@ await step('routines: due fires once, a missed run catches up marked LATE, then 
 /* ---------- 1d. models + the usage gauge (V3.6) ---------- */
 await step('models: three names + five effort levels, one precedence, the right CLI flags', async () => {
   const m = await import('./src/models.js');
-  if (JSON.stringify(m.MODEL_KEYS) !== '["sonnet","opus","fable"]' || m.DEFAULT_MODEL !== 'sonnet') throw new Error('keys/default');
-  if (m.normModel('Opus') !== 'opus' || m.normModel('claude-sonnet-5') !== 'sonnet' || m.normModel('haiku') !== null || m.normModel('') !== null) throw new Error('normModel');
-  const p = (o) => m.modelFor(o); 
-  if (p({}).model !== 'sonnet' || p({}).from !== 'office') throw new Error('empty → office sonnet');
+  if (JSON.stringify(m.MODEL_KEYS) !== '["sonnet","opus","fable","haiku"]' || m.DEFAULT_MODEL !== 'haiku') throw new Error('keys/default');
+  if (m.normModel('Opus') !== 'opus' || m.normModel('claude-sonnet-5') !== 'sonnet' || m.normModel('haiku') !== 'haiku' || m.normModel('') !== null) throw new Error('normModel');
+  const p = (o) => m.modelFor(o);
+  if (p({}).model !== 'haiku' || p({}).from !== 'office') throw new Error('empty → office haiku');
   if (p({ office: 'opus' }).model !== 'opus' || p({ agent: 'fable', office: 'opus' }).from !== 'agent' || p({ routine: 'opus', agent: 'fable' }).model !== 'opus' || p({ task: 'sonnet', routine: 'opus', agent: 'fable', office: 'opus' }).from !== 'task') throw new Error('precedence');
-  if (p({ task: 'haiku', office: 'opus' }).model !== 'opus') throw new Error('an unknown task model must fall through');
-  if (m.modelArgs('sonnet').join(' ') !== '--model sonnet' || m.modelArgs('opus').join(' ') !== '--model opus --effort high' || m.modelArgs('fable').join(' ') !== '--model fable' || m.modelArgs('nonsense').join(' ') !== '--model sonnet') throw new Error('args: ' + m.modelArgs('opus').join(' '));
+  if (p({ task: 'haiku', office: 'opus' }).model !== 'haiku') throw new Error('task haiku must win');
+  if (m.modelArgs('sonnet').join(' ') !== '--model sonnet' || m.modelArgs('opus').join(' ') !== '--model opus --effort high' || m.modelArgs('fable').join(' ') !== '--model fable' || m.modelArgs('nonsense').join(' ') !== '--model haiku') throw new Error('args: ' + m.modelArgs('opus').join(' '));
   // V3.6.1 effort: five CLI levels, AUTO = the model's own, same precedence then the model
   if (m.normEffort('Extra high') !== 'xhigh' || m.normEffort('auto') !== null || m.normEffort('turbo') !== null || m.normEffort('MAX') !== 'max') throw new Error('normEffort');
   const e = (o) => m.effortFor(o);
@@ -208,12 +208,12 @@ await step('models: three names + five effort levels, one precedence, the right 
   if (e({ office: 'low', model: 'opus' }).effort !== 'low' || e({ agent: 'max', office: 'low' }).from !== 'agent' || e({ routine: 'medium', agent: 'max' }).effort !== 'medium' || e({ task: 'xhigh', routine: 'medium', agent: 'max', office: 'low' }).from !== 'task') throw new Error('effort precedence');
   if (m.modelArgs('sonnet', 'max').join(' ') !== '--model sonnet --effort max' || m.modelArgs('opus', 'low').join(' ') !== '--model opus --effort low' || m.modelArgs('opus', 'nonsense').join(' ') !== '--model opus --effort high') throw new Error('effort args');
   const { validate } = await import('./roster.mjs');
-  const r = validate({ agents: [{ id: 'invo', model: 'OPUS', effort: 'High' }, { id: 'lexi', model: 'haiku', effort: 'turbo' }] });
-  if (r.agents.find(a => a.id === 'invo').model !== 'opus' || r.agents.find(a => a.id === 'lexi').model !== '' || !r.problems.some(x => /sonnet, opus or fable/.test(x))) throw new Error('roster model field');
+  const r = validate({ agents: [{ id: 'invo', model: 'OPUS', effort: 'High' }, { id: 'lexi', model: 'bogus', effort: 'turbo' }] });
+  if (r.agents.find(a => a.id === 'invo').model !== 'opus' || r.agents.find(a => a.id === 'lexi').model !== '' || !r.problems.some(x => /sonnet, opus, fable or haiku/.test(x))) throw new Error('roster model field');
   if (r.agents.find(a => a.id === 'invo').effort !== 'high' || r.agents.find(a => a.id === 'lexi').effort !== '' || !r.problems.some(x => /low, medium, high, xhigh or max/.test(x))) throw new Error('roster effort field');
   const rt = await import('./routines.mjs'); const { loadRoster } = await import('./roster.mjs');
   const v = rt.validate({ dept: 'fin', agent: 'invo', text: 'x', when: { kind: 'daily', at: '09:00' }, model: 'Fable', effort: 'xhigh' }, loadRoster().agents); if (v.problems.length || v.routine.model !== 'fable' || v.routine.effort !== 'xhigh') throw new Error('routine model/effort field');
-  return 'sonnet · opus (effort high) · fable · task > routine > agent > office · roster and routines refuse anything else';
+  return 'sonnet · opus (effort high) · fable · haiku (office default) · task > routine > agent > office · roster and routines refuse anything else';
 });
 await step('usage: the gauge parses Claude\'s answer and the office\'s own count sits underneath', async () => {
   const u = await import('./usage.mjs');
@@ -282,7 +282,7 @@ else {
       await page.fill('.tp-in', 'every day at 9am post the reel'); await page.keyboard.press('Enter'); await page.waitForTimeout(400);
       const no = await page.evaluate(() => document.querySelector('.tp-hint').textContent); if (!/later release/.test(no)) throw new Error('engineering not refused: ' + no);
       const still = await page.evaluate(() => window.CC.routines().length); if (still !== 1) throw new Error('a refused routine was added');
-      const opts = await page.evaluate(() => [...document.querySelectorAll('.tp-model option')].map(o => o.value).join(',') + '|' + document.querySelector('.tp-model').value); if (opts !== 'sonnet,opus,fable|sonnet') throw new Error('model menu: ' + opts);
+      const opts = await page.evaluate(() => [...document.querySelectorAll('.tp-model option')].map(o => o.value).join(',') + '|' + document.querySelector('.tp-model').value); if (opts !== 'sonnet,opus,fable,haiku|haiku') throw new Error('model menu: ' + opts);
       const eff = await page.evaluate(() => [...document.querySelectorAll('.tp-effort option')].map(o => o.value).join(',') + '|' + document.querySelector('.tp-effort').value); if (eff !== ',low,medium,high,xhigh,max|') throw new Error('effort menu: ' + eff);
       // V3.7: the box grows with the text, and the big editor mirrors it both ways
       await page.fill('.tp-in', 'line one\nline two\nline three'); await page.evaluate(() => document.querySelector('.tp-in').dispatchEvent(new Event('input', { bubbles: true }))); await page.waitForTimeout(200);

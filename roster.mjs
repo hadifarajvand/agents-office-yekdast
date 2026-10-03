@@ -16,7 +16,7 @@ export const LOCAL = path.join(ROOT, 'office.agents.local.json');
 export const brainFile = brainPath => path.join(brainPath, 'Agents Office', 'agents.json');
 const EDITABLE = ['name', 'role', 'does', 'tools', 'brief', 'model', 'effort'];
 const BRIEF_MAX = 2000;
-const MODELS = ['sonnet', 'opus', 'fable']; // V3.6: an agent's model, by name; empty = the office default
+const MODELS = ['sonnet', 'opus', 'fable', 'haiku']; // V3.6: an agent's model, by name; empty = the office default. Haiku added 3 Oct 2026 as the office default for cost, by owner override.
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']; // V3.6.1: an agent's effort; empty = the office's, then the model's own
 
 export function defaults() {
@@ -44,7 +44,7 @@ export function validate(doc, base = defaults()) {
     if (e.tools !== undefined) { if (!Array.isArray(e.tools)) problems.push(`"${e.id}": tools must be a list — ignored`); else a.tools = e.tools.map(String).map(s => s.trim()).filter(Boolean).slice(0, 12); }
     if (e.model !== undefined) { // V3.6: sonnet · opus · fable, or empty for the office default
       const m = String(e.model || '').toLowerCase().trim();
-      if (!m) a.model = ''; else if (MODELS.includes(m)) a.model = m; else problems.push(`"${e.id}": model must be sonnet, opus or fable (got "${e.model}") — kept ${a.model || 'the office default'}`);
+      if (!m) a.model = ''; else if (MODELS.includes(m)) a.model = m; else problems.push(`"${e.id}": model must be sonnet, opus, fable or haiku (got "${e.model}") — kept ${a.model || 'the office default'}`);
     }
     if (e.effort !== undefined) { // V3.6.1: low · medium · high · xhigh · max, or empty
       const v = String(e.effort || '').toLowerCase().trim();

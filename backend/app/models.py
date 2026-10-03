@@ -1,14 +1,12 @@
-"""Port of src/models.js — the three agent-facing models, by name.
+"""Port of src/models.js — the four agent-facing models, by name.
 
-Sonnet is the office default for everything an agent does, including (today) routing.
-Effort lives inside the name (Opus runs at high); same four-place precedence everywhere:
-task beats routine beats agent beats office default.
-
-HAIKU_MODEL_ID below is NOT part of this public model selection. It exists only for the
-internal Router node (backend/app/graph/router.py), which classifies a task to a
-department/agent and is deliberately pinned to Haiku for cost/speed — see
-.claude/LANGGRAPH-MIGRATION-PLAN.md and the approved redesign plan for why this one hop
-is the sanctioned exception to "never haiku".
+Haiku is the office default for everything an agent does except where sonnet or opus
+is explicitly pinned (task beats routine beats agent beats office default, same
+four-place precedence as before). This reverses the project's former "never haiku for
+agent-facing work" guardrail — that rule, and the roster-validation rejection of
+"haiku" as a selectable agent/task model, were removed by explicit owner instruction
+(2026-10-03) to cut cost across the 35-seat roster for testing. Haiku is also still
+used, unconditionally, for the internal Router node (backend/app/graph/router.py).
 """
 from __future__ import annotations
 
@@ -30,15 +28,16 @@ MODELS: dict[str, ModelDef] = {
     "sonnet": ModelDef("sonnet", "Sonnet", "sonnet", os.environ.get("ANTHROPIC_DEFAULT_SONNET_MODEL", "claude-sonnet-5")),
     "opus": ModelDef("opus", "Opus", "opus", os.environ.get("ANTHROPIC_DEFAULT_OPUS_MODEL", "claude-opus-5"), effort="high"),
     "fable": ModelDef("fable", "Fable", "fable", os.environ.get("ANTHROPIC_DEFAULT_FABLE_MODEL", "claude-fable-5-1")),
+    "haiku": ModelDef("haiku", "Haiku", "haiku", os.environ.get("ANTHROPIC_DEFAULT_HAIKU_MODEL", "claude-haiku-4-5-20251001")),
 }
-MODEL_KEYS = ["sonnet", "opus", "fable"]
-DEFAULT_MODEL = "sonnet"
+MODEL_KEYS = ["sonnet", "opus", "fable", "haiku"]
+DEFAULT_MODEL = "haiku"
 EFFORT_KEYS = ["low", "medium", "high", "xhigh", "max"]
 EFFORT_NAME = {"low": "Low", "medium": "Medium", "high": "High", "xhigh": "X-high", "max": "Max"}
 
-# Internal-only — never selectable via task/routine/agent/office config, never exposed to check.mjs-style
-# roster validation (which must keep rejecting "haiku" as an agent/task model, per .claude/*.md).
-HAIKU_MODEL_ID = os.environ.get("ANTHROPIC_DEFAULT_HAIKU_MODEL", "claude-haiku-4-5-20251001")
+# Kept as an alias for the internal Router node (backend/app/graph/router.py), which
+# pins Haiku regardless of office/agent config.
+HAIKU_MODEL_ID = MODELS["haiku"].id
 
 
 def norm_effort(s: str | None) -> str | None:

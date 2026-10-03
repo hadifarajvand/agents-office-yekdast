@@ -1,4 +1,4 @@
-// Agents Office V3.6 — the three models, by name. Shared by the page and the server.
+// Agents Office V3.6 — the four models, by name. Shared by the page and the server.
 // AJ (9 Sep 2026): "it is either Opus, Sonnet, or Fable. That's it." Sonnet is the default for
 // everything, including the routing call. Effort lives inside the name (Opus runs at high); nobody
 // sees an effort setting. Four places, one precedence: the task beats the routine beats the agent
@@ -6,13 +6,17 @@
 // V3.6.1 (10 Sep 2026): AJ asked for an EFFORT selection beside the model. Five levels as the CLI
 // names them; AUTO (empty) = the model's own default (Opus runs at high). Same four places, same
 // precedence as the model, then the model's own.
+// Owner override (3 Oct 2026): Haiku added as a selectable model and made the office default for
+// everything not explicitly pinned to Opus or Sonnet, to cut cost across the 35-seat roster while
+// testing. This replaces the "Opus, Sonnet, or Fable, that's it" rule above.
 export const MODELS = {
   sonnet: { key: 'sonnet', name: 'Sonnet', flag: 'sonnet', id: 'claude-sonnet-5' },
   opus:   { key: 'opus',   name: 'Opus',   flag: 'opus',   id: 'claude-opus-5', effort: 'high' },
   fable:  { key: 'fable',  name: 'Fable',  flag: 'fable',  id: 'claude-fable-5-1' },
+  haiku:  { key: 'haiku',  name: 'Haiku',  flag: 'haiku',  id: 'claude-haiku-4-5-20251001' },
 };
-export const MODEL_KEYS = ['sonnet', 'opus', 'fable'];
-export const DEFAULT_MODEL = 'sonnet';
+export const MODEL_KEYS = ['sonnet', 'opus', 'fable', 'haiku'];
+export const DEFAULT_MODEL = 'haiku';
 export const FROM_TEXT = { task: 'this task', routine: 'this routine', agent: 'this agent', office: 'office default', model: 'the model\'s own' };
 export const EFFORT_KEYS = ['low', 'medium', 'high', 'xhigh', 'max'];
 export const EFFORT_NAME = { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'X-high', max: 'Max' };

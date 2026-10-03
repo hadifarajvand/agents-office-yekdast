@@ -32,7 +32,7 @@ def _client(model: str, max_tokens: int = 4096) -> ChatAnthropic:
 
 async def ask(system: str, user: str, *, model_key: str | None = None, max_tokens: int = 4096) -> str:
     """Plain text completion — mirrors serve.mjs's ask()."""
-    mid = model_id(model_key) if model_key else model_id("sonnet")
+    mid = model_id(model_key) if model_key else model_id("haiku")
     llm = _client(mid, max_tokens)
     resp = await llm.ainvoke([("system", system), ("human", user)])
     return resp.content if isinstance(resp.content, str) else str(resp.content)
@@ -54,7 +54,7 @@ async def ask_with_tools(messages: list[dict], tools: list, *, model_key: str | 
     {"content": str, "tool_calls": [{"name", "args", "id"}, ...]} — empty tool_calls
     means the model is done and `content` is the final answer.
     """
-    mid = model_id(model_key) if model_key else model_id("sonnet")
+    mid = model_id(model_key) if model_key else model_id("haiku")
     llm = _client(mid, max_tokens)
     if tools:
         llm = llm.bind_tools(tools)
