@@ -23,7 +23,6 @@ ROOT = Path(__file__).resolve().parents[3]
 PROJECT = "ao-e2e"
 PORT = 4521
 BASE_URL = f"http://localhost:{PORT}"
-OVERRIDE_FILE = ROOT / "docker-compose.e2e-override.yml"
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("RUN_E2E_COMPOSE") != "1",
@@ -31,28 +30,29 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _compose(*args: str) -> subprocess.CompletedProcess:
+def _compose(*args: str, env: dict) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["docker", "compose", "-p", PROJECT, "-f", "docker-compose.yml", "-f", str(OVERRIDE_FILE), *args],
-        cwd=ROOT, capture_output=True, text=True, timeout=300,
+        ["docker", "compose", "-p", PROJECT, "-f", "docker-compose.yml", *args],
+        cwd=ROOT, capture_output=True, text=True, timeout=300, env=env,
     )
 
 
 @pytest.fixture(scope="module")
 def compose_stack(tmp_path_factory):
     """Boots an isolated stack under its own project name/port/brain dir, and
-    tears down only that project's containers and volumes — never the dev stack."""
+    tears down only that project's containers and volumes — never the dev stack.
+
+    Uses APP_HOST_PORT/AO_BRAIN_HOST env vars (docker-compose.yml's own
+    ${VAR:-default} substitutions) instead of a merged `-f` override file:
+    Compose concatenates list-valued fields like `ports` across `-f` files
+    rather than replacing them, so an override setting ports would bind both
+    the base file's 4520 and this test's 4521, colliding with any dev stack
+    already running on 4520.
+    """
     brain_dir = tmp_path_factory.mktemp("e2e-brain")
-    OVERRIDE_FILE.write_text(
-        "services:\n"
-        "  app:\n"
-        f"    ports:\n"
-        f"      - \"{PORT}:4520\"\n"
-        f"    volumes:\n"
-        f"      - {brain_dir}:/brain\n"
-    )
+    env = {**os.environ, "APP_HOST_PORT": str(PORT), "AO_BRAIN_HOST": str(brain_dir)}
     try:
-        up = _compose("up", "-d", "--build")
+        up = _compose("up", "-d", "--build", env=env)
         assert up.returncode == 0, f"docker compose up failed:\n{up.stdout}\n{up.stderr}"
 
         deadline = time.time() + 120
@@ -70,8 +70,7 @@ def compose_stack(tmp_path_factory):
 
         yield BASE_URL
     finally:
-        _compose("down", "-v")
-        OVERRIDE_FILE.unlink(missing_ok=True)
+        _compose("down", "-v", env=env)
 
 
 def test_health_reports_ok_with_expected_shape(compose_stack):

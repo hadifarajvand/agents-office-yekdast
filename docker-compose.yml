@@ -2,7 +2,7 @@ services:
   app:
     build: .
     ports:
-      - "4520:4520"
+      - "${APP_HOST_PORT:-4520}:4520"
     env_file:
       - .env.local
     environment:
@@ -13,7 +13,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./brain-yekdast:/brain
+      - ${AO_BRAIN_HOST:-./brain-yekdast}:/brain
     depends_on:
       postgres:
         condition: service_healthy
