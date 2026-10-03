@@ -1,5 +1,6 @@
 // Agents Office v2 — Three.js isometric office with zoom-driven LOD
 // Far: clean pods + agent counts (Image 1 read). Near: diorama with 3D people + holo screens (Image 2 read).
+import './api.js'; // adds the headers the hardened API requires to every /api call (must run first)
 import * as THREE from 'three';
 import { TOKENS, DEPTS, DEPT_KEYS, AGENTS, LAYOUT, WORKLINES, APPROVAL_ASKS, APPROVAL_BY_AGENT } from './data.js';
 import { V1, FILE_GEN, STATS, KPIS, P, rnd, ri, person, money } from './v1data.js';
@@ -12,6 +13,7 @@ import { loadConnectors } from './connectors.js';
 import { initTasks } from './tasks.js';
 import { initBrain } from './brain.js';
 import { initCalendar } from './calendar.js';
+import { initJobs } from './jobs.js';
 let tasks = null; // V3 task boards — initialised after the rail constants exist
 
 /* ---------- renderer / scene / camera ---------- */
@@ -497,9 +499,10 @@ addEventListener('pointerup', (e) => {
 });
 addEventListener('keydown', (e) => {
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return; // typing in the bar, the big editor or a menu never fires a hotkey
-  if (e.key === 'Escape') { if (calendar && calendar.isOpen() && calendar.popOpen()) calendar.closePop(); else if (calendar && calendar.isOpen()) calendar.close(); else if (brain.isOpen()) brain.close(); else if (tasks && tasks.isOpen()) tasks.close(); else zoomOut(); }
+  if (e.key === 'Escape') { if (jobs && jobs.isOpen()) jobs.close(); else if (calendar && calendar.isOpen() && calendar.popOpen()) calendar.closePop(); else if (calendar && calendar.isOpen()) calendar.close(); else if (brain.isOpen()) brain.close(); else if (tasks && tasks.isOpen()) tasks.close(); else zoomOut(); }
   else if (e.key === 'g' || e.key === 'G') brain.toggle(); // V3.6: the full-screen Brain graph
   else if (e.key === 'b' || e.key === 'B') { if (tasks) tasks.toggle(); } // V3: the company-wide board
+  else if (e.key === 'j' || e.key === 'J') { if (jobs) jobs.toggle(); } // client jobs: the pipeline from intake to handoff
   else if (e.key === 'p' || e.key === 'P') { if (calendar) calendar.toggle(); } // the calendar — tasks and routines on their days
   else if (e.key === '+' || e.key === '=') zoomStep(1.5);
   else if (e.key === '-' || e.key === '_') zoomStep(1 / 1.5);
@@ -949,6 +952,15 @@ function setStuckLive(id, ask, sid) {
   r.state = 'stuck'; r.ask = ask; r.liveSid = sid; r.warn.visible = true;
   syncApprovals();
 }
+// a job gate was settled somewhere else (the Jobs screen): the lead stops waving, the chat card closes
+function clearStuckLive(id, sid) {
+  const r = R[id];
+  if (!r || r.state !== 'stuck' || r.liveSid !== sid) return;
+  r.state = 'working'; r.ask = null; r.liveSid = null; r.warn.visible = false;
+  const msg = chatHist[id] && [...chatHist[id]].reverse().find(m => m.who === 'appr' && m.pending);
+  if (msg) { msg.pending = false; msg.approved = true; }
+  syncApprovals();
+}
 function resolveApproval(id, approved) {
   const r = R[id];
   if (!r || r.state !== 'stuck') return;
@@ -961,6 +973,7 @@ function resolveApproval(id, approved) {
   const now = performance.now();
   if (approved) r.cheerUntil = now + 2400; else r.slumpUntil = now + 2600;
   spawnEmote(r, approved ? '✅' : '❌');
+  if (r.liveSid && jobs && jobs.owns(r.liveSid)) { const sid = r.liveSid; r.liveSid = null; jobs.resolveGate(id, sid, approved); syncApprovals(); return; } // a job gate: the owner's PASS / FAIL
   if (r.liveSid) { r.liveSid = null; if (tasks) tasks.resolveLive(id, approved); syncApprovals(); return; } // live: APPROVE sends, REJECT asks for the note
   if (tasks) tasks.onResolve(id, approved);
   chatPush(id, {
@@ -1346,16 +1359,18 @@ function applyRoster(agents) {
   }
   if (tasks && tasks.syncPills) tasks.syncPills(); // the pills were rebuilt — put the clock chips back
 }
+let jobs = null;
 tasks = initTasks({
   hud, R, deptRT, RAIL_SIDE, spawnEmote, chatPush, chatHist, feedPush, zoomToApproval, enterFocus, openAgent, esc,
   brainWrite: (id, title) => brain.write(id, title), brain,
-  onLive: (h) => { document.querySelector('#topbar .brand .ver').textContent = 'BETA'; document.title = `${h.name} — Agents Office`; brain.setOwner(h.name); brain.setQuiet(true); applyRoster(h.agents); },
+  onLive: (h) => { document.querySelector('#topbar .brand .ver').textContent = 'BETA'; document.title = `${h.name} — Agents Office`; brain.setOwner(h.name); brain.setQuiet(true); applyRoster(h.agents); if (jobs) jobs.start(h); },
   onTools: (agentId, keys) => mcp.onToolsUsed(agentId, keys),
   requestApproval, setStuck: setStuckLive,
   onUsage: (u) => { if (mcp && mcp.setUsage) mcp.setUsage(u); }, // V3.6: the plan's gauge in the top bar
   getFocused: () => focused, getZoom: () => view.zoom, getFocusDim: () => focusDim,
   toScreen: (p) => toScreen(p), reframe,
 });
+jobs = initJobs({ DEPTS, R, esc, chatPush, feedPush, setStuck: setStuckLive, clearStuck: clearStuckLive, isLive: () => tasks.isLive() });
 const calendar = initCalendar({
   tasks: tasks.tasks, routines: tasks.routines, agentOf: tasks.agentOf, DEPTS, DEPT_KEYS,
   RT_DEPTS: tasks.RT_DEPTS, rtRefuse: tasks.rtRefuse,
@@ -1392,9 +1407,12 @@ resize();
   syncOverviewBtn();
 }
 window.CC = { flyTo, zoomToDept, zoomOut, zoomToApproval, requestApproval, openAgent, view, applyCamera, R, emotes,
-  setCam, setDark, brain, connectorReveal: () => mcp.startReveal(performance.now()),
+  setCam, setDark, brain, jobs: () => jobs, connectorReveal: () => mcp.startReveal(performance.now()),
   toggleBoard: () => tasks.toggle(), addTask: (agentId, title) => tasks.addTask(agentId, title), tasks, routines: () => tasks.routines };
 
+// ?norender=1 keeps every piece of logic running but skips drawing the 3D scene: for headless test
+// runs on machines with only software GL, where one frame can take seconds and starve the page.
+const NO_RENDER = new URLSearchParams(location.search).has('norender');
 let last = performance.now();
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -1406,7 +1424,7 @@ function loop(now) {
   tasks.tick(now);
   mcp.tick(now, dt, view, camera, focused, focusDim);
   syncOverviewBtn();
-  renderer.render(scene, camera);
+  if (!NO_RENDER) renderer.render(scene, camera);
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);

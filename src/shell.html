@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="icon" href="data:,">
 <meta charset="utf-8">
 <title>Agents Office v3 (Beta)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -134,7 +135,7 @@
      data beaming from them down into the departments */
   #topconn { display: flex; align-items: center; gap: 7px; margin-left: 4px; }
   /* V3.5: inside a department the strip centres in the bar and names the dept it feeds */
-  #topconn.focus { position: absolute; left: 50%; transform: translateX(-50%); margin: 0; }
+  #topconn.focus { position: absolute; left: 50%; transform: translateX(-50%); margin: 0; max-width: 36vw; overflow: hidden; }
   /* V3.1: the model layer — Claude + ChatGPT run the office headless; wired to the Brain */
   #topmodels { display: flex; align-items: center; gap: 7px; margin-right: 14px; }
   #topmodels .tc-lab .dot { background: var(--ink); }

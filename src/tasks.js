@@ -618,14 +618,22 @@ export function initTasks(ctx) {
     runLive(t, feedback);
     return true;
   }
+  // A live office shows only real work. The believable morning seeded at boot (made-up tasks on every
+  // desk) is theatre for the offline demo; once the server answers it is removed, so nothing on the
+  // board, the badges or the panel is invented.
+  function purgeDemo() {
+    for (let i = tasks.length - 1; i >= 0; i--) if (!tasks[i].live) tasks.splice(i, 1);
+    for (const k of DEPT_KEYS) doneCount[k] = 0;
+    dirty = true;
+  }
   async function connect() {
     if (!location.protocol.startsWith('http')) return;
     try {
       const h = await (await fetch(API + '/health')).json();
       if (!h.ok) return;
-      live = true; setOfficeModel(h.model); setOfficeEffort(h.effort);
+      live = true; purgeDemo(); setOfficeModel(h.model); setOfficeEffort(h.effort);
       const mode = panel.querySelector('.tp-mode');
-      if (mode) { mode.hidden = false; mode.textContent = 'LIVE · ' + (h.backend === 'anthropic-sdk' ? 'CLAUDE API' : 'CLAUDE'); mode.classList.add('live'); mode.title = `${h.name} · ${h.backend} · ${modelName(h.model)} by default · brain: ${h.brain}`; }
+      if (mode) { mode.hidden = false; mode.textContent = 'LIVE'; mode.classList.add('live'); mode.title = `${h.name} · ${h.backend} · ${modelName(h.model)} by default (${h.modelId || ''}) · worker: ${h.worker || '—'} · brain: ${h.brain}`; }
       if (brain) { try { brain.setGraph(await (await fetch(API + '/brain')).json()); } catch {} }
       const list = await (await fetch(API + '/tasks')).json();
       for (const st of list) {

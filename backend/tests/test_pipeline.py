@@ -431,3 +431,10 @@ async def test_expired_previews_are_taken_down(env):
     job = await db.get_job(jid)
     assert job["preview"]["stopped"] is True and job["preview"]["url"] is None and env.dep.stopped == 1
     assert await expire_previews(now_ms=job["preview"]["expiresAt"] + 2) == 0  # only once
+
+
+def test_stage_order_comes_from_config_not_from_storage_order():
+    cfg_names = [s["name"] for s in load_config().pipeline["stages"]]
+    job = jobs.new_job("client", "T", {"title": "T"})
+    job["stages"] = dict(reversed(list(job["stages"].items())))  # what a JSONB round trip may do
+    assert [s["name"] for s in jobs.public(job)["stages"]] == cfg_names

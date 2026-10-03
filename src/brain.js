@@ -13,13 +13,16 @@ const GROUP_COL = {
   '40-Marketing': '#E69393', '50-Products': '#98A5EF', '60-Sales': '#EADC8F', '70-Delivery': '#8FD3F4',
   '10-Business': '#BFA2E3', '00-Meta': '#F2B33D', '90-Skills': '#5ADEB7', '30-Customers': '#D1DECD',
   '95-Agents': '#B0ADA3', '80-Finance': '#A9B6F0', '05-Inbox': '#B0ADA3',
+  '90-Operations': '#D1DECD', '20-Brand': '#E69393', '50-Emails': '#B5E8A0',
+  'Company': '#BFA2E3', 'Tech Stack': '#8FD3F4', 'Agents Office': '#B0ADA3',
 };
 const GROUP_NAME = g => g.replace(/^\d\d-/, '');
 // which folders each department reads from (and writes into)
 const DEPT_FOLDERS = {
-  marketing: ['40-Marketing', '20-Brand'], sales: ['60-Sales', '50-Products', '30-Customers'],
-  emails: ['60-Sales', '30-Customers', '10-Business'], ops: ['10-Business', '00-Meta', '95-Agents', '90-Skills'],
-  fin: ['80-Finance', '10-Business'], delivery: ['70-Delivery', '50-Products'],
+  exec: ['10-Business', '00-Meta', 'Company'], revenue: ['60-Sales', '50-Products', '30-Customers', '40-Marketing'],
+  engineering: ['70-Delivery', '90-Operations', 'Tech Stack'], frontend: ['20-Brand', '40-Marketing', 'Tech Stack'],
+  devops: ['90-Operations', 'Tech Stack', 'Agents Office'], secdata: ['90-Operations', '00-Meta', 'Tech Stack'],
+  fin: ['80-Finance', '10-Business'], content: ['40-Marketing', '50-Emails', '20-Brand'],
 };
 let INK = '21,20,20'; // dark mode swaps this for the cream ink (setTheme)
 const GREEN = '#1E9070';

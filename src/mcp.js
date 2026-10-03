@@ -181,7 +181,8 @@ export function initMcp({ scene, hud, LAYOUT, DEPTS, FR, R, connectors = null })
     if (LIVE && !uniqKeys.length) { // honest empty state — nothing is wired until the user connects something
       const none = document.createElement('span');
       none.className = 'tc-none';
-      none.textContent = 'nothing yet — connect in claude.ai or run: claude mcp add';
+      none.textContent = 'no connectors yet';
+      none.title = 'Connectors (GitHub, Dokploy) are set in .env.local and office.config.json; see PLAN.md.';
       topconn.appendChild(none);
     }
   }
@@ -468,6 +469,7 @@ export function initMcp({ scene, hud, LAYOUT, DEPTS, FR, R, connectors = null })
       const k = (now - p.t0) / p.dur;
       if (k < 0) continue;
       if (k >= 1) { p.el.remove(); wirePulses.splice(i, 1); continue; }
+      if (p.model && !mwires[p.model]) { p.el.remove(); wirePulses.splice(i, 1); continue; } // its wire was removed (ChatGPT in a live office)
       const path = p.model ? mwires[p.model].path
         : (p.shared && shared[p.shared].wires[p.dept]) ? shared[p.shared].wires[p.dept].path : wires[p.dept].path;
       if (!path.getAttribute('d')) { p.el.remove(); wirePulses.splice(i, 1); continue; } // wire hidden (other dept in focus)
@@ -723,7 +725,7 @@ export function initMcp({ scene, hud, LAYOUT, DEPTS, FR, R, connectors = null })
 
       // steady exchange: a random connector and a random desk trade packets both ways —
       // the constant "connectors helping the agents" energy AJ asked for
-      if (now > dk.nextAmbient && dk.seats.length) {
+      if (now > dk.nextAmbient && dk.seats.length && n > 0) { // a live department with no connected connector has nothing to trade packets with
         const item = byDept[dept][Math.floor(Math.random() * n)];
         const seat = dk.seats[Math.floor(Math.random() * dk.seats.length)];
         const outFirst = Math.random() < 0.5;
