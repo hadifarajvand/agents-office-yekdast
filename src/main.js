@@ -2,7 +2,7 @@
 // Far: clean pods + agent counts (Image 1 read). Near: diorama with 3D people + holo screens (Image 2 read).
 import './api.js'; // adds the headers the hardened API requires to every /api call (must run first)
 import * as THREE from 'three';
-import { TOKENS, DEPTS, DEPT_KEYS, AGENTS, LAYOUT, WORKLINES, APPROVAL_ASKS, APPROVAL_BY_AGENT } from './data.js';
+import { TOKENS, DEPTS, DEPT_KEYS, AGENTS, FREE_SEATS, SEAT_ROWS, LAYOUT, WORKLINES, APPROVAL_ASKS, APPROVAL_BY_AGENT } from './data.js';
 import { V1, FILE_GEN, STATS, KPIS, P, rnd, ri, person, money } from './v1data.js';
 import {
   PLINTH_H, mat, rbox, makePlinth, makeFloorTitle, makeDesk, makeChair,
@@ -34,7 +34,7 @@ const CAM_DIST = 220;
 // float above their back rows instead of being shoved out to the screen edges.
 // V3.3: the Task Status panel owns the right ~430px at every zoom, so the overview target slides
 // along screen-right by half the panel width — the scene sits centred in what is left.
-const OVERVIEW = { base: [-9, 0, -9], zoom: 0.8 }; // (-9,-9) shifts the scene straight DOWN the screen, no sideways drift
+const OVERVIEW = { base: [-9, 0, -9], zoom: 0.62 }; // (-9,-9) shifts the scene straight DOWN the screen, no sideways drift
 const SR_ = new THREE.Vector3(1, 0, -1).normalize();
 function overviewPos() {
   const pw = (tasks ? tasks.panelWidth() : 400) + 30;
@@ -206,7 +206,7 @@ for (const a of AGENTS) {
   const L = dRT.L;
   const cols = COLS[a.dept];
   const gx = (a.grid[0] - (cols - 1) / 2) * 8.6;
-  const gz = (a.grid[1] - 1) * 6.4 - 1;
+  const gz = (a.grid[1] - (SEAT_ROWS - 1) / 2) * 6.4;
   const base = new THREE.Vector3(L.pos[0] + gx, 0.12, L.pos[1] + gz);
 
   // whole station rotated 45° so monitor screens face the camera square-on
@@ -248,6 +248,23 @@ for (const a of AGENTS) {
     state: 'working', bob: Math.random() * 10, path: null, pathI: 0, speed: 9.5, ask: null,
     v1: V1.find(x => x.id === a.id), feed: [],
   };
+}
+
+/* empty desks: the rest of each department's 10 seats (drawn, unstaffed, not clickable as agents) */
+for (const f of FREE_SEATS) {
+  const L = deptRT[f.dept].L;
+  const gx = (f.grid[0] - 0.5) * 8.6;
+  const gz = (f.grid[1] - (SEAT_ROWS - 1) / 2) * 6.4;
+  const ANG = Math.PI / 4;
+  const station = new THREE.Group();
+  station.position.set(L.pos[0] + gx, 0.12, L.pos[1] + gz);
+  station.rotation.y = ANG;
+  station.add(makeDesk(DEPTS[f.dept].chip).group);
+  const chair = makeChair();
+  chair.position.set(0, 0, 1.75);
+  station.add(chair);
+  station.traverse(o => { if (o.isMesh) o.userData.dept = f.dept; });
+  scene.add(station);
 }
 
 /* CONNECTORS — per-dept dock of MCP logos with back-and-forth traffic (AJ's spec, 2 Aug rev 2)
@@ -446,7 +463,7 @@ addEventListener('wheel', (e) => {
   view.arc = 0;
   const nx = (e.clientX / innerWidth) * 2 - 1, ny = -(e.clientY / innerHeight) * 2 + 1;
   const before = worldAt(nx, ny);
-  view.zoom = clamp(view.zoom * Math.exp(-e.deltaY * 0.0032), 0.72, 5.2);
+  view.zoom = clamp(view.zoom * Math.exp(-e.deltaY * 0.0032), 0.5, 5.2);
   applyCamera();
   const after = worldAt(nx, ny);
   if (before && after) view.target.add(before.sub(after));
@@ -559,7 +576,7 @@ canvas.addEventListener('dblclick', (e) => {
 
 // on-screen zoom controls
 function zoomStep(f) {
-  flyTo([view.target.x, 0, view.target.z], clamp(view.zoom * f, 0.72, 5.2), 350);
+  flyTo([view.target.x, 0, view.target.z], clamp(view.zoom * f, 0.5, 5.2), 350);
   if (view.zoom * f < 1.6 && focused) {
     if (focused === 'brain') focused = null; else exitFocus(false);
   }

@@ -290,3 +290,4 @@ Preflight: `./setup`; `cp .env.example .env.local` and fill values; `npm run che
 - 2026-10-03 · Keep 35 seats / 8 departments; each lead approves only its own stages; exposure needs `comply`+`olead` (+owner for first 3 Tier 1, always Tier 2).
 - 2026-10-03 · Postgres checkpointer; Tier 1 clicks 3; preview TTL 7 days; research model `kr/glm-5`; builder Haiku fixed; VPS AlmaLinux 9.7.
 - 2026-10-03 · Platform core implemented and tested offline; live verification delegated to the laptop (§11).
+- 2026-10-03 · Frontend shows up to 10 seats per department (`SEATS_PER_DEPT`, `FREE_SEATS` in `src/data.js`): 35 named seats + 45 empty desks, drawn only, no agent/backend entry. Staffing a seat = move it into `AGENTS` and the seed. Plinths resized (d=40) and re-spaced; overview zoom 0.62, min zoom 0.5. Only ~8 seats matter to the pipeline; keep the rest unstaffed. Billboard cards overlap more in the overview now (cosmetic, unfixed).

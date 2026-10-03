@@ -75,18 +75,33 @@ export const AGENTS = [
   { id: 'cmail', name: 'STATUS WRITER',       dept: 'content',     grid: [1, 1], hair: '#3b2b1d', skin: '#F0C9A0' },
 ];
 
+// Up to 10 seats per department (owner, 3 Oct 2026). The named agents above are re-seated onto the
+// first slots in order; the rest are FREE_SEATS: empty desks, drawn but unstaffed, with no id, no
+// agent and nothing on the backend. Staffing one = moving an entry into AGENTS (and the seed).
+export const SEATS_PER_DEPT = 10;
+export const SEAT_SLOTS = [[0.5, 0], [0, 1], [1, 1], [0, 2], [1, 2], [0, 3], [1, 3], [0, 4], [1, 4], [0.5, 5]];
+export const SEAT_ROWS = 6;
+export const FREE_SEATS = [];
+for (const k of DEPT_KEYS) {
+  const mine = AGENTS.filter(a => a.dept === k);
+  if (mine.length > SEATS_PER_DEPT) throw new Error(k + ' has more than ' + SEATS_PER_DEPT + ' seats');
+  const ordered = [...mine.filter(a => a.lead), ...mine.filter(a => !a.lead)];
+  ordered.forEach((a, i) => { a.grid = SEAT_SLOTS[i]; });
+  for (let i = mine.length; i < SEATS_PER_DEPT; i++) FREE_SEATS.push({ dept: k, grid: SEAT_SLOTS[i] });
+}
+
 // Plinth placement in world XZ. Brain central; eight departments ringed around it, biggest (revenue)
 // given the most room.
 export const LAYOUT = {
   brain:       { pos: [0, 0],      w: 16, d: 16 },
-  exec:        { pos: [0, -42],    w: 16, d: 20 },
-  revenue:     { pos: [40, -28],   w: 26, d: 32 },
-  engineering: { pos: [46, 12],    w: 22, d: 28 },
-  frontend:    { pos: [30, 48],    w: 18, d: 24 },
-  devops:      { pos: [-12, 56],   w: 20, d: 26 },
-  secdata:     { pos: [-42, 32],   w: 16, d: 20 },
-  fin:         { pos: [-48, -10],  w: 16, d: 20 },
-  content:     { pos: [-26, -46],  w: 16, d: 20 },
+  exec:        { pos: [0, -44],    w: 18, d: 40 },
+  revenue:     { pos: [42, -34],   w: 26, d: 40 },
+  engineering: { pos: [48, 12],    w: 22, d: 40 },
+  frontend:    { pos: [26, 56],    w: 18, d: 40 },
+  devops:      { pos: [-14, 58],   w: 20, d: 40 },
+  secdata:     { pos: [-44, 38],   w: 18, d: 40 },
+  fin:         { pos: [-50, -8],   w: 18, d: 40 },
+  content:     { pos: [-28, -50],  w: 18, d: 40 },
 };
 
 // Department billboard metrics (v1 rule #5: live metrics float above each dept,
