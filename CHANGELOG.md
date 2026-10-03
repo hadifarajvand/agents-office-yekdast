@@ -1,5 +1,11 @@
 # Changelog
 
+## Fork 0.1.0 — 3 Oct 2026 (agents-office-yekdast)
+
+- Runtime replaced: Python/FastAPI + LangGraph 1.x on Postgres; the Node server and its modules are gone. The 3D UI is kept and gains a Jobs screen.
+- New gated job pipeline with per-stage lead verdicts, two-key exposure and owner clicks; hardened sandbox, build-worker adapters, Dokploy/GitHub connectors, all offline-tested. Nothing live has been run yet; see PLAN.md §11.
+- Request hygiene (origin allow-list, required client header, optional token), secret-only redaction, atomic approvals, restart recovery.
+
 ## 3.6.1-beta.1 — 9 Sep 2026
 
 - **A bigger task box.** The bar is two rows now: the department and the text on top, the model menu, REPEAT and ADD underneath, so the text runs the width of the panel. The box grows as you type, up to six lines, then scrolls. Enter adds; Shift+Enter is a new line.

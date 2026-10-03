@@ -1,6 +1,6 @@
 # PLAN — Workshop platform (single source of truth)
 
-**Updated**: 2026-10-03 (rev 3: single-file rule, rubric folded in, AlmaLinux/GLM/N/expiry decided) · **Supersedes and replaces**: `agents-office-implementation.plan.md` (70-seat org redesign + foundation tasks), `workshop-roadmap.plan.md`, `LANGGRAPH-MIGRATION-PLAN.md`. Their useful content is merged here; the rest was dropped on purpose (section 11). Recover any of them from git history if needed.
+**Updated**: 2026-10-03 (rev 4: platform core implemented offline; laptop runbook added) · **Supersedes and replaces**: `agents-office-implementation.plan.md` (70-seat org redesign + foundation tasks), `workshop-roadmap.plan.md`, `LANGGRAPH-MIGRATION-PLAN.md`. Their useful content is merged here; the rest was dropped on purpose (section 11). Recover any of them from git history if needed.
 **Single-plan rule [owner]**: this is the only plan document. Any new decision, spec or roadmap change is edited into this file; no other plan files are created. (The former `GUARDRAILS.md` is folded into section 3a.)
 
 Items marked **[verified]** were checked against a source or by running code. **[unverified]** means a claim from docs or reasoning that has not been tested here. **[decided]** means the owner decided it.
@@ -236,63 +236,57 @@ Dokploy is a self-hosted PaaS on Docker Swarm with Traefik for routing and autom
 - Approvals atomic (compare-and-set) so a double click cannot approve twice.
 - Path B (agents author, humans approve and execute) stays: section 3a.
 
-## 8. Current state (from the 2026-10-03 audit)
+## 8. Implemented (offline, 2026-10-03) — by file
 
-**Verified**: backend tests pass (104 incl. 9 new); `npm run check` 15/17 with deps missing (environmental). Stack has never been booted against a live model.
+Verified here: 182 backend tests, real-Postgres tests (incl. restart/resume of a paused job), 24/24 `node check.mjs` (offline UI smoke + live-UI smoke on a real API over Postgres with scripted models, headless Chromium). **Never run live**: 9router, real worker CLIs, Docker sandbox, Dokploy, VPS.
 
-**Done**: skills loader no longer crashes when the brain is outside the app root; stronger secret redaction; audit-log lines cannot be forged with newlines; regression tests (`backend/tests/test_phase_a_hardening.py`).
+| Area | Files |
+|---|---|
+| Config (typed, cached, env-overridable; env holds names not secrets) | `backend/app/config.py`, `office.config.json`, `.env.example` |
+| Model layer: router client, `RunMeter`, per-job USD cap, model-swap detection, role→model pins | `llm.py`, `models.py` |
+| Storage: pool shared with checkpointer, SQL migrations, atomic claims, approvals/evidence/audit/costs/counters | `db.py`, `migrations/001_core.sql` |
+| API hygiene: Host/Origin allow-list, `X-AO-Client` on mutations, optional `X-AO-Token`, JSON-only, generic 500s, restart recovery | `main.py` |
+| Single-task engine (LangGraph, `interrupt()` approval, secret redaction, audit-before-tool) | `graph/engine.py`, `policy.py`, `routines.py`, `learn.py`, `mcp.py` |
+| Job pipeline: `intake→verify→scope→build→security→preview→exposure→handoff`; each stage = work + lead review + gate; FAIL loops back (max 2) then parks; owner gates on verify and handoff | `pipeline/{graph,stages,leads,jobs,api,exposure,ports,janitor}.py` |
+| Build workers behind `BuildWorker` (claude-code, mini-swe-agent, openhands, fake) | `worker/` |
+| Hardened sandbox spec + patch scan | `sandbox.py`, `checks/patch.py`, `infra/sandbox/` |
+| Dokploy (allow-list `Guard`, HARD_DENY, audit before call) and read-only GitHub | `connectors/` |
+| Infra: Postgres (loopback), squid egress, nginx router-gateway (key injected, never in containers), AlmaLinux hardening script (dry-run default) | `docker-compose.yml`, `Dockerfile`, `infra/` |
+| UI: Jobs overlay (J), stage stepper, tier pills, evidence, owner approve/reject/retry/kill, lead approval card; live-mode purge of demo tasks | `src/{jobs,api,main,tasks,brain,mcp}.js`, `shell.html` |
+| Tooling | `check.mjs`, `setup`, `backend/tests/` (`ui_server.py` = real app + Postgres + scripted models) |
 
-**Open Critical/High**
-1. No authentication or CSRF protection on `/api/*`; compose publishes the port on all interfaces.
-2. `learn.classify` is called with a `timeout` argument that `llm.ask` rejects, so lessons are never classified (silently swallowed).
-3. Human-in-the-loop only wired for routines; manual tasks ignore router `needs_ok`.
-4. Double-approve race; fire-and-forget tasks with no references; tasks stuck in "doing" never recovered; silent exception swallowing in the routine tick.
-5. Routine data loss paths (invalid routines deleted on save, non-atomic writes, PATCH unvalidated, state wipe).
-6. Policy gate is a word-match heuristic; `mcp.discover()` is a stub and `tools_for()` returns `[]`, so the tool loop only ever ran against fakes. The prompt also claims web tools that do not exist.
-7. `engine.py` uses the final output redaction that mangles emails/phones in drafts — switch to `redact_secrets()`.
-8. Roster file `office.agents.json` is the stale legacy business-ops roster (29/35 names differ from the seed/UI; no briefs; dead connectors). Moot for v1 if the 35-seat structure is retired.
-9. Frontend contract gaps (parked): the approval card never shows because the backend omits `waitingAt`/`startedAt`/`doneAt`; `/api/brain` lacks `nodes/links`.
-10. Hygiene: default model contradicts across files (`office.config.json` says sonnet; code/docs say haiku); `brain-yekdast/` not git-ignored; `.arena/` and `graphify-out/` committed (4.4 MB generated); `./setup` and `scripts/release.mjs` reference nonexistent files (release script would push to the upstream author's repo); no `NOTICE`/upstream credit.
+Exposure flow (as built): gate on "auth configured" evidence → apply route with basic auth → probe without credentials → if not refused, stop the app and park at `preview`. A PASS must cite real evidence ids; a failed deterministic check fails without a model call; a verdict from the wrong model is void.
 
-## 9. Roadmap (revised order)
-
-**Phase 0 — Spikes (decide before building). Each has a pass/fail test.**
-- **S1 · 9router surface**: does it serve what we need, and can the model be pinned? *Pass*: a LangGraph node calls it with `langchain-openai`; the response names the exact model; fallback does not trigger when a combo is pinned; with `REQUIRE_API_KEY=true` a keyless request fails; token usage is returned for metering.
-- **S2 · Build-worker bake-off** (replaces the OpenHands-only test; protocol in section 4): *Pass*: at least one candidate passes the acceptance test inside the hardened container with the same constraints below, and the swap interface works with it. Constraints: the worker runs from our hardened container (cap-drop ALL, read-only root, non-root), on an `internal` network, reaching only 9router and one package registry through the egress proxy; a write outside the job dir fails; a request to a non-allowlisted domain is refused and logged; no docker.sock inside; it completes a small coding task and exports a patch.
-- **S3 · LangGraph 1.x**: *Pass*: a minimal graph with an interrupt before an approval node, Postgres checkpointer, survives a process restart and resumes exactly once after one approval; a double approval does not re-run the node.
-- **S4 · Cost metering**: *Pass*: a stub validation run on the pinned model logs tokens per step and total, and stops at the cap.
-- **S5 · Dokploy preview deploy**: *Pass*: Dokploy installs on AlmaLinux 9.7 (or the fallback OS is chosen on evidence), is hardened; port 3000 unreachable from the internet; the MCP allow-list lets an agent create and deploy an app in the preview project but refuses delete/settings calls; the preview is reachable only with credentials; the Security-lead check fails an app without auth and passes one with auth, using a real request as evidence.
-If S1, S2 or S5 fails, stop and revisit sections 4–6 before anything else.
-
-**Phase 1 — Stabilize the foundation**: finish the open items in section 8 that the new design keeps (auth/hygiene, atomic approve, classify fix, redaction switch), upgrade to LangGraph 1.x with tests, repo hygiene (gitignore, remove generated dirs, NOTICE, fix or delete `setup` and `release.mjs`), one model default, README/CLAUDE.md rewritten for the real runtime.
-
-**Phase 2 — Job pipeline core**: Postgres job/stage/evidence/approval tables, the LangGraph graph (intake → verify → scope → gate → build → preview config → handoff), owner approval via API, per-stage cost log, memo output. Client path only.
-
-**Phase 3 — Sandbox and worker in production shape**: egress proxy, hardened job containers, OpenHands worker, patch export, preview-deploy configuration generator. Acceptance: a real small client job completes inside the 3-day window with every action in the audit log.
-
-**Phase 4 — Own-product path**: web search + fetch tools (gated, budget-capped), evidence table, critic stage, rubric calibration on three owner-chosen known-answer ideas.
-
-**Later / parked**: frontend and the approval card; routines/scheduling; production deploy; marketing; Redis; multi-user.
+## 9. Known gaps in the implementation
+- Worker CLI flags/output keys (Claude Code `--max-turns`, `modelUsage`; mini-swe trajectory fields; OpenHands env/schema) and Dokploy tool names/args are from docs, **unverified**.
+- 3D scene not visually verified (tests run with `?norender=1`; software GL starves headless pages).
+- Seat personas/briefs are empty by design (laptop task). Own-product (rubric) path is specified but not built.
+- "MVP in minutes / app in hours" is an untested claim. Budget: $1/job cap is enforced on metered tokens; router cost figures are estimates.
 
 ## 10. Open items needing the owner
+1. First client job: what is asked, deposit status, what the client expects in 3 days.
+2. Rubric inputs: three known-answer ideas, ad budget cap, excluded categories.
+3. 9router: confirm Anthropic endpoint path and a fallback provider key (S1).
+4. Builder fixed to Haiku while priority is output quality: revisit with bake-off numbers.
 
-Answered and moved into the plan: host OS for the platform ("fine", but the sandbox tier stays configurable), Tier 1 click count (3), preview expiry (7 days), VPS OS (AlmaLinux 9.7), research model id (`kr/glm-5`), 9router running.
+## 11. Laptop runbook (do in order; write the result under each line)
+Preflight: `./setup`; `cp .env.example .env.local` and fill values; `npm run check` green with `AO_TEST_DATABASE_URL` set.
 
-1. First client job details: what is asked, deposit status, and what the client expects to see in 3 days.
-2. Rubric inputs: three known-answer ideas, the ad budget cap, excluded categories, and which small real build will test the "MVP in hours" claim.
-3. 9router: confirm the Anthropic endpoint exists and the exact base-URL path (S1); confirm an API-key fallback provider is configured (section 6 provider-terms risk).
-4. Roster size: section 5a needs four leads (Engineering, DevOps, Security/data, Exec) with distinct approval scopes, so at least those four stay; decide whether the other 31 seats are retired from the roster.
-5. Builder fixed to Haiku while the stated priority is best output quality; the bake-off records the quality cost; revisit with the numbers.
-6. AlmaLinux 9.7 install result (S5) and the sandbox runtime tier for the platform machine.
+- **S1 · 9router.** Pass: `langchain-openai` call to `kr/glm-5` returns the same model name and `usage_metadata`; Anthropic endpoint answers (else set `ROUTER_FORMAT=openai` and record it); pinned model does not silently fall back; keyless request fails with `REQUIRE_API_KEY=true`; `kr/glm-5` supports tool-calling. Result: ____
+- **S2 · Worker bake-off** (Haiku fixed). Run `claude_code`, `mini_swe`, `openhands` on one small JS/TS task with an acceptance test, inside the hardened container. Pass: ≥1 completes and exports a patch; write outside job dir fails; non-allow-listed domain refused+logged; no docker.sock. Fix the unverified flags; pick `worker.kind`. Result: ____
+- **S3 · Restart/resume on real Postgres.** `AO_TEST_DATABASE_URL=… pytest backend/tests/test_postgres.py` passes; then kill the API mid-gate and confirm exactly one resume after approval. Result: ____
+- **S4 · Cost metering.** Run one stub job; tokens per step logged in `run_costs`, stops at the cap. Result: ____
+- **S5 · Dokploy on AlmaLinux 9.7.** Run `infra/dokploy/harden-almalinux.sh` (dry-run first); port 3000 unreachable from the internet; scoped API key; MCP allow-list creates+deploys in the preview project and refuses delete/settings; preview reachable only with credentials; Security check fails an app without auth and passes one with it. Confirm real Dokploy tool names against `connectors/dokploy.py` `TOOLS`. Result: ____
+- **Boot.** `npm start`; open http://127.0.0.1:4520; submit a client job with the fake worker, then the chosen real one.
+- **Stress.** Parallel jobs, kill/restart mid-stage, budget-cap hit, router outage, lead-FAIL loops to park, double-click approvals.
+- **Personas.** Write briefs/skills per seat in `office.agents.local.json` and `<brain>/Agents Office/skills/`; leads first (olead, dlead, comply, qa, lexi, mlead).
+- **Stop and rethink** if S1, S2 or S5 fails before building further.
 
-## 11. Dropped on purpose
+## 12. Dropped on purpose
+70-seat redesign, `success`/`product` departments, Citadel persona mapping, 3-column UI, the 20-agent arena, Redis locking, the Node runtime and its modules, GUARDRAILS.md and all other plan files (folded here; recover from git history).
 
-70-seat/8-department redesign, `success`/`product` departments, Citadel persona mapping, 3-column UI layout, the 20-agent "arena" validation (inconclusive), Redis routine locking, Foundation Tasks 9b–17 of the old plan. Foundation Tasks 1–8 were committed earlier but the audit found they do not yet deliver what they claim (no real tools, partial HITL), so they are re-scoped into Phases 1–3 above rather than counted as done.
-
-## 12. Documents and where things live
-
-| Path | Role |
-|---|---|
-| `.claude/plans/PLAN.md` | This file. The only plan (decisions, rubric, architecture, roadmap, open items) |
-| `.claude/AGENTS.md`, `MCP-MATRIX.md`, `Phase1-Setup.md`, `SETUP-CHECKLIST.md`, `unused-seats.md` | **Stale** (describe departments and connectors that do not exist). Not plan files, so not merged; `engine.py` and a test still cite `AGENTS.md`. Candidates for archive after those references are updated |
-| `.arena/`, `graphify-out/` | Generated artifacts, committed. Candidates for removal and `.gitignore` |
+## 13. Decision log
+- 2026-10-03 · One plan file; GUARDRAILS and rubric folded in.
+- 2026-10-03 · Keep 35 seats / 8 departments; each lead approves only its own stages; exposure needs `comply`+`olead` (+owner for first 3 Tier 1, always Tier 2).
+- 2026-10-03 · Postgres checkpointer; Tier 1 clicks 3; preview TTL 7 days; research model `kr/glm-5`; builder Haiku fixed; VPS AlmaLinux 9.7.
+- 2026-10-03 · Platform core implemented and tested offline; live verification delegated to the laptop (§11).

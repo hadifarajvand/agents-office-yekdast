@@ -189,7 +189,7 @@ correction is one you will want every time, fold it into the skill.
 ## Checking it worked
 
 - `npm run check` lists every skill, who it is bound to, and every problem in plain sentences.
-- `npm start` prints the count at boot and which departments are set up;
+- the API logs the count at boot;
   http://localhost:4520/api/skills shows the detail, `/api/lessons` the corrections.
 - Give the agent a task the skill covers. The deliverable ends with `Skill: <name>`.
 - Open the saved note in `<brain>/Agents Office/`. Its front matter has `skills:`.
