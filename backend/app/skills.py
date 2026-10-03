@@ -138,12 +138,12 @@ def _read_one(where: Path, entry: os.DirEntry, agents: list, problems: list[str]
             if f == "SKILL.md" or f.startswith("."):
                 continue
             fp = dir_ / f
-            if not fp.is_file():
+            if fp.is_symlink() or not fp.is_file():
                 continue
             if not TEXT_RE.search(f):
                 files.append({"name": f, "text": None})
                 continue
-            t = fp.read_text().strip()
+            t = fp.read_text(errors="replace").strip()
             if used >= LIMITS["files"]:
                 files.append({"name": f, "text": None})
                 problems.append(f'{entry.name}/{f}: skill files over {LIMITS["files"]} characters — listed by name only')
@@ -163,9 +163,18 @@ def _read_one(where: Path, entry: os.DirEntry, agents: list, problems: list[str]
         everyone=everyone,
         text=text,
         files=files,
-        path=str(file.relative_to(ROOT)),
+        path=_display_path(file),
         source="shipped" if where == SHIPPED else "brain",
     )
+
+
+def _display_path(file: Path) -> str:
+    """Path shown in /api/skills. The brain is usually outside the app root
+    (Docker mounts it at /brain), so fall back to the absolute path."""
+    try:
+        return str(file.relative_to(ROOT))
+    except ValueError:
+        return str(file)
 
 
 class Skills:
@@ -222,7 +231,11 @@ def load_skills(brain_path: Path, agents: list) -> Skills:
         for e in entries:
             if e.name.startswith("."):
                 continue
-            s = _read_one(where, e, agents, problems)
+            try:
+                s = _read_one(where, e, agents, problems)
+            except Exception as exc:  # one bad skill must never take the app down
+                problems.append(f"{e.name}: could not be read ({type(exc).__name__}) — skipped")
+                continue
             if s:
                 if s.name in by_name and by_name[s.name].source == s.source:
                     loc = "skills/" if s.source == "shipped" else "the brain"

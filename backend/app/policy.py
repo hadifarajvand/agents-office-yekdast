@@ -13,29 +13,60 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-_PATTERNS: list[tuple[str, re.Pattern]] = [
+# Secrets: credentials that must never reach a log, a prompt echo or a screen.
+# Keys may be quoted (JSON / Python-repr dicts) and values may be quoted, so the
+# key/value separator allows quote characters around both.
+_SECRET_KEYS = r"(?:token|api[_-]?key|secret|client[_-]?secret|access[_-]?key|authorization)"
+_NOT_REDACTED = r"(?!\*\*\*REDACTED)"  # never re-redact text we already replaced
+_SECRET_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("AWS key", re.compile(r"AKIA[0-9A-Z]{16}")),
     ("JWT", re.compile(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")),
-    ("token", re.compile(r"(?i)\b(token|api[_-]?key)\b\s*[=:]\s*\S+")),
-    ("token", re.compile(r"(?i)\bbearer\b\s+\S+")),
-    ("password", re.compile(r"(?i)\b(password|passwd)\b\s*[=:]\s*\S+")),
+    ("private key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)", re.S)),
+    # key/value forms first, so a quoted value (JSON / Python-repr dict) is consumed whole.
+    ("token", re.compile(
+        rf"(?i)[\"']?\b{_SECRET_KEYS}\b[\"']?\s*[=:]\s*[\"']?{_NOT_REDACTED}(?:(?:bearer|basic)\s+)?[^\s\"',;}}]+[\"']?")),
+    ("password", re.compile(
+        rf"(?i)[\"']?\b(?:password|passwd|pwd)\b[\"']?\s*(?:[=:]|\bis\b)\s*[\"']?{_NOT_REDACTED}[^\s\"',;}}]+[\"']?")),
+    ("token", re.compile(r"(?i)\b(?:bearer|basic)\s+(?!\*\*\*REDACTED)[A-Za-z0-9._~+/=-]{6,}")),
+    ("token", re.compile(r"\b(?:ghp|gho|ghu|ghs|ghr|github_pat)_[A-Za-z0-9_]{16,}")),
+    ("token", re.compile(r"\bsk-(?:ant-)?[A-Za-z0-9_-]{8,}")),
+    ("token", re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{8,}")),
+]
+
+# PII: fine to hide in logs, wrong to strip from an agent's deliverable (a draft
+# addressed to bob@acme.com must keep the address).
+_PII_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("SSN", re.compile(r"\b\d{3}-\d{2}-\d{4}\b")),
     ("email", re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")),
     ("phone", re.compile(r"\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b")),
 ]
 
+_PATTERNS = _SECRET_PATTERNS + _PII_PATTERNS
 
-def redact(text: str) -> str:
-    """Replace known secret/PII patterns with ***REDACTED (type)***. Applied to
-    every agent response before it reaches main.py, to tool-call args/results
-    before they're logged, and to exception text before it's shown — a failed
-    tool call can echo a raw auth header back in its message."""
-    if not text:
-        return text
+
+def _apply(text: str, patterns: list[tuple[str, re.Pattern]]) -> str:
     out = text
-    for name, pattern in _PATTERNS:
+    for name, pattern in patterns:
         out = pattern.sub(f"***REDACTED ({name})***", out)
     return out
+
+
+def redact_secrets(text: str) -> str:
+    """Credentials only. Use this on agent deliverables and drafts, where emails
+    and phone numbers are legitimate content."""
+    return _apply(text, _SECRET_PATTERNS) if text else text
+
+
+def redact(text: str) -> str:
+    """Replace known secret AND PII patterns with ***REDACTED (type)***. Use this
+    on anything that is logged: tool-call args/results and exception text — a
+    failed tool call can echo a raw auth header back in its message."""
+    return _apply(text, _PATTERNS) if text else text
+
+
+def _one_line(value: str) -> str:
+    """Collapse control characters so a field can never start a new log line."""
+    return re.sub(r"[\x00-\x1f\x7f  ]+", " ", str(value))
 
 
 def refusal(reason: str, route_to: str, artifact: str = "") -> str:
@@ -53,6 +84,9 @@ def audit_log_line(agent: str, dept: str, server: str, operation: str, resource:
     the line is written, not after, so a secret never touches disk even briefly."""
     ts = datetime.now(timezone.utc).isoformat()
     status = "✓allowed" if allowed else "✗denied"
+    suffix = f" ({reason})" if reason else ""
+    fields = [_one_line(x) for x in (agent, dept, server, operation, resource, reason)]
+    agent, dept, server, operation, resource, reason = fields
     suffix = f" ({reason})" if reason else ""
     line = f"{ts} | {agent} ({dept}) | {server} | {operation} | {resource} | {status}{suffix}"
     return redact(line)
