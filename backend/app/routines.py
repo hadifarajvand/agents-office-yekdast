@@ -1,14 +1,19 @@
 """Port of routines.mjs — routines: tasks the office does on its own clock.
 
-A routine is a line in <brain>/Agents Office/routines.json. Run state lives separately
-(originally data/routines.json; this backend keeps it in Postgres — see db.py) so the
-brain file stays clean config. This release: routines are for Content, Finance and
-Revenue only (the direct successors of the old Emails/Accounting/Sales pods).
+A routine is a line in <brain>/Agents Office/routines.json. Run state (next/last run)
+lives in Postgres (db.routine_state) so the brain file stays clean config. This release:
+routines are for the Content, Finance and Revenue departments only.
+
+Entries that fail validation are reported, never deleted: `load()` returns them under
+"invalid" and `save()` writes them back unchanged, so a hand-edited typo is not lost
+the next time the office saves.
 """
 from __future__ import annotations
 
 import json
+import os
 import re
+import tempfile
 from pathlib import Path
 
 from .when import describe, next_run, valid
@@ -68,10 +73,10 @@ def validate(r: dict, agents: list, existing: list[dict] | None = None) -> dict:
         out["plan"] = [str(x) for x in r["plan"][:4]]
     if r.get("model") not in (None, ""):
         m = str(r["model"]).lower().strip()
-        if m in ("sonnet", "opus", "fable"):
+        if m in ("sonnet", "opus", "fable", "haiku"):
             out["model"] = m
         else:
-            problems.append(f'{out["id"]}: model must be sonnet, opus or fable (got "{r["model"]}")')
+            problems.append(f'{out["id"]}: model must be sonnet, opus, fable or haiku (got "{r["model"]}")')
     if r.get("effort") not in (None, ""):
         e = str(r["effort"]).lower().strip()
         if e in ("low", "medium", "high", "xhigh", "max"):
@@ -91,6 +96,7 @@ def load(brain_path: Path, agents: list) -> dict:
     else:
         lst = []
     routines: list[dict] = []
+    invalid: list[dict] = []
     problems: list[str] = []
     if doc is not None and not isinstance(doc, list) and not isinstance(doc.get("routines"), list):
         problems.append(f'{p}: expected {{"routines": [...]}}')
@@ -98,12 +104,13 @@ def load(brain_path: Path, agents: list) -> dict:
         v = validate(r, agents, routines)
         if v["problems"]:
             problems.extend(v["problems"])
+            invalid.append(r)
         else:
             routines.append(v["routine"])
-    return {"routines": routines, "problems": problems, "path": p, "exists": p.exists()}
+    return {"routines": routines, "invalid": invalid, "problems": problems, "path": p, "exists": p.exists()}
 
 
-def save(brain_path: Path, routines: list[dict]) -> Path:
+def save(brain_path: Path, routines: list[dict], invalid: list[dict] | None = None) -> Path:
     p = file(brain_path)
     p.parent.mkdir(parents=True, exist_ok=True)
     clean = []
@@ -117,8 +124,24 @@ def save(brain_path: Path, routines: list[dict]) -> Path:
         if r.get("plan"):
             c["plan"] = r["plan"]
         clean.append(c)
-    p.write_text(json.dumps({"routines": clean}, indent=2) + "\n")
+    clean.extend(x for x in (invalid or []) if isinstance(x, dict))
+    _atomic_write(p, json.dumps({"routines": clean}, indent=2) + "\n")
     return p
+
+
+def _atomic_write(p: Path, text: str) -> None:
+    """Write via a temp file and rename, so a reader never sees half a file."""
+    fd, tmp = tempfile.mkstemp(dir=p.parent, prefix=".routines-", suffix=".json")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(text)
+        os.replace(tmp, p)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def with_state(routines: list[dict], st: dict, now: float | None = None) -> dict:
@@ -185,17 +208,17 @@ def ask_line(task: dict) -> str:
 def list_text(lst: list[dict], dept: str, agents: list) -> str:
     mine = [r for r in lst if r["dept"] == dept]
     if not mine:
-        return f'Nothing on the {NAMES[dept]} timetable yet. Give me one with a time in it — "every weekday at 8am, …" — and I will put it on.'
+        return f'Nothing on the {NAMES.get(dept, dept)} timetable yet. Give me one with a time in it — "every weekday at 8am, …" — and I will put it on.'
 
     def name(aid):
         a = next((x for x in agents if x.id == aid), None)
         return a.name if a else aid
 
     lines = [
-        f'• {r["title"]} — {r["desc"]} · {name(r["agent"])}' + (" · PAUSED" if r["paused"] else "") + (" · waits for your OK" if r["needsOk"] else " · read-only")
+        f'• {r["title"]} — {describe(r["when"])} · {name(r["agent"])}' + (" · PAUSED" if r["paused"] else "") + (" · waits for your OK" if r["needsOk"] else " · read-only")
         for r in mine
     ]
-    return f"{NAMES[dept]} routines:\n" + "\n".join(lines) + '\n\nSay "pause …", "resume …", "run … now" or "delete …" with a few words from the name.'
+    return f"{NAMES.get(dept, dept)} routines:\n" + "\n".join(lines) + '\n\nSay "pause …", "resume …", "run … now" or "delete …" with a few words from the name.'
 
 
 def match_routine(lst: list[dict], dept: str, words: str) -> dict | None:
@@ -203,7 +226,7 @@ def match_routine(lst: list[dict], dept: str, words: str) -> dict | None:
     best = None
     best_n = 0
     for r in [r for r in lst if r["dept"] == dept]:
-        hay = f'{r["title"]} {r["text"]} {r["desc"]} {r["when"].get("at", "")}'.lower()
+        hay = f'{r["title"]} {r["text"]} {describe(r["when"])} {(r.get("when") or {}).get("at", "")}'.lower()
         n = sum(1 for x in w if x in hay)
         if n > best_n:
             best_n = n

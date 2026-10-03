@@ -80,7 +80,6 @@ def record(brain_path: Path, agent, task, feedback: str, verdict: dict | None) -
     rest = text[start:]
     next_m = re.search(r"^## ", rest, re.MULTILINE)
     end = len(text) if next_m is None else start + next_m.start()
-    before = re.sub(r"\s*$", "\n", text[:start] + text[start:end])
     after = text[end:]
     before = re.sub(r"\s*$", "\n", text[:end])
     text = before + line + "\n" + ("\n" if after and not after.startswith("\n") else "") + after
@@ -104,7 +103,7 @@ async def classify(ask: Callable[..., Awaitable[str]], agent, task, feedback: st
         'sentence, general, no client or project names; else empty string>"}'
     )
     try:
-        raw = await ask(system, user, max_tokens=200, timeout=60.0)
+        raw = await ask(system, user, max_tokens=200)
         j = json.loads(re.sub(r"```json|```", "", raw).strip())
         return {"standing": bool(j.get("standing")) and bool(j.get("rule")), "rule": str(j.get("rule", "")).strip()}
     except Exception:

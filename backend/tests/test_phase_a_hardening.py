@@ -38,3 +38,18 @@ def test_skills_load_when_brain_is_outside_app_root(tmp_path):
     skills = load_skills(tmp_path, [])  # must not raise ValueError from relative_to(ROOT)
     assert any(s.name == "demo" for s in skills.skills)
     assert any(s.path.endswith("SKILL.md") for s in skills.skills if s.name == "demo")
+
+
+def test_learn_classify_works_with_the_real_ask_signature():
+    """classify used to call ask(..., timeout=60) which the model layer rejects, so
+    every correction silently became a one-off. It must call ask(system, user, max_tokens=...)."""
+    import asyncio
+    from app import learn
+    from app.roster import defaults
+
+    async def ask(system, user, *, model_key=None, model=None, role=None, max_tokens=4096):
+        return '{"standing": true, "rule": "Keep subject lines under 40 characters."}'
+
+    agent = next(a for a in defaults() if a.id == "newt")
+    verdict = asyncio.run(learn.classify(ask, agent, {"title": "newsletter"}, "always keep subjects short"))
+    assert verdict == {"standing": True, "rule": "Keep subject lines under 40 characters."}

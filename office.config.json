@@ -1,8 +1,9 @@
 {
-  "name": "Northgate Studio",
-  "brain": "./brain",
+  "_comment": "Shipped defaults. Every other section (router, roles, pipeline, exposure, worker, sandbox, dokploy, github, api) has its default in backend/app/config.py; override any key here or in office.config.local.json (gitignored). Secrets never go in these files, only the names of the environment variables that hold them.",
+  "name": "Yekdast Workshop",
+  "brain": "./brain-yekdast",
   "port": 4520,
-  "model": "sonnet",
+  "model": "haiku",
   "mcp": { "allow": [], "deny": [], "departments": {} },
-  "tools": { "web": true }
+  "tools": { "web": false }
 }

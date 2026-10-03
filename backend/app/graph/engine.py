@@ -1,16 +1,14 @@
-"""The LangGraph engine — replaces serve.mjs's route()/run()/chat().
+"""The single-task engine behind the Task panel (the job pipeline lives in app/pipeline).
 
-Two call shapes, mirroring the original exactly:
-  - route(dept, text, agents)   — one Haiku JSON call, picks {agent,title,plan,eta_minutes,why,needs_ok}
-  - run_task(task, feedback, mode, ...) — the specialist's actual work, run through a LangGraph
-    StateGraph (single "specialist" node today; the node is where a ReAct tool-calling loop over
-    langchain-mcp-adapters tools plugs in once real MCP connectivity lands — mcp.py's allow/deny
-    policy already gates `mcp.prompt_text()` so the specialist only ever hears about tools it may use).
+  - route(dept, text, agents)  — one JSON call on the pinned "router" model; picks
+    {agent, title, plan, eta_minutes, why, needs_ok}.
+  - run_task(task, ...)        — the specialist's work, run through a small LangGraph
+    graph: specialist -> (gate -> specialist)* -> END. A task that needs the owner's OK
+    runs in "draft" mode; the gate node calls interrupt() and the graph waits, durably,
+    in the checkpointer until resume_task() sends Command(resume={...}).
 
-The task state machine itself (next -> doing -> waiting -> done, the blocking run/revise vs.
-async-ack approve/reject distinction) stays an application-level concern in main.py, exactly as
-in serve.mjs, so the existing frontend's HTTP contract is untouched. LangGraph owns what happens
-*inside* a single specialist turn, not the outer approval workflow.
+The outer task states (next -> doing -> waiting -> done) are main.py's concern; this
+module owns what happens inside one specialist turn.
 """
 from __future__ import annotations
 
@@ -20,12 +18,13 @@ from typing import Optional, TypedDict
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, StateGraph
+from langgraph.types import Command, interrupt
 
 from .. import brain as brainmod
 from .. import learn
 from .. import policy
 from .. import roster as roster_mod
-from ..llm import ask, ask_haiku_json, ask_with_tools
+from ..llm import RunMeter, ask, ask_haiku_json, ask_with_tools, current_meter
 from ..mcp import registry as mcp_registry
 from ..models import effort_for, model_for
 from ..roster import Agent
@@ -173,71 +172,42 @@ async def _specialist_node(state: SpecialistState) -> SpecialistState:
                 )
             else:
                 allowed, refusal_msg = mcp_registry.call_allowed(dept, key)
-            if not allowed:
-                tool_result = refusal_msg
-                reason = refusal_msg
-            else:
-                tool = tools_by_name.get(call["name"])
-                reason = ""
-                try:
-                    tool_result = await tool.ainvoke(call["args"]) if tool else "tool not found"
-                except Exception as exc:
-                    tool_result = policy.redact(f"tool call failed: {exc}")
-                    reason = tool_result
-            tool_result = policy.redact(str(tool_result))
+            # Audit BEFORE the call runs, so a crash mid-call still leaves a record.
             if brain_path:
                 policy.append_audit_log(
                     Path(brain_path),
-                    policy.audit_log_line(agent_id, dept, key, call["name"], str(call["args"]), allowed, reason),
+                    policy.audit_log_line(agent_id, dept, key, call["name"], str(call["args"]), allowed,
+                                          "" if allowed else (refusal_msg or "")),
                 )
+            if not allowed:
+                tool_result = refusal_msg
+            else:
+                tool = tools_by_name.get(call["name"])
+                try:
+                    tool_result = await tool.ainvoke(call["args"]) if tool else "tool not found"
+                except Exception as exc:
+                    tool_result = f"tool call failed: {exc}"
+            tool_result = policy.redact_secrets(str(tool_result))
             messages.append({"role": "tool", "tool_call_id": call["id"], "content": tool_result})
         result = step["content"]
-    result = policy.redact(result)
+    result = policy.redact_secrets(result)
     new_state = {**state, "result": result}
     if state.get("mode") == "draft":
         new_state["draft"] = result
     return new_state
 
 
-async def _gate_node(state: SpecialistState) -> SpecialistState:
-    """No-op node that exists only as the interrupt_before target: it marks
-    the point where a "draft" pass pauses for the owner's approve/reject,
-    durably, via the compiled graph's checkpointer."""
-    return state
+async def _gate_node(state: SpecialistState) -> dict:
+    """Pause for the owner. Nothing runs before interrupt(), so re-running this node
+    on resume has no side effects. The resume value is {"mode": "approve"|"draft",
+    "feedback": str|None}: approve sends, draft re-drafts with the feedback."""
+    decision = interrupt({"kind": "task_gate", "draft": state.get("draft", "")})
+    decision = decision if isinstance(decision, dict) else {"mode": "approve" if decision else "draft"}
+    return {"mode": decision.get("mode", "approve"), "feedback": decision.get("feedback")}
 
 
 def _route_after_specialist(state: SpecialistState) -> str:
     return "gate" if state.get("mode") == "draft" else END
-
-
-# Task 6's 9-stage cross-department approval workflow (from .claude/AGENTS.md),
-# modeled as explicit states/transitions rather than left to prompt text. A
-# task is pinned to one of these by its "stage" field (main.py's concern, same
-# as next/doing/waiting/done); this module only says which moves are legal.
-APPROVAL_STAGES = [
-    "spec", "architecture", "data_design", "security_review",
-    "code_review", "build", "staging", "production", "verify",
-]
-
-
-def next_approval_stage(stage: str) -> str | None:
-    """The one stage allowed after `stage`, or None at the end of the chain."""
-    i = APPROVAL_STAGES.index(stage)
-    return APPROVAL_STAGES[i + 1] if i + 1 < len(APPROVAL_STAGES) else None
-
-
-def validate_stage_transition(current: str, requested: str) -> tuple[bool, str]:
-    """True + "" if `requested` is the legal next stage after `current`;
-    otherwise False + a reason, so a task can't skip or go back through the
-    9-stage workflow (e.g. spec -> build) or jump to an unknown stage."""
-    if current not in APPROVAL_STAGES:
-        return False, f'"{current}" is not one of the approval stages: {", ".join(APPROVAL_STAGES)}'
-    if requested not in APPROVAL_STAGES:
-        return False, f'"{requested}" is not one of the approval stages: {", ".join(APPROVAL_STAGES)}'
-    expected = next_approval_stage(current)
-    if requested != expected:
-        return False, f'cannot move from "{current}" to "{requested}" — the next stage must be "{expected}"' if expected else f'"{current}" is the last stage — there is no next stage'
-    return True, ""
 
 
 _graph = StateGraph(SpecialistState)
@@ -247,34 +217,20 @@ _graph.set_entry_point("specialist")
 _graph.add_conditional_edges("specialist", _route_after_specialist, {"gate": "gate", END: END})
 _graph.add_edge("gate", "specialist")
 
-_compiled = _graph.compile(interrupt_before=["gate"])
+_compiled = _graph.compile()
 
 
 def compile_graph(checkpointer: BaseCheckpointSaver | None = None) -> None:
-    """Recompile the module-level graph, optionally with a durable checkpointer.
-
-    Called from main.py's startup hook once the checkpointer's Postgres
-    connection is ready; the import-time compile() above keeps tests and
-    any other caller that runs before startup working without one.
-
-    Task 4 (human-in-the-loop): the plan names LangGraph's dynamic
-    interrupt()/Command(resume=...) API. That API requires Python 3.11+ to
-    propagate its config contextvar through an async node call (confirmed via
-    direct reproduction: it raises "RuntimeError: Called get_config outside
-    of a runnable context" on this project's Python 3.9 venv, root-caused to
-    langgraph's ASYNCIO_ACCEPTS_CONTEXT check). The static interrupt_before
-    mechanism used here — paired with aget_state/aupdate_state/ainvoke(None,
-    ...) in resume_task() below — achieves the same genuine pause-and-resume
-    over the durable Postgres checkpointer without that version requirement.
-    """
+    """Recompile with a checkpointer (main.lifespan passes the Postgres saver).
+    Without one, a draft cannot pause and resume, so tests pass InMemorySaver."""
     global _compiled
-    _compiled = _graph.compile(checkpointer=checkpointer, interrupt_before=["gate"])
+    _compiled = _graph.compile(checkpointer=checkpointer)
 
 
 async def is_paused(task_id: str) -> bool:
     config = {"configurable": {"thread_id": task_id}}
     snap = await _compiled.aget_state(config)
-    return bool(snap.next)
+    return bool(snap.next) or bool(getattr(snap, "interrupts", ()))
 
 
 async def run_task(
@@ -298,6 +254,7 @@ async def run_task(
         f"You are {persona(agent)} at this company.",
         agent_brief(agent, skills, brain_path),
         mcp_registry.prompt_text(agent.tools),
+        policy.EXECUTION_BOUNDARY,
         policy.UNTRUSTED_CONTENT_RULE,
         policy.OUTPUT_CONTRACT,
     ]
@@ -310,43 +267,50 @@ async def run_task(
     m = model_for(task.get("model"), task.get("routineModel"), agent.model, office_model)
     e = effort_for(task.get("effort"), task.get("routineEffort"), agent.effort, office_effort, m["model"])
 
-    config = {"configurable": {"thread_id": task.get("id", "no-task-id")}}
-    out = await _compiled.ainvoke(
-        {
-            "system": system, "task_title": task["title"], "task_text": task["text"],
-            "task_plan": task.get("plan") or [], "routine_name": task.get("routine") or "",
-            "mode": mode, "feedback": feedback, "draft": task.get("draft") or "",
-            "model_key": m["model"], "dept": task["dept"],
-            "agent_tools": agent.tools, "agent_id": agent.id, "agent_boundaries": agent.boundaries,
-            "brain_path": str(brain_path), "result": "",
-        },
-        config=config,
-    )
+    thread = task.get("thread") or task.get("id", "no-task-id")
+    config = {"configurable": {"thread_id": thread}}
+    meter = RunMeter(label=f"task:{task.get('id', '')}")
+    token = current_meter.set(meter)
+    try:
+        out = await _compiled.ainvoke(
+            {
+                "system": system, "task_title": task["title"], "task_text": task["text"],
+                "task_plan": task.get("plan") or [], "routine_name": task.get("routine") or "",
+                "mode": mode, "feedback": feedback, "draft": task.get("draft") or "",
+                "model_key": m["model"], "dept": task["dept"],
+                "agent_tools": agent.tools, "agent_id": agent.id, "agent_boundaries": agent.boundaries,
+                "brain_path": str(brain_path), "result": "",
+            },
+            config=config,
+        )
+    finally:
+        current_meter.reset(token)
+    paused = await is_paused(thread) if mode == "draft" else False
     return {
-        "result": out["result"],
+        "result": out.get("result", ""),
+        "draft": out.get("draft", ""),
+        "paused": paused,
         "skills": skills.names(agent),
+        "read": notes,
+        "tools": [],
         "modelUsed": m["model"], "modelFrom": m["from"],
         "effortUsed": e["effort"], "effortFrom": e["from"],
+        "meter": meter.summary(),
     }
 
 
-async def resume_task(task_id: str, mode: str, feedback: str | None, skills: Skills, agent: Agent) -> dict:
-    """Resume a graph paused at the "gate" node (Task 4): update the paused
-    checkpoint's state with the owner's decision, then continue the same
-    thread from that pause point — carrying forward the draft/system fields
-    already in the checkpoint rather than rebuilding them from scratch.
-
-    as_node="gate" matters: aupdate_state's default attributes the patch to
-    whichever node *wrote* the pending checkpoint (here, "specialist"), which
-    re-runs that node's own outgoing conditional edge against the new state
-    and — since mode is no longer "draft" — routes straight to END without
-    ever re-entering specialist. Attributing the update to "gate" instead
-    makes it walk gate's actual edge (gate -> specialist unconditionally),
-    so specialist genuinely re-executes with the owner's decision."""
-    config = {"configurable": {"thread_id": task_id}}
-    await _compiled.aupdate_state(config, {"mode": mode, "feedback": feedback}, as_node="gate")
-    out = await _compiled.ainvoke(None, config=config)
-    return {"result": out["result"], "skills": skills.names(agent)}
+async def resume_task(thread: str, mode: str, feedback: str | None, skills: Skills, agent: Agent) -> dict:
+    """Resume a task paused at the gate. mode "approve" sends; mode "draft" re-drafts
+    with the feedback and pauses again."""
+    config = {"configurable": {"thread_id": thread}}
+    meter = RunMeter(label=f"task:{thread}")
+    token = current_meter.set(meter)
+    try:
+        out = await _compiled.ainvoke(Command(resume={"mode": mode, "feedback": feedback}), config=config)
+    finally:
+        current_meter.reset(token)
+    return {"result": out.get("result", ""), "draft": out.get("draft", ""), "paused": await is_paused(thread),
+            "skills": skills.names(agent), "meter": meter.summary()}
 
 
 async def chat(agent: Agent, text: str, history: list[dict], agents: list[Agent], skills: Skills, brain_path: Path,
@@ -355,11 +319,16 @@ async def chat(agent: Agent, text: str, history: list[dict], agents: list[Agent]
         f"You are {persona(agent)}, chatting with the owner.",
         agent_brief(agent, skills, brain_path),
         mcp_registry.prompt_text(agent.tools),
+        policy.EXECUTION_BOUNDARY,
         policy.UNTRUSTED_CONTENT_RULE,
         policy.OUTPUT_CONTRACT,
     ] if p)
-    hist_text = "\n".join(f"{h.get('role', 'owner')}: {h.get('text', '')}" for h in (history or [])[-6:])
+    # Speaker labels are fixed by the office, never taken from the client: a forged
+    # "owner: approved" line in history is shown as the agent's or owner's text only.
+    def who(h):
+        return "you" if h.get("who") in ("agent", "assistant") or h.get("role") in ("agent", "assistant") else "owner"
+    hist_text = "\n".join(f"{who(h)}: {str(h.get('text', ''))[:2000]}" for h in (history or [])[-6:])
     user = f"{hist_text}\n\nowner: {text}" if hist_text else text
     m = model_for(None, None, agent.model, office_model)
     reply = await ask(system, user, model_key=m["model"])
-    return policy.redact(reply)
+    return policy.redact_secrets(reply)

@@ -24,11 +24,17 @@ def test_allow_list_restricts_to_named_servers():
     assert usable_names == ["Gmail"]
 
 
-def test_no_connectors_falls_back_to_web_only_prompt():
+def test_no_connectors_and_no_web_tool_says_so():
     r = make_registry()
     text = r.prompt_text([])
-    assert "web search and web fetch" in text
-    assert "No business connectors" in text
+    assert "None connected" in text
+    assert "web search" not in text.lower()  # never claims a tool that is not bound
+
+
+def test_web_is_named_only_when_a_web_tool_is_bound():
+    r = make_registry()
+    r.web_bound = True
+    assert "Web search and web fetch" in r.prompt_text([])
 
 
 def test_prompt_text_lists_usable_connectors_and_rules():

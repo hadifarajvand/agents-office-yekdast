@@ -1,349 +1,304 @@
-"""Contract tests for every /api/* route in main.py, verified against src/tasks.js,
-src/connectors.js and src/main.js (see .claude/plans/PLAN.md). Mocks the LLM (engine.ask / engine.ask_haiku_json) and Postgres (app.db) so no
-network or database is needed. The two behaviors that matter most to the frontend's
-6-second poll loop get explicit assertions: /run and /revise BLOCK and return a completed
-task in one call; /approve and /reject ACK IMMEDIATELY and finish the work in the
-background, so the caller sees "doing" long before the agent's result is ready.
+"""Contract tests for the /api/* routes the frontend calls (src/tasks.js, src/main.js,
+src/connectors.js). The model layer and Postgres are faked (tests/fakes.py), so no
+router or database is needed. Key behaviours:
+  - /run and /revise block; a task that needs the owner's OK comes back "waiting"
+    with a draft, otherwise "done" with a result;
+  - /approve and /reject acknowledge at once and finish in the background, and the
+    waiting -> doing move is atomic (a second click is refused);
+  - every state-changing request needs the X-AO-Client header.
 """
 from __future__ import annotations
 
-import asyncio
-from pathlib import Path
+import time
+from contextlib import asynccontextmanager
 
 import pytest
 from fastapi.testclient import TestClient
 from langgraph.checkpoint.memory import InMemorySaver
 
-from app import db
 from app.graph import engine
 from app.main import app
-from app.roster import defaults as default_agents
+from conftest import OFFICE_HEADERS
 
 
 @pytest.fixture
-def fake_store(monkeypatch):
-    """Replace app.db's Postgres calls with an in-memory dict, keyed exactly like the
-    real tasks/routine_state tables, so no route under test ever touches a real pool."""
-    tasks: dict[str, dict] = {}
-    routine_state: dict = {}
+def router_says(monkeypatch):
+    """Control what the routing model decides; default: needs the owner's OK."""
+    decision = {"needs_ok": True}
 
-    async def list_tasks():
-        return sorted(tasks.values(), key=lambda t: t.get("createdAt", 0))
-
-    async def get_task(task_id):
-        return tasks.get(task_id)
-
-    async def save_task(task):
-        tasks[task["id"]] = task
-
-    async def delete_task(task_id):
-        tasks.pop(task_id, None)
-
-    async def load_routine_state():
-        return dict(routine_state)
-
-    async def save_routine_state(st):
-        routine_state.clear()
-        routine_state.update(st)
-
-    monkeypatch.setattr(db, "list_tasks", list_tasks)
-    monkeypatch.setattr(db, "get_task", get_task)
-    monkeypatch.setattr(db, "save_task", save_task)
-    monkeypatch.setattr(db, "delete_task", delete_task)
-    monkeypatch.setattr(db, "load_routine_state", load_routine_state)
-    monkeypatch.setattr(db, "save_routine_state", save_routine_state)
-    return tasks
-
-
-@pytest.fixture
-def mock_llm(monkeypatch):
-    """Mock both LLM entry points the engine uses, so /api/tasks (router), /run|/revise
-    (specialist), and /api/chat never make a real Anthropic call."""
-    async def fake_ask_haiku_json(system, user):
+    async def fake_route_json(system, user):
         return {"agent": None, "title": "Mocked task", "plan": ["step1"], "eta_minutes": 5,
-                "why": "mocked routing", "needs_ok": True}
+                "why": "mocked routing", "needs_ok": decision["needs_ok"]}
 
-    async def fake_ask(system, user, model_key=None):
+    async def fake_ask(system, user, model_key=None, **kw):
         return "mocked agent output"
 
-    async def fake_ask_with_tools(messages, tools, model_key=None, max_tokens=4096):
+    async def fake_ask_with_tools(messages, tools, model_key=None, **kw):
+        user = next((m["content"] for m in messages if m["role"] == "user"), "")
+        if "owner approved" in user:
+            return {"content": "sent after OK", "tool_calls": []}
         return {"content": "mocked agent output", "tool_calls": []}
 
-    monkeypatch.setattr(engine, "ask_haiku_json", fake_ask_haiku_json)
+    monkeypatch.setattr(engine, "ask_haiku_json", fake_route_json)
     monkeypatch.setattr(engine, "ask", fake_ask)
     monkeypatch.setattr(engine, "ask_with_tools", fake_ask_with_tools)
-    return {"ask_haiku_json": fake_ask_haiku_json, "ask": fake_ask, "ask_with_tools": fake_ask_with_tools}
+    return decision
+
+
+@asynccontextmanager
+async def _no_db_lifespan(_app):
+    yield
 
 
 @pytest.fixture
-def graph_checkpointer():
-    """Task 4's approve/reject flow resumes a graph paused at the "gate" node, which
-    needs a real checkpointer to persist across calls — the module-level default has
-    none. Compile with an in-memory one for the duration of each test, then restore."""
+def client(fake_db, router_says, isolated_brain, monkeypatch):
+    # Keep one event loop alive across requests (background approvals run on it), but
+    # skip the real lifespan: no Postgres pool, no routine ticker.
+    monkeypatch.setattr(app.router, "lifespan_context", _no_db_lifespan)
     engine.compile_graph(checkpointer=InMemorySaver())
-    yield
+    with TestClient(app, headers=OFFICE_HEADERS) as c:
+        yield c
     engine.compile_graph(checkpointer=None)
 
 
-def _skills_stub():
-    return type("S", (), {"names": lambda self, a: [], "prompt_text": lambda self, a: ""})()
+def wait_for(fake_db, task_id, state, timeout=5.0):
+    end = time.time() + timeout
+    while time.time() < end:
+        t = fake_db.tasks.get(task_id)
+        if t and t.get("state") == state:
+            return t
+        time.sleep(0.02)
+    raise AssertionError(f"task {task_id} never reached {state}: {fake_db.tasks.get(task_id)}")
 
 
-def _seed_waiting_task(task: dict):
-    """Mirrors the real route into "waiting": a routine firing with needsOk=True calls
-    run_task(mode="draft"), which pauses the graph at "gate" rather than completing."""
-    agent = next(a for a in default_agents() if a.department == task["dept"])
-    # asyncio.run() closes its loop on exit, leaving this thread with no default
-    # loop — fatal for a test that goes on to construct its own asyncio.Event().
-    # Run on an explicit loop and install a fresh default one afterward instead.
-    loop = asyncio.new_event_loop()
-    try:
-        loop.run_until_complete(engine.run_task(
-            task, None, "draft", agent, default_agents(), _skills_stub(),
-            brain_path=Path("."), office_model=None, office_effort=None,
-        ))
-    finally:
-        loop.close()
-        asyncio.set_event_loop(asyncio.new_event_loop())
-    task["state"] = "waiting"
+# ---------- request hygiene ----------
+
+def test_mutating_request_without_client_header_is_refused(client):
+    r = client.post("/api/tasks", json={"dept": "fin", "text": "x"}, headers={"X-AO-Client": ""})
+    assert r.status_code == 403
 
 
-@pytest.fixture
-def client(fake_store, mock_llm):
-    # No `with` block: that would run FastAPI's startup event, which calls
-    # db.get_pool() (real asyncpg) and spawns the routine-tick background loop —
-    # neither is wanted in a contract test. Plain TestClient() dispatches requests
-    # without the ASGI lifespan.
-    return TestClient(app)
+def test_text_plain_body_is_refused(client):
+    r = client.post("/api/tasks", content="dept=fin", headers={"content-type": "text/plain"})
+    assert r.status_code == 415
+
+
+def test_foreign_origin_is_refused(client):
+    r = client.get("/api/health", headers={"origin": "https://evil.example"})
+    assert r.status_code == 403
+
+
+def test_foreign_host_is_refused(client):
+    r = client.get("/api/health", headers={"host": "evil.example"})
+    assert r.status_code == 403
+
+
+def test_api_token_required_when_configured(client, monkeypatch):
+    monkeypatch.setenv("AO_API_TOKEN", "s3cret")
+    assert client.get("/api/health").status_code == 401
+    assert client.get("/api/health", headers={"X-AO-Token": "s3cret"}).status_code == 200
+
+
+def test_page_carries_token_meta_when_configured(client, monkeypatch, tmp_path):
+    from app import main
+    page = tmp_path / "page.html"
+    page.write_text("<html><head></head><body></body></html>")
+    monkeypatch.setattr(main, "HTML", page)
+    monkeypatch.setenv("AO_API_TOKEN", "s3cret")
+    assert '<meta name="ao-token" content="s3cret">' in client.get("/").text
+
+
+def test_non_object_json_body_is_a_400(client):
+    r = client.post("/api/tasks", json=["not", "an", "object"])
+    assert r.status_code == 400
 
 
 # ---------- read-only info routes ----------
 
 def test_health_shape(client):
-    r = client.get("/api/health")
-    assert r.status_code == 200
-    body = r.json()
-    for key in ("ok", "version", "backend", "model", "models", "depts", "agents",
-                "routines", "roster", "skills", "tools", "mcp"):
+    body = client.get("/api/health").json()
+    for key in ("ok", "version", "backend", "model", "models", "depts", "agents", "agentCount",
+                "routines", "roster", "skills", "tools", "mcp", "pipeline", "roles"):
         assert key in body
-    assert body["backend"] == "langgraph"
+    assert isinstance(body["agents"], list) and body["agentCount"] == len(body["agents"]) == 35
+    assert [s["name"] for s in body["pipeline"]["stages"]][:2] == ["intake", "verify"]
 
 
-def test_agents_shape(client):
-    r = client.get("/api/agents")
-    assert r.status_code == 200
-    body = r.json()
-    assert "agents" in body and isinstance(body["agents"], list)
-    assert len(body["agents"]) > 0
-    first = body["agents"][0]
-    for key in ("id", "department", "lead", "name", "role", "does", "tools"):
+def test_agents_shape_and_approval_scopes(client):
+    agents = client.get("/api/agents").json()["agents"]
+    first = agents[0]
+    for key in ("id", "department", "lead", "name", "role", "does", "tools", "approves"):
         assert key in first
+    by_id = {a["id"]: a for a in agents}
+    assert "exposure" in by_id["comply"]["approves"] and "exposure" in by_id["olead"]["approves"]
+    assert "exposure" not in by_id["dlead"]["approves"]  # the builder never approves exposure
+    assert all(not a["approves"] for a in agents if not a["lead"])
 
 
-def test_skills_shape(client):
-    r = client.get("/api/skills")
-    assert r.status_code == 200
+def test_brain_has_graph_shape(client):
+    body = client.get("/api/brain").json()
+    for key in ("notes", "nodes", "links", "floor"):
+        assert key in body
 
 
-def test_lessons_shape(client):
-    r = client.get("/api/lessons")
-    assert r.status_code == 200
-    assert "dir" in r.json() and "agents" in r.json()
-
-
-def test_mcp_shape(client):
-    r = client.get("/api/mcp")
-    assert r.status_code == 200
-    assert r.json()["tools"] is True
-
-
-def test_brain_shape(client):
-    r = client.get("/api/brain")
-    assert r.status_code == 200
-
-
-def test_usage_shape(client):
-    r = client.get("/api/usage")
-    assert r.status_code == 200
+def test_usage_is_the_office_count_in_ms(client):
+    body = client.get("/api/usage").json()
+    assert body["source"] == "office"
+    assert body["window"]["resetsAt"] > 1e12  # milliseconds, not seconds
 
 
 # ---------- tasks ----------
 
-def test_list_tasks_empty(client):
-    r = client.get("/api/tasks")
-    assert r.status_code == 200
-    assert r.json() == []
+def test_create_task_validates(client):
+    assert client.post("/api/tasks", json={"dept": "fin"}).status_code == 400
+    assert client.post("/api/tasks", json={"dept": "nope", "text": "x"}).status_code == 400
+    assert client.post("/api/tasks", json={"dept": "fin", "text": "x", "model": "sonnet-evil"}).status_code == 400
 
 
-def test_create_task_requires_dept_and_text(client):
-    r = client.post("/api/tasks", json={"dept": "fin"})
-    assert r.status_code == 400
-    r = client.post("/api/tasks", json={"dept": "not-a-dept", "text": "do a thing"})
-    assert r.status_code == 400
-
-
-def test_create_task_routes_and_persists(client):
-    r = client.post("/api/tasks", json={"dept": "fin", "text": "chase overdue invoices"})
-    assert r.status_code == 200
-    task = r.json()
-    for key in ("id", "dept", "text", "state", "agent", "title", "plan", "eta_minutes", "why", "needsOk"):
+def test_create_task_sets_frontend_fields(client):
+    task = client.post("/api/tasks", json={"dept": "fin", "text": "chase overdue invoices"}).json()
+    for key in ("id", "dept", "text", "state", "agent", "title", "plan", "needsOk", "addedAt"):
         assert key in task
-    assert task["dept"] == "fin"
-    assert task["state"] == "next"
-
-    listed = client.get("/api/tasks").json()
-    assert any(t["id"] == task["id"] for t in listed)
+    assert task["state"] == "next" and task["addedAt"] > 1e12
 
 
-def test_run_blocks_and_returns_completed_task(client):
-    created = client.post("/api/tasks", json={"dept": "fin", "text": "chase overdue invoices"}).json()
-    r = client.post(f"/api/tasks/{created['id']}/run")
-    assert r.status_code == 200
-    task = r.json()
-    # /run is synchronous: by the time this response lands, the task is already "done".
+def test_run_without_ok_blocks_and_returns_done(client, router_says):
+    router_says["needs_ok"] = False
+    created = client.post("/api/tasks", json={"dept": "fin", "text": "list overdue invoices"}).json()
+    task = client.post(f"/api/tasks/{created['id']}/run").json()
     assert task["state"] == "done"
     assert task["result"] == "mocked agent output"
+    assert task["startedAt"] and task["doneAt"]
 
 
-def test_revise_blocks_and_returns_completed_task(client):
-    created = client.post("/api/tasks", json={"dept": "fin", "text": "chase overdue invoices"}).json()
+def test_run_that_needs_ok_returns_waiting_with_draft(client):
+    created = client.post("/api/tasks", json={"dept": "fin", "text": "email the client"}).json()
+    task = client.post(f"/api/tasks/{created['id']}/run").json()
+    assert task["state"] == "waiting"
+    assert task["draft"] == "mocked agent output"
+    assert task["waitingAt"] and task["ask"]
+
+
+def test_approve_finishes_in_background_and_marks_approved(client, fake_db):
+    created = client.post("/api/tasks", json={"dept": "fin", "text": "email the client"}).json()
     client.post(f"/api/tasks/{created['id']}/run")
-    r = client.post(f"/api/tasks/{created['id']}/revise", json={"feedback": "shorter please"})
-    assert r.status_code == 200
-    assert r.json()["state"] == "done"
-
-
-def test_run_unknown_task_404(client):
-    r = client.post("/api/tasks/not-a-real-id/run")
-    assert r.status_code == 404
-
-
-def test_approve_acks_immediately_before_background_work_finishes(client, fake_store, monkeypatch, graph_checkpointer):
-    created = client.post("/api/tasks", json={"dept": "fin", "text": "chase overdue invoices"}).json()
-    _seed_waiting_task(fake_store[created["id"]])
-
-    finish_event = asyncio.Event()
-
-    async def slow_ask_with_tools(messages, tools, model_key=None, max_tokens=4096):
-        await finish_event.wait()
-        return {"content": "finally done", "tool_calls": []}
-
-    monkeypatch.setattr(engine, "ask_with_tools", slow_ask_with_tools)
-
     r = client.post(f"/api/tasks/{created['id']}/approve")
-    # The HTTP response must come back before the slow background work completes —
-    # that's the whole point of the asyncio.create_task ack-then-continue pattern.
-    assert r.status_code == 200
     assert r.json() == {"ok": True, "id": created["id"], "state": "doing"}
-    assert fake_store[created["id"]]["state"] == "doing"
+    t = wait_for(fake_db, created["id"], "done")
+    assert t["approved"] is True and t["result"] == "sent after OK"
 
-    finish_event.set()
+
+def test_second_approve_is_refused(client, fake_db):
+    created = client.post("/api/tasks", json={"dept": "fin", "text": "email the client"}).json()
+    client.post(f"/api/tasks/{created['id']}/run")
+    assert client.post(f"/api/tasks/{created['id']}/approve").status_code == 200
+    assert client.post(f"/api/tasks/{created['id']}/approve").status_code == 400
+
+
+def test_reject_redrafts_and_waits_again(client, fake_db):
+    created = client.post("/api/tasks", json={"dept": "fin", "text": "email the client"}).json()
+    client.post(f"/api/tasks/{created['id']}/run")
+    r = client.post(f"/api/tasks/{created['id']}/reject", json={"feedback": "shorter"})
+    assert r.status_code == 200
+    time.sleep(0.05)
+    t = wait_for(fake_db, created["id"], "waiting")
+    assert t.get("revised") is True
 
 
 def test_approve_requires_waiting_state(client):
-    created = client.post("/api/tasks", json={"dept": "fin", "text": "chase overdue invoices"}).json()
-    # freshly created task is "next", not "waiting"
-    r = client.post(f"/api/tasks/{created['id']}/approve")
-    assert r.status_code == 400
+    created = client.post("/api/tasks", json={"dept": "fin", "text": "x"}).json()
+    assert client.post(f"/api/tasks/{created['id']}/approve").status_code == 400
 
 
-def test_reject_acks_immediately(client, fake_store, graph_checkpointer):
-    created = client.post("/api/tasks", json={"dept": "fin", "text": "chase overdue invoices"}).json()
-    _seed_waiting_task(fake_store[created["id"]])
-    r = client.post(f"/api/tasks/{created['id']}/reject", json={"feedback": "no, redo this"})
-    assert r.status_code == 200
-    assert r.json() == {"ok": True, "id": created["id"], "state": "doing"}
+def test_run_unknown_task_404(client):
+    assert client.post("/api/tasks/not-a-real-id/run").status_code == 404
 
 
-def test_delete_task(client, fake_store):
-    created = client.post("/api/tasks", json={"dept": "fin", "text": "chase overdue invoices"}).json()
-    r = client.delete(f"/api/tasks/{created['id']}")
-    assert r.status_code == 200
-    assert r.json() == {"ok": True}
-    assert created["id"] not in fake_store
+def test_delete_task(client, fake_db):
+    created = client.post("/api/tasks", json={"dept": "fin", "text": "x"}).json()
+    assert client.delete(f"/api/tasks/{created['id']}").json() == {"ok": True}
+    assert created["id"] not in fake_db.tasks
 
 
 # ---------- routines ----------
 
 def test_list_routines_shape(client):
-    r = client.get("/api/routines")
-    assert r.status_code == 200
-    body = r.json()
+    body = client.get("/api/routines").json()
     for key in ("routines", "depts", "path", "problems"):
         assert key in body
 
 
-def test_create_routine_rejects_unknown_dept(client):
-    r = client.post("/api/routines", json={"dept": "not-a-dept", "text": "do a thing", "when": {"kind": "daily", "at": "09:00"}})
-    assert r.status_code == 400
+def test_create_routine_validates(client):
+    when = {"kind": "daily", "at": "09:00"}
+    assert client.post("/api/routines", json={"dept": "nope", "text": "x", "when": when}).status_code == 400
+    assert client.post("/api/routines", json={"dept": "engineering", "text": "x", "when": when}).status_code == 400
+    assert client.post("/api/routines", json={"dept": "fin", "text": "", "when": when}).status_code == 400
+    assert client.post("/api/routines", json={"dept": "fin", "text": "chase overdue invoices"}).status_code == 400
 
 
-def test_create_routine_rejects_non_routine_department(client):
-    # per CLAUDE.md: routines are Content/Finance/Revenue only this release
-    r = client.post("/api/routines", json={"dept": "engineering", "text": "ship the release notes", "when": {"kind": "daily", "at": "09:00"}})
-    assert r.status_code == 400
-
-
-def test_create_routine_requires_text(client):
-    r = client.post("/api/routines", json={"dept": "fin", "text": "", "when": {"kind": "daily", "at": "09:00"}})
-    assert r.status_code == 400
-
-
-def test_create_routine_requires_a_resolvable_schedule(client):
-    r = client.post("/api/routines", json={"dept": "fin", "text": "chase overdue invoices"})
-    assert r.status_code == 400
-
-
-def test_create_run_pause_resume_patch_delete_routine_roundtrip(client):
+def test_routine_roundtrip(client, fake_db):
     created = client.post("/api/routines", json={
-        "dept": "fin", "text": "list overdue invoices every Monday", "when": {"kind": "weekly", "days": [1], "at": "09:00"},
+        "dept": "fin", "text": "list overdue invoices", "when": {"kind": "weekly", "days": [1], "at": "09:00"},
+        "model": "haiku",
     })
-    assert created.status_code == 200
+    assert created.status_code == 200, created.json()
     routine = created.json()["routine"]
+    assert routine["desc"] and routine["nextAt"]
     rid = routine["id"]
+    listed = client.get("/api/routines").json()["routines"]
+    assert any(r["id"] == rid and r.get("desc") for r in listed)
 
-    listed = client.get("/api/routines").json()
-    assert any(r["id"] == rid for r in listed["routines"])
+    run = client.post(f"/api/routines/{rid}/run").json()
+    assert run["ok"] and run["task"]["routine"] == rid
 
-    assert client.post(f"/api/routines/{rid}/run").status_code == 200
     assert client.post(f"/api/routines/{rid}/pause").status_code == 200
-    paused = next(r for r in client.get("/api/routines").json()["routines"] if r["id"] == rid)
-    assert paused["paused"] is True
-
+    assert next(r for r in client.get("/api/routines").json()["routines"] if r["id"] == rid)["paused"] is True
     assert client.post(f"/api/routines/{rid}/resume").status_code == 200
-    resumed = next(r for r in client.get("/api/routines").json()["routines"] if r["id"] == rid)
-    assert resumed["paused"] is False
-
     assert client.post(f"/api/routines/{rid}", json={"title": "Renamed"}).status_code == 200
-    patched = next(r for r in client.get("/api/routines").json()["routines"] if r["id"] == rid)
-    assert patched["title"] == "Renamed"
-
+    assert next(r for r in client.get("/api/routines").json()["routines"] if r["id"] == rid)["title"] == "Renamed"
+    assert client.post(f"/api/routines/{rid}", json={"when": {"kind": "nonsense"}}).status_code == 400
     assert client.delete(f"/api/routines/{rid}").status_code == 200
     assert not any(r["id"] == rid for r in client.get("/api/routines").json()["routines"])
 
 
+def test_invalid_routine_lines_survive_a_save(client, isolated_brain):
+    import json
+    f = isolated_brain / "Agents Office" / "routines.json"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps({"routines": [{"id": "typo", "dept": "fin", "agent": "nobody", "text": "x",
+                                           "when": {"kind": "daily", "at": "09:00"}}]}))
+    client.post("/api/routines", json={"dept": "fin", "text": "list overdue invoices", "when": {"kind": "daily", "at": "10:00"}})
+    ids = [r["id"] for r in json.loads(f.read_text())["routines"]]
+    assert "typo" in ids and len(ids) == 2
+
+
 def test_patch_unknown_routine_404(client):
-    r = client.post("/api/routines/not-a-real-id", json={"title": "x"})
-    assert r.status_code == 404
+    assert client.post("/api/routines/not-a-real-id", json={"title": "x"}).status_code == 404
 
 
 # ---------- chat ----------
 
 def test_chat_requires_known_agent(client):
-    r = client.post("/api/chat", json={"agent": "not-a-real-agent", "text": "hi"})
-    assert r.status_code == 400
+    assert client.post("/api/chat", json={"agent": "not-a-real-agent", "text": "hi"}).status_code == 400
 
 
 def test_chat_returns_reply(client):
-    agents = client.get("/api/agents").json()["agents"]
-    fin_agent = next(a for a in agents if a["department"] == "fin")
-    r = client.post("/api/chat", json={"agent": fin_agent["id"], "text": "what's overdue?", "history": []})
-    assert r.status_code == 200
-    assert "reply" in r.json()
+    r = client.post("/api/chat", json={"agent": "invo", "text": "what's overdue?", "history": []})
+    assert r.status_code == 200 and r.json()["reply"] == "mocked agent output"
 
 
-# ---------- fallback ----------
+def test_chat_ordinary_sentences_are_not_routine_commands(client):
+    for text in ("schedule a call with the client", "running low on cash?", "delete the old draft"):
+        assert client.post("/api/chat", json={"agent": "invo", "text": text}).json()["reply"] == "mocked agent output"
+
+
+def test_chat_routine_commands(client):
+    client.post("/api/routines", json={"dept": "fin", "text": "list overdue invoices", "when": {"kind": "daily", "at": "09:00"}})
+    listed = client.post("/api/chat", json={"agent": "invo", "text": "routines"}).json()
+    assert "list overdue invoices" in listed["reply"]
+    paused = client.post("/api/chat", json={"agent": "invo", "text": "pause routine overdue invoices"}).json()
+    assert "paused" in paused["reply"]
+
 
 def test_unknown_route_404(client):
-    r = client.get("/api/not-a-real-route")
-    assert r.status_code == 404
+    assert client.get("/api/not-a-real-route").status_code == 404

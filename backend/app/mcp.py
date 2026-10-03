@@ -73,6 +73,7 @@ class MCPRegistry:
         self.discovered_at: float = 0
         self.cfg_mcp = {"allow": [], "deny": [], "departments": {}}
         self.cfg_web = True
+        self.web_bound = False  # set True only when a real web search/fetch tool is wired
 
     def configure(self, cfg: dict, valid_depts: set[str] | None = None) -> None:
         self.cfg_mcp = {"allow": [], "deny": [], "departments": {}, **(cfg.get("mcp") or {})}
@@ -187,7 +188,7 @@ class MCPRegistry:
 
     def allowed_tools(self) -> list[str]:
         t = [f'mcp__{s["id"]}' for s in self.usable()]
-        if self.cfg_web:
+        if self.cfg_web and self.web_bound:
             t += ["WebSearch", "WebFetch"]
         return t
 
@@ -214,23 +215,26 @@ class MCPRegistry:
 
     def summary(self) -> dict:
         return {
-            "discoveredAt": self.discovered_at, "web": self.cfg_web,
+            "discoveredAt": self.discovered_at, "web": self.cfg_web and self.web_bound,
             "servers": [{**s, "allowed": self._allowed(s), "denied": self._denied(s)} for s in self.servers],
         }
 
     def prompt_text(self, agent_tools: list[str] | None = None) -> str:
+        """What the agent is told about its tools. Only tools that are actually bound
+        are named: the office never claims web search or a connector it does not have."""
         agent_tools = agent_tools or []
         u = self.usable()
+        web = self.cfg_web and self.web_bound
         if not u:
-            return ("TOOLS\nYou have web search and web fetch. No business connectors are connected yet."
-                    if self.cfg_web else "TOOLS\nNone. Work from the notes.")
+            return ("TOOLS\nWeb search and web fetch. No business connectors are connected."
+                    if web else "TOOLS\nNone connected. Work from the brief and the notes you are given.")
         lines = [
             f'- {s["name"]} (mcp__{s["id"]}__*)' + (': ' + ', '.join(s["tools"][:12]) + ('…' if len(s["tools"]) > 12 else '') if s["tools"] else '')
             for s in u
         ]
         mine = [s for s in u if any(k == s.get("key") or norm(k) == norm(s["name"]) for k in agent_tools)]
         text = "TOOLS\nYou can call these connectors:\n" + "\n".join(lines)
-        if self.cfg_web:
+        if web:
             text += "\n- Web search and web fetch"
         if mine:
             text += f'\nYour usual tools: {", ".join(s["name"] for s in mine)}.'

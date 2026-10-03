@@ -147,17 +147,21 @@ def test_specialist_node_redacts_tool_result_end_to_end(monkeypatch, tmp_path):
 
 
 def test_specialist_node_redacts_exception_text_end_to_end(monkeypatch, tmp_path):
+    """A failing tool's error text can echo a credential; it must reach the model
+    redacted, and the audit line must be written before the call runs."""
     r = engine.mcp_registry
     monkeypatch.setattr(r, "call_allowed", lambda dept, key: (True, None))
     monkeypatch.setattr(r, "tools_for", lambda agent_tools: [_ExplodingTool()])
     monkeypatch.setattr(r, "key_of", lambda name: "gmail")
 
+    seen: list[list[dict]] = []
     steps = [
         {"content": "", "tool_calls": [{"name": "gmail", "args": {}, "id": "call-1"}]},
         {"content": "done", "tool_calls": []},
     ]
 
-    async def fake_ask_with_tools(messages, tools, model_key=None, max_tokens=4096):
+    async def fake_ask_with_tools(messages, tools, model_key=None, **kw):
+        seen.append(list(messages))
         return steps.pop(0)
 
     monkeypatch.setattr(engine, "ask_with_tools", fake_ask_with_tools)
@@ -168,11 +172,11 @@ def test_specialist_node_redacts_exception_text_end_to_end(monkeypatch, tmp_path
     }))
 
     assert out["result"] == "done"
-
+    tool_msg = next(m for m in seen[-1] if m["role"] == "tool")
+    assert "hunter2" not in tool_msg["content"]
+    assert "***REDACTED (password)***" in tool_msg["content"]
     log_path = tmp_path / "Agents Office" / "audit" / "mcp-access.log"
-    logged = log_path.read_text(encoding="utf-8")
-    assert "hunter2" not in logged
-    assert "***REDACTED (password)***" in logged
+    assert "gmail" in log_path.read_text(encoding="utf-8")
 
 
 def test_chat_redacts_final_response(monkeypatch, tmp_path):
