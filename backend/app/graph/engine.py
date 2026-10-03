@@ -14,6 +14,7 @@ in serve.mjs, so the existing frontend's HTTP contract is untouched. LangGraph o
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Optional, TypedDict
 
@@ -23,6 +24,7 @@ from langgraph.graph import END, StateGraph
 from .. import brain as brainmod
 from .. import learn
 from .. import policy
+from .. import roster as roster_mod
 from ..llm import ask, ask_haiku_json, ask_with_tools
 from ..mcp import registry as mcp_registry
 from ..models import effort_for, model_for
@@ -41,9 +43,32 @@ def roster_text(dept: str, agents: list[Agent]) -> str:
 
 def agent_brief(a: Agent, skills: Skills, brain_path: Path) -> str:
     parts = [a.brief or ""]
+    parts.append(roster_mod.boundaries_text(a))
     parts.append(skills.prompt_text(a))
     parts.append(learn.prompt_text(brain_path, a))
     return "\n\n".join(p for p in parts if p)
+
+
+def _boundary_violation(agent_boundaries: dict, call_name: str) -> str | None:
+    """Task 6: a CANNOT line is prose ("Access production systems or
+    infrastructure"), not a tool name, so this matches on whole significant
+    words (>=4 chars) shared between the call's name and a cannot line —
+    cheap, readable in the audit log, and good enough to catch an agent
+    reaching for a tool its own boundaries rule out."""
+    cannot = (agent_boundaries or {}).get("cannot") or []
+    call_words = {w for w in re.split(r"[^a-z0-9]+", call_name.lower()) if len(w) >= 4}
+    if not call_words:
+        return None
+    for line in cannot:
+        line_words = {w for w in re.split(r"[^a-z0-9]+", line.lower()) if len(w) >= 4}
+        if call_words & line_words:
+            return line
+    return None
+
+
+def _escalation_target(agent_boundaries: dict) -> str:
+    esc = (agent_boundaries or {}).get("escalation") or []
+    return esc[0]["target_agent"] if esc else "the owner"
 
 
 async def route(dept: str, text: str, agents: list[Agent]) -> dict:
@@ -83,6 +108,7 @@ class SpecialistState(TypedDict):
     dept: str
     agent_tools: list[str]
     agent_id: str
+    agent_boundaries: dict
     brain_path: str
     result: str
 
@@ -138,7 +164,15 @@ async def _specialist_node(state: SpecialistState) -> SpecialistState:
         messages.append({"role": "assistant", "content": step["content"], "tool_calls": step["tool_calls"]})
         for call in step["tool_calls"]:
             key = mcp_registry.key_of(f'mcp__{call["name"]}__x') or call["name"]
-            allowed, refusal_msg = mcp_registry.call_allowed(dept, key)
+            boundary_hit = _boundary_violation(state.get("agent_boundaries") or {}, call["name"])
+            if boundary_hit:
+                allowed = False
+                refusal_msg = policy.refusal(
+                    f'this agent\'s boundaries rule it out: "{boundary_hit}"',
+                    _escalation_target(state.get("agent_boundaries") or {}),
+                )
+            else:
+                allowed, refusal_msg = mcp_registry.call_allowed(dept, key)
             if not allowed:
                 tool_result = refusal_msg
                 reason = refusal_msg
@@ -174,6 +208,36 @@ async def _gate_node(state: SpecialistState) -> SpecialistState:
 
 def _route_after_specialist(state: SpecialistState) -> str:
     return "gate" if state.get("mode") == "draft" else END
+
+
+# Task 6's 9-stage cross-department approval workflow (from .claude/AGENTS.md),
+# modeled as explicit states/transitions rather than left to prompt text. A
+# task is pinned to one of these by its "stage" field (main.py's concern, same
+# as next/doing/waiting/done); this module only says which moves are legal.
+APPROVAL_STAGES = [
+    "spec", "architecture", "data_design", "security_review",
+    "code_review", "build", "staging", "production", "verify",
+]
+
+
+def next_approval_stage(stage: str) -> str | None:
+    """The one stage allowed after `stage`, or None at the end of the chain."""
+    i = APPROVAL_STAGES.index(stage)
+    return APPROVAL_STAGES[i + 1] if i + 1 < len(APPROVAL_STAGES) else None
+
+
+def validate_stage_transition(current: str, requested: str) -> tuple[bool, str]:
+    """True + "" if `requested` is the legal next stage after `current`;
+    otherwise False + a reason, so a task can't skip or go back through the
+    9-stage workflow (e.g. spec -> build) or jump to an unknown stage."""
+    if current not in APPROVAL_STAGES:
+        return False, f'"{current}" is not one of the approval stages: {", ".join(APPROVAL_STAGES)}'
+    if requested not in APPROVAL_STAGES:
+        return False, f'"{requested}" is not one of the approval stages: {", ".join(APPROVAL_STAGES)}'
+    expected = next_approval_stage(current)
+    if requested != expected:
+        return False, f'cannot move from "{current}" to "{requested}" — the next stage must be "{expected}"' if expected else f'"{current}" is the last stage — there is no next stage'
+    return True, ""
 
 
 _graph = StateGraph(SpecialistState)
@@ -253,7 +317,8 @@ async def run_task(
             "task_plan": task.get("plan") or [], "routine_name": task.get("routine") or "",
             "mode": mode, "feedback": feedback, "draft": task.get("draft") or "",
             "model_key": m["model"], "dept": task["dept"],
-            "agent_tools": agent.tools, "agent_id": agent.id, "brain_path": str(brain_path), "result": "",
+            "agent_tools": agent.tools, "agent_id": agent.id, "agent_boundaries": agent.boundaries,
+            "brain_path": str(brain_path), "result": "",
         },
         config=config,
     )

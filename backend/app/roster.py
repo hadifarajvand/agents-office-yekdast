@@ -20,7 +20,9 @@ def brain_file(brain_path: Path) -> Path:
     return brain_path / "Agents Office" / "agents.json"
 
 
-EDITABLE = ["name", "role", "does", "tools", "brief", "model", "effort"]
+EDITABLE = ["name", "role", "does", "tools", "brief", "model", "effort", "boundaries"]
+BOUNDARIES_LIST_MAX = 20
+BOUNDARIES_ITEM_MAX = 200
 BRIEF_MAX = 2000
 MODELS = ["sonnet", "opus", "fable"]
 EFFORTS = ["low", "medium", "high", "xhigh", "max"]
@@ -44,6 +46,7 @@ class Agent:
     brief: str = ""
     model: str = ""
     effort: str = ""
+    boundaries: dict = field(default_factory=dict)
 
 
 def defaults() -> list[Agent]:
@@ -68,7 +71,7 @@ def validate(doc, base: list[Agent] | None = None) -> dict:
     else:
         return {"agents": base, "problems": ['the file must be {"agents": [...]}']}
 
-    out = [Agent(**{**a.__dict__, "tools": list(a.tools)}) for a in base]
+    out = [Agent(**{**a.__dict__, "tools": list(a.tools), "boundaries": json.loads(json.dumps(a.boundaries))}) for a in base]
     by_id = {a.id: a for a in out}
     seen: set[str] = set()
 
@@ -130,8 +133,53 @@ def validate(doc, base: list[Agent] | None = None) -> dict:
             if len(b) > BRIEF_MAX:
                 problems.append(f'"{eid}": brief is over {BRIEF_MAX} characters — trimmed (put the long version in a skill)')
             a.brief = b[:BRIEF_MAX]
+        if "boundaries" in e:
+            b = e["boundaries"]
+            if not isinstance(b, dict):
+                problems.append(f'"{eid}": boundaries must be an object — ignored')
+            else:
+                parsed: dict = {}
+                for key in ("can", "cannot"):
+                    v = b.get(key)
+                    if v is None:
+                        continue
+                    if not isinstance(v, list):
+                        problems.append(f'"{eid}": boundaries.{key} must be a list — ignored')
+                        continue
+                    parsed[key] = [str(x).strip()[:BOUNDARIES_ITEM_MAX] for x in v if str(x).strip()][:BOUNDARIES_LIST_MAX]
+                esc = b.get("escalation")
+                if esc is not None:
+                    if not isinstance(esc, list):
+                        problems.append(f'"{eid}": boundaries.escalation must be a list — ignored')
+                    else:
+                        parsed_esc = []
+                        for item in esc[:BOUNDARIES_LIST_MAX]:
+                            if not isinstance(item, dict) or not item.get("condition") or not item.get("target_agent"):
+                                problems.append(f'"{eid}": boundaries.escalation entries need "condition" and "target_agent" — one skipped')
+                                continue
+                            parsed_esc.append({
+                                "condition": str(item["condition"]).strip()[:BOUNDARIES_ITEM_MAX],
+                                "target_agent": str(item["target_agent"]).strip(),
+                            })
+                        parsed["escalation"] = parsed_esc
+                a.boundaries = parsed
 
     return {"agents": out, "problems": problems}
+
+
+def boundaries_text(a: Agent) -> str:
+    """Rendered the same way agent_brief() renders brief/skills: read freely
+    before every task so the model carries its own CAN/CANNOT/ESCALATION
+    contract, not just the office's tool-policy gate."""
+    b = a.boundaries or {}
+    parts = []
+    if b.get("can"):
+        parts.append("YOU CAN:\n" + "\n".join(f"- {x}" for x in b["can"]))
+    if b.get("cannot"):
+        parts.append("YOU CANNOT:\n" + "\n".join(f"- {x}" for x in b["cannot"]))
+    if b.get("escalation"):
+        parts.append("ESCALATE:\n" + "\n".join(f'- {x["condition"]} -> {x["target_agent"]}' for x in b["escalation"]))
+    return "\n\n".join(parts)
 
 
 def _read(p: Path):

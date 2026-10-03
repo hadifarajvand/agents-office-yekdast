@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from psycopg.rows import dict_row
 
-from . import db, learn, routines as routines_mod, when as whenmod
+from . import db, learn, redis_lock, routines as routines_mod, when as whenmod
 from .brain import brain_summary
 from .config import ROOT, load_config
 from .graph import engine
@@ -422,6 +422,9 @@ async def _run_server_task(task_id: str):
 
 
 async def _tick_routines():
+    """Postgres (routine_state) stays the system of record for what's due; the
+    Redis claim below only decides which replica gets to act on a given due
+    hit when more than one process runs this same loop against that state."""
     while True:
         try:
             rl = routines_mod.load(cfg.brain_path, agents_list())
@@ -430,7 +433,8 @@ async def _tick_routines():
             if merged["changed"]:
                 await db.save_routine_state(st)
             for hit in routines_mod.due(rl["routines"], st):
-                await _fire_routine(hit["routine"], hit["late"])
+                if await redis_lock.claim_due_slot(hit["routine"]["id"], hit["due"]):
+                    await _fire_routine(hit["routine"], hit["late"])
         except Exception:
             pass
         await asyncio.sleep(20)

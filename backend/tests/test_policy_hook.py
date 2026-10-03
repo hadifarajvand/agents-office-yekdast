@@ -102,6 +102,47 @@ def test_specialist_loop_rechecks_every_call_allow_then_deny(monkeypatch, tmp_pa
     assert "newt (content) | stripe | stripe" in lines[1] and "✗denied" in lines[1]
 
 
+def test_specialist_loop_denies_call_matching_boundaries_cannot(monkeypatch, tmp_path):
+    """Task 6: a boundaries.cannot line blocks a call even though MCP policy
+    would allow it (gmail is wired to content dept here) — the agent's own
+    CANNOT contract is checked first and produces the same refusal shape as
+    an MCP denial, including the audit log entry and escalation routing."""
+    r = make_registry()
+    monkeypatch.setattr(engine, "mcp_registry", r)
+
+    gmail_tool = FakeTool("gmail")
+    monkeypatch.setattr(r, "tools_for", lambda agent_tools: [gmail_tool])
+
+    steps = [
+        {"content": "", "tool_calls": [{"name": "gmail", "args": {"x": 1}, "id": "call-1"}]},
+        {"content": "done", "tool_calls": []},
+    ]
+
+    async def fake_ask_with_tools(messages, tools, model_key=None, max_tokens=4096):
+        return steps.pop(0)
+
+    monkeypatch.setattr(engine, "ask_with_tools", fake_ask_with_tools)
+
+    out = asyncio.run(engine._specialist_node({
+        "system": "s", "task_title": "t", "task_text": "u", "model_key": "haiku",
+        "dept": "content", "agent_tools": [], "agent_id": "newt",
+        "agent_boundaries": {
+            "cannot": ["Send gmail messages without review"],
+            "escalation": [{"condition": "a blocked send", "target_agent": "cmail"}],
+        },
+        "brain_path": str(tmp_path), "result": "",
+    }))
+
+    assert out["result"] == "done"
+    assert gmail_tool.calls == []
+
+    log_path = tmp_path / "Agents Office" / "audit" / "mcp-access.log"
+    lines = log_path.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 1
+    assert "newt (content) | gmail | gmail" in lines[0] and "✗denied" in lines[0]
+    assert "cmail" in lines[0]
+
+
 def test_specialist_loop_stops_after_max_tool_steps(monkeypatch, tmp_path):
     r = make_registry()
     monkeypatch.setattr(engine, "mcp_registry", r)
