@@ -1,5 +1,5 @@
 """Contract tests for every /api/* route in main.py, verified against src/tasks.js,
-src/connectors.js and src/main.js (see .claude/plans/agents-office-implementation.plan.md,
+src/connectors.js and src/main.js (see .claude/plans/PLAN.md,
 Task 7). Mocks the LLM (engine.ask / engine.ask_haiku_json) and Postgres (app.db) so no
 network or database is needed. The two behaviors that matter most to the frontend's
 6-second poll loop get explicit assertions: /run and /revise BLOCK and return a completed
