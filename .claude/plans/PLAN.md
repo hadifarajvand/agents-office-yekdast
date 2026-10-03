@@ -1,7 +1,7 @@
 # PLAN — Workshop platform (single source of truth)
 
-**Updated**: 2026-10-03 (rev 2: bake-off, Haiku builder, Dokploy, exposure tiers) · **Supersedes and replaces**: `agents-office-implementation.plan.md` (70-seat org redesign + foundation tasks), `workshop-roadmap.plan.md`, `LANGGRAPH-MIGRATION-PLAN.md`. Their useful content is merged here; the rest was dropped on purpose (section 11). Recover any of them from git history if needed.
-**Related**: `docs/design/01-rubric.md` (idea-validation decision rubric, draft), `.claude/GUARDRAILS.md` (Path B execution rules).
+**Updated**: 2026-10-03 (rev 3: single-file rule, rubric folded in, AlmaLinux/GLM/N/expiry decided) · **Supersedes and replaces**: `agents-office-implementation.plan.md` (70-seat org redesign + foundation tasks), `workshop-roadmap.plan.md`, `LANGGRAPH-MIGRATION-PLAN.md`. Their useful content is merged here; the rest was dropped on purpose (section 11). Recover any of them from git history if needed.
+**Single-plan rule [owner]**: this is the only plan document. Any new decision, spec or roadmap change is edited into this file; no other plan files are created. (`.claude/GUARDRAILS.md` remains as the execution-rules reference only.)
 
 Items marked **[verified]** were checked against a source or by running code. **[unverified]** means a claim from docs or reasoning that has not been tested here. **[decided]** means the owner decided it.
 
@@ -29,6 +29,10 @@ Items marked **[verified]** were checked against a source or by running code. **
 | Model policy | **Claude Haiku, fixed, for building**; free-tier models (e.g. GLM) for research, drafts and tests | owner |
 | Approvals | Each department lead approves **its own team's** verdicts and stage gates, not other departments' | owner |
 | Exposure | The **building department never judges its own app's exposure**; see section 5a | owner |
+| Tier 1 owner clicks | The owner personally clicks the first **3** Tier 1 previews, then the Security + Exec two-key rule may run alone | owner |
+| Preview expiry | **7 days** | owner |
+| VPS | **AlmaLinux 9.7** (see 5b: not in Dokploy's tested-OS list) | owner |
+| Research model | `kr/glm-5` via 9router (free tier; tool-calling reliability unverified, S1 tests it) | owner |
 | Deploy stack | **Dokploy on the VPS** (not installed yet), connected by MCP so previews can be deployed and exposed | owner |
 | Build worker | Chosen by a **bake-off** on one JS/TS task (section 4), builder model fixed to Haiku | owner |
 | Build target | JS/TS web apps; best output quality is the stated priority | owner |
@@ -49,9 +53,54 @@ intake → verify → scope → [GATE: owner approves verdict] → build → pre
 - **Own-product path (later)**: needs evidence from the web (competitor revenue, public pain posts) per the rubric. **Blocked until web search and fetch tools exist and are gated.**
 - Real-world tests (landing page price test, outreach, pre-sale) are marketing, so they are **owner actions**; the memo hands them over.
 - Deploy (revised): agents deploy a **preview** through the Dokploy MCP (section 5b) under the exposure rules in section 5a. Production and open public exposure are owner-only. No SSH keys reach an agent. (This replaces the earlier "owner runs the deploy config" rule.)
-- Rubric details (gates, evidence tiers, verdict rules, budget): `docs/design/01-rubric.md`. Its numeric thresholds are proposals until calibrated.
+- Rubric (gates, evidence tiers, verdict rules, budget): section 2a. Its numeric thresholds are proposals until calibrated.
 
 **Run budget [decided target, unmeasured]**: under $1 per validation memo. With 9router the displayed cost is an estimate, so the platform meters tokens itself (section 6).
+
+## 2a. Decision rubric — is this idea worth building? (draft, thresholds uncalibrated)
+
+Folded in from the former `docs/design/01-rubric.md` (removed). Numbers in **[brackets]** are proposals, not findings; tune them once in the calibration table below.
+
+**Verdicts are computed from the evidence table by the rules below; narrative cannot upgrade a verdict.**
+
+| Verdict | Requires |
+|---|---|
+| **GO** | Gate D = PASS, Gate A = PASS, confidence >= MEDIUM, no standing kill reason |
+| **NO-GO** | A gate FAILS on *sufficient search*, or a kill reason stands |
+| **TEST** | Any gate UNKNOWN, confidence LOW, or gates conflict. Must name the cheapest real-world test and the result that flips it to GO or NO-GO |
+
+Rules: absence of evidence is not evidence of absence (a gate FAILS only after a recorded sufficient search; otherwise UNKNOWN, and UNKNOWN never becomes GO). No GO at LOW confidence. Strict by owner decision: TEST is a common, acceptable outcome.
+
+**Two paths** (owner: ideas are both own products and client work):
+- **Client path (first job)**: demand evidence = a **paid deposit or signed contract**, verified. Gates become: deposit/contract real; scope and acceptance criteria clear; price fits effort; 3-day delivery realistic; (for repeat value) other clients would plausibly buy the same thing.
+- **Own-product path (later; needs web tools)**: Gate D and Gate A below.
+
+**Gate D — Demand (own-product path)**
+- **D1 competitors earning revenue**: >= **[3]** competitors/alternatives, >= **[2]** with Tier 1 or Tier 2 revenue evidence. T1 = stated revenue or filing (public MRR page, founder-posted, acquisition with revenue). T2 = paid pricing page plus >= **[50]** reviews, or named customers, or active hiring. T3 (traffic estimates, followers, funding) is supporting only and never passes D1 alone. Free or unpriced products are alternatives, not revenue evidence.
+- **D2 public pain posts**: >= **[8]** posts from >= **[3]** distinct communities, within **[12]** months, by distinct authors; >= **[5]** *specific* (concrete task, cost, or paid/built workaround). Quote <= 25 words, link each.
+
+**Gate A — Acquirability** (replaces "buildable", because the owner expects builds to take minutes to hours): A1 named reachable audience and at least one concrete place they gather; A2 a plausible route to the first **[10]** paying customers without ad spend above **[budget TBD]**; A3 a price point from D1 the segment could afford. The build estimate is recorded as information until the "MVP in hours" claim is verified on one real build; if it fails, a buildable-within-**[N]**-weeks gate is added.
+
+**Evidence rules**: every claim row has claim, type (FACT / ASSUMPTION / UNKNOWN), source URL, retrieved date, quote, and tier. A number without URL and date is an ASSUMPTION and counts toward nothing. Sources that repeat each other count once. A FAIL requires >= **[6]** distinct queries and >= **[3]** independently fetched pages, listed in the memo. Prefer primary sources; an unfetchable source is UNKNOWN, never guessed.
+
+**Kill reasons** (a Critic that did not gather the evidence marks each STANDING or REBUTTED with evidence; any STANDING forces NO-GO, or TEST if cheap evidence resolves it): incumbent lock-in; commodity (models/platforms already do it); tiny or non-paying segment; distribution wall; regulatory/trust barrier the owner has not accepted; evidence from a single place.
+
+**Confidence (computed from the table, never stated by an agent)**: HIGH = every gate part exceeds its minimum by >= 2 independent T1/T2 or specific-post sources with sufficient search recorded; MEDIUM = minimums met, sufficient search recorded; LOW = any part rests on one source, any ASSUMPTION is load-bearing, or search was not sufficient.
+
+**Run limits**: **[$1]** per memo (tokens metered by the platform, section 6); <= **[12]** searches and **[20]** fetched pages; cheap/free model for gathering, pinned stronger model for critic and verdict if budget allows. A run ending with all gates UNKNOWN returns TEST with the missing evidence listed.
+
+**Memo (one page)**: verdict and confidence with the single most important reason; gate table with counts; evidence table by gate; kill reasons; informational build note; if TEST, the cheapest test and its flip condition; what would change the verdict; run log (queries, pages, spend, failures).
+
+**Acceptance test**: three ideas chosen by the owner: one confidently good (expect GO or TEST, never NO-GO), one confidently bad (expect NO-GO, never GO), one ambiguous (expect TEST with a sensible flip condition). Every number traceable to a URL, spend under cap, owner agrees the memo was worth reading. Kill criterion: generic or uncited memos after two prompt/skill revisions means stop and rethink before building further.
+
+| Calibration name | Default | Meaning |
+|---|---|---|
+| D1 competitors / with revenue evidence | 3 / 2 | counts |
+| T2 reviews | 50 | traction threshold |
+| D2 posts / communities / specific / max age | 8 / 3 / 5 / 12 months | pain-post thresholds |
+| A2 first customers / ad budget | 10 / TBD | owner to set |
+| search minimums for a FAIL | 6 queries, 3 fetches | sufficiency |
+| caps per run | 12 searches, 20 fetches, $1 | budget |
 
 ## 3. Architecture
 
@@ -123,7 +172,7 @@ Known limits (honest): a proxy that allowlists by hostname without TLS inspectio
 | Tier | What | Who may allow it |
 |---|---|---|
 | 0 Private (default) | Runs in the Dokploy preview project, no public route | Automatic after the DevOps lead approves the deploy config |
-| 1 Gated preview | Public URL **behind authentication** (basic auth/token/Cloudflare Access), unguessable subdomain, `noindex`, no real client data or production secrets, auto-expiry (suggest 7 days), resource limits | **Two keys: Security lead PASS and Exec lead PASS**, plus the owner's click for the first N jobs (suggest N=3), then the two keys alone |
+| 1 Gated preview | Public URL **behind authentication** (basic auth/token/Cloudflare Access), unguessable subdomain, `noindex`, no real client data or production secrets, auto-expiry **7 days** (decided), resource limits | **Two keys: Security lead PASS and Exec lead PASS**, plus the owner's click for the first N jobs (suggest N=3), then the two keys alone (**N = 3** decided) |
 | 2 Open public, custom domain, production | Anything without auth or on a client domain | **Owner only, never delegated** |
 
 | Role | Does | Cannot |
@@ -140,6 +189,7 @@ Caveat: leads are LLM agents and their errors are correlated (same model family)
 
 Dokploy is a self-hosted PaaS on Docker Swarm with Traefik for routing and automatic HTTPS. **It is not installed yet** (owner); installation on the VPS is part of spike S5.
 
+- **VPS is AlmaLinux 9.7 [owner]**. Dokploy's docs list these as tested: Ubuntu 18.04-24.04, Debian 10-12, Fedora 40, CentOS 8/9. AlmaLinux and Rocky are **not listed** and the docs say nothing about SELinux or firewalld. Expected friction (all **unverified**): the install script's OS detection; SELinux enforcing blocking Docker bind mounts or Traefik socket access; firewalld and Docker both managing iptables/nftables, so the port 3000 block must be done with firewalld rules and re-tested after every Docker/firewalld restart. Requirements: >= 2 GB RAM, >= 30 GB disk, ports 80/443/3000 free at install. S5 verifies the install on AlmaLinux 9.7 and records the result; if it is fragile, fall back to an Ubuntu 24.04 LTS or Debian 12 VPS rather than patching around the installer.
 - **Install hardening before any agent connects**: the Dokploy UI has been reported binding `0.0.0.0:3000` and bypassing Traefik/HTTPS (upstream issue #2661; check current behaviour on the installed version) — firewall port 3000 at the VPS and/or provider; dashboard only via HTTPS domain with 2FA; separate **preview** project/environment from anything production; non-root SSH, key-only login; automatic OS updates.
 - **MCP connection**: community Dokploy MCP servers exist (several, none confirmed official); one advertises ~380 tools covering the whole Dokploy API via `DOKPLOY_URL` and `DOKPLOY_API_KEY`. Run it **on the host, never inside the sandbox**; wrap it with a **tool allow-list** (read, create app, update source, deploy, create preview-subdomain domain) on the preview project only; block delete, settings, server and database-admin tools. Pick one server by reviewing its code (small, maintained, pinned version) — unaudited third-party code with a key to your VPS is itself a risk.
 - **API key**: held by the host/proxy only; least privilege if Dokploy supports scoped keys (**unverified**); rotate; every call logged to the audit log.
@@ -147,7 +197,7 @@ Dokploy is a self-hosted PaaS on Docker Swarm with Traefik for routing and autom
 
 ## 6. Model access — 9router
 
-**Model policy [decided]**: builder = Claude Haiku, pinned; research, drafts and tests = free-tier models (e.g. GLM) pinned per stage; verdict-bearing and critic steps use a pinned model recorded in the run log. No silent fallback anywhere that produces a gate input.
+**Model policy [decided]**: builder = Claude Haiku, pinned; research, drafts and tests = **`kr/glm-5`** (owner-supplied id; the `kr/` prefix suggests the Kiro provider, free-tier limits and tool-calling reliability unverified, S1 tests both) pinned per stage; verdict-bearing and critic steps use a pinned model recorded in the run log. No silent fallback anywhere that produces a gate input.
 
 **Facts [verified from the 9router docs and README, not by running it]**: local OpenAI-compatible endpoint `http://localhost:20128/v1`; translates between OpenAI/Claude/Gemini formats; routes across subscription accounts, cheap and free tiers with automatic fallback; model names like `cc/claude-opus-5[1m]`; default `REQUIRE_API_KEY=false`; Docker image binds `0.0.0.0`; cost figures are "estimated costs, not actual billing"; no provider-terms disclaimer.
 
@@ -191,7 +241,7 @@ Dokploy is a self-hosted PaaS on Docker Swarm with Traefik for routing and autom
 - **S2 · Build-worker bake-off** (replaces the OpenHands-only test; protocol in section 4): *Pass*: at least one candidate passes the acceptance test inside the hardened container with the same constraints below, and the swap interface works with it. Constraints: the worker runs from our hardened container (cap-drop ALL, read-only root, non-root), on an `internal` network, reaching only 9router and one package registry through the egress proxy; a write outside the job dir fails; a request to a non-allowlisted domain is refused and logged; no docker.sock inside; it completes a small coding task and exports a patch.
 - **S3 · LangGraph 1.x**: *Pass*: a minimal graph with an interrupt before an approval node, Postgres checkpointer, survives a process restart and resumes exactly once after one approval; a double approval does not re-run the node.
 - **S4 · Cost metering**: *Pass*: a stub validation run on the pinned model logs tokens per step and total, and stops at the cap.
-- **S5 · Dokploy preview deploy**: *Pass*: Dokploy installed and hardened on the VPS; port 3000 unreachable from the internet; the MCP allow-list lets an agent create and deploy an app in the preview project but refuses delete/settings calls; the preview is reachable only with credentials; the Security-lead check fails an app without auth and passes one with auth, using a real request as evidence.
+- **S5 · Dokploy preview deploy**: *Pass*: Dokploy installs on AlmaLinux 9.7 (or the fallback OS is chosen on evidence), is hardened; port 3000 unreachable from the internet; the MCP allow-list lets an agent create and deploy an app in the preview project but refuses delete/settings calls; the preview is reachable only with credentials; the Security-lead check fails an app without auth and passes one with auth, using a real request as evidence.
 If S1, S2 or S5 fails, stop and revisit sections 4–6 before anything else.
 
 **Phase 1 — Stabilize the foundation**: finish the open items in section 8 that the new design keeps (auth/hygiene, atomic approve, classify fix, redaction switch), upgrade to LangGraph 1.x with tests, repo hygiene (gitignore, remove generated dirs, NOTICE, fix or delete `setup` and `release.mjs`), one model default, README/CLAUDE.md rewritten for the real runtime.
@@ -206,13 +256,14 @@ If S1, S2 or S5 fails, stop and revisit sections 4–6 before anything else.
 
 ## 10. Open items needing the owner
 
-1. **Host OS** (macOS vs Linux, Apple silicon or not): decides the stronger runtime tier (gVisor/Kata are Linux; Docker Sandboxes microVM is the Mac escalation).
-2. First client job details: what is asked, deposit status, and what the client expects to see in 3 days. (Deploy autonomy is now decided in section 5a.)
-3. Rubric inputs: three known-answer ideas, the ad budget cap, excluded categories, and which small real build will test the "MVP in hours" claim.
-4. Confirm the provider-terms risk in section 6 is accepted and an API-key fallback provider will be configured in 9router.
-5. Whether to keep `office.agents.json`'s 35 seats at all, or reduce the roster to the pipeline roles. Section 5a now needs four leads (Engineering, DevOps, Security/data, Exec) with distinct approval scopes, so at least those four stay.
-6. The value of N (owner clicks on Tier 1 before the two-key rule may run alone) and the preview expiry period.
-7. The builder is fixed to Haiku while the stated priority is best output quality; the bake-off records the quality cost. Revisit with the numbers.
+Answered and moved into the plan: host OS for the platform ("fine", but the sandbox tier stays configurable), Tier 1 click count (3), preview expiry (7 days), VPS OS (AlmaLinux 9.7), research model id (`kr/glm-5`), 9router running.
+
+1. First client job details: what is asked, deposit status, and what the client expects to see in 3 days.
+2. Rubric inputs: three known-answer ideas, the ad budget cap, excluded categories, and which small real build will test the "MVP in hours" claim.
+3. 9router: confirm the Anthropic endpoint exists and the exact base-URL path (S1); confirm an API-key fallback provider is configured (section 6 provider-terms risk).
+4. Roster size: section 5a needs four leads (Engineering, DevOps, Security/data, Exec) with distinct approval scopes, so at least those four stay; decide whether the other 31 seats are retired from the roster.
+5. Builder fixed to Haiku while the stated priority is best output quality; the bake-off records the quality cost; revisit with the numbers.
+6. AlmaLinux 9.7 install result (S5) and the sandbox runtime tier for the platform machine.
 
 ## 11. Dropped on purpose
 
@@ -222,8 +273,7 @@ If S1, S2 or S5 fails, stop and revisit sections 4–6 before anything else.
 
 | Path | Role |
 |---|---|
-| `.claude/plans/PLAN.md` | This file. The only plan |
-| `docs/design/01-rubric.md` | Decision rubric (draft). Specs 02 (objects) and 03 (boundaries) not yet written |
+| `.claude/plans/PLAN.md` | This file. The only plan (decisions, rubric, architecture, roadmap, open items) |
 | `.claude/GUARDRAILS.md` | Path B execution rules (keep; update to GitHub/CI wording) |
 | `.claude/AGENTS.md`, `MCP-MATRIX.md`, `Phase1-Setup.md`, `SETUP-CHECKLIST.md`, `unused-seats.md` | **Stale** (describe departments and connectors that do not exist). Not plan files, so not merged; `engine.py` and a test still cite `AGENTS.md`. Candidates for archive after those references are updated |
 | `.arena/`, `graphify-out/` | Generated artifacts, committed. Candidates for removal and `.gitignore` |
