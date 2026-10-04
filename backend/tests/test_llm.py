@@ -45,7 +45,7 @@ def test_meter_records_tokens_and_flags_a_silent_fallback(monkeypatch):
 
 def test_budget_cap_stops_the_run(monkeypatch):
     use(monkeypatch, FakeChatModel("hi", "glm-5", tokens=(1000, 1000)))
-    monkeypatch.setattr(llm, "_price", lambda model, tokens: 0.6)
+    monkeypatch.setattr(llm, "price", lambda model, tin, tout=0: 0.6)
     meter = llm.RunMeter(label="job", usd_cap=1.0)
     tok = llm.current_meter.set(meter)
     try:
@@ -54,6 +54,12 @@ def test_budget_cap_stops_the_run(monkeypatch):
             asyncio.run(llm.ask("s", "u", role="research"))
     finally:
         llm.current_meter.reset(tok)
+
+
+def test_price_uses_input_and_output_rates_and_never_prices_an_unknown_model_at_zero():
+    assert llm.price("cc/claude-haiku-4-5-20251001", 1_000_000, 1_000_000) == 6.0
+    assert llm.price("kr/glm-5", 5_000_000, 5_000_000) == 0.0
+    assert llm.price("someone/unknown-model", 1_000_000, 0) > 0
 
 
 def test_roles_resolve_to_pinned_router_ids():

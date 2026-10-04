@@ -10,16 +10,37 @@ from ..config import load_config
 TERMINAL = {"done", "killed", "failed"}
 
 
-def new_job(kind: str, title: str, brief: dict, requested_tier: int = 0) -> dict:
+LANES = ("validate", "build")
+
+
+def lane_stages(cfg, lane: str) -> list[str]:
+    lanes = cfg.pipeline.get("lanes") or {}
+    return list((lanes.get(lane) or {}).get("stages") or [s["name"] for s in cfg.pipeline["stages"] if s["name"] != "research"])
+
+
+def lane_budget(cfg, lane: str) -> tuple[float, int]:
+    """(usd cap, token cap) for one job of this lane."""
+    b = (cfg.budget.get("lanes") or {}).get(lane) or {}
+    return float(b.get("usd", cfg.budget.get("usd_per_job", 1.0))), int(b.get("tokens", 0) or 0)
+
+
+def lane_hours(cfg, lane: str) -> float:
+    return float(((cfg.pipeline.get("lanes") or {}).get(lane) or {}).get("hours", 7))
+
+
+def new_job(kind: str, title: str, brief: dict, requested_tier: int = 0, lane: str = "build") -> dict:
     cfg = load_config()
     now = db.now_ms()
-    stages = {s["name"]: {"state": "pending", "lead": s["lead"], "dept": s["dept"], "live": s["dept"] in (cfg.pipeline.get("live_departments") or [s["dept"]]), "label": s.get("label", s["name"]),
-                          "attempts": 0} for s in cfg.pipeline["stages"]}
+    wanted = lane_stages(cfg, lane)
+    live = cfg.pipeline.get("live_departments")
+    stages = {s["name"]: {"state": "pending", "lead": s["lead"], "dept": s["dept"], "live": s["dept"] in (live or [s["dept"]]),
+                          "label": s.get("label", s["name"]), "attempts": 0}
+              for s in cfg.pipeline["stages"] if s["name"] in wanted}
     return {
-        "id": db.nid(), "kind": kind, "title": title[:120], "brief": brief, "stage": "intake", "status": "running",
+        "id": db.nid(), "kind": kind, "lane": lane, "title": title[:120], "brief": brief, "stage": "intake", "status": "running",
         "stages": stages, "pending": [], "preview": None, "requestedTier": requested_tier, "tier": 0,
         "costs": {"tokens": 0, "usd": 0.0}, "events": [], "createdAt": now,
-        "deadlineAt": now + cfg.pipeline.get("deadline_days", 3) * 86400 * 1000,
+        "deadlineAt": now + int(lane_hours(cfg, lane) * 3600 * 1000),
     }
 
 
@@ -70,7 +91,7 @@ async def is_killed(job_id: str) -> bool:
 def public(job: dict, approvals: list[dict] | None = None, evidence: list[dict] | None = None) -> dict:
     """The shape the UI reads (GET /api/jobs)."""
     cfg = load_config()
-    out = {k: job[k] for k in ("id", "kind", "title", "stage", "status", "pending", "preview", "requestedTier",
+    out = {k: job[k] for k in ("id", "kind", "lane", "title", "stage", "status", "pending", "preview", "requestedTier",
                                "tier", "costs", "events", "createdAt", "deadlineAt") if k in job}
     # JSONB does not keep key order, so the order comes from the pipeline config.
     order = [st["name"] for st in cfg.pipeline.get("stages", [])]
@@ -78,6 +99,7 @@ def public(job: dict, approvals: list[dict] | None = None, evidence: list[dict] 
     out["stages"] = [{"name": n, **job["stages"][n]} for n in names]
     out["brief"] = job.get("brief", {})
     out["parkReason"] = job.get("parkReason")
+    out["lane"] = job.get("lane", "build")
     out["ownerClicksNeeded"] = int(cfg.exposure.get("tier1_owner_clicks", 3))
     if approvals is not None:
         out["approvals"] = approvals

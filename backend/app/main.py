@@ -251,7 +251,9 @@ async def dark():
 def pipeline_info() -> dict:
     from .pipeline.exposure import exposure_allowed, live_departments
     return {"stages": [{**s, "live": s["dept"] in live_departments(cfg)} for s in cfg.pipeline.get("stages", [])],
-            "liveDepartments": live_departments(cfg), "exposureAllowed": exposure_allowed(cfg), "deadlineDays": cfg.pipeline.get("deadline_days", 3),
+            "liveDepartments": live_departments(cfg), "exposureAllowed": exposure_allowed(cfg),
+            "lanes": {k: {"stages": v.get("stages", []), "hours": v.get("hours")} for k, v in (cfg.pipeline.get("lanes") or {}).items()},
+            "seatsEnabled": bool(cfg.pipeline.get("seats_enabled")),
             "exposure": {"tier1OwnerClicks": cfg.exposure.get("tier1_owner_clicks", 3),
                          "previewTtlDays": cfg.exposure.get("preview_ttl_days", 7),
                          "keys": cfg.exposure.get("keys", {})}}

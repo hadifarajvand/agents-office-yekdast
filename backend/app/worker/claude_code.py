@@ -41,7 +41,10 @@ class ClaudeCodeWorker(ContainerWorker):
     def parse(self, stdout, out_dir):
         d = self._last_json_line(stdout) or {}
         usage = d.get("usage") or {}
-        tokens = int(usage.get("input_tokens", 0) or 0) + int(usage.get("output_tokens", 0) or 0)
+        n = lambda k: int(usage.get(k, 0) or 0)  # noqa: E731
+        tin = n("input_tokens") + n("cache_creation_input_tokens")
+        tout, cached = n("output_tokens"), n("cache_read_input_tokens")
         models = list((d.get("modelUsage") or {}).keys())
-        return {"tokens": tokens, "usd": float(d.get("total_cost_usd", 0.0) or 0.0), "models_seen": models,
+        return {"tokens": tin + tout + cached, "tokens_in": tin, "tokens_out": tout, "tokens_cached": cached,
+                "usd": float(d.get("total_cost_usd", 0.0) or 0.0), "models_seen": models,
                 "is_error": bool(d.get("is_error"))}

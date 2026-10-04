@@ -119,6 +119,8 @@ def env(fake_db, tmp_path, monkeypatch):
     cfg = load_config()
     monkeypatch.setitem(cfg.sandbox, "jobs_dir", str(tmp_path / "jobs"))
     monkeypatch.setitem(cfg.pipeline, "live_departments", list(exp.ALL_DEPTS))  # these tests exercise every lead
+    monkeypatch.setitem(cfg.pipeline, "seats_enabled", True)  # and the seat fan-out
+    monkeypatch.setitem(cfg.pipeline, "spawn", {"enabled": True, "max_per_stage": 3})
     script, worker, dep, checks = Script(), FakeWorker(), FakeDeployer(), FakeChecks()
     set_deps(Deps(chat_json=script.chat_json, worker=worker, deployer=dep, checks=checks, jobs_dir=tmp_path))
     graph = compile_pipeline(InMemorySaver())
@@ -350,11 +352,47 @@ async def test_incomplete_brief_parks_before_any_model_call(env):
 
 
 async def test_budget_cap_parks_the_job(env, monkeypatch):
-    monkeypatch.setitem(env.cfg.budget, "usd_per_job", 0.005)  # the fake builder reports $0.01
+    monkeypatch.setitem(env.cfg.budget, "lanes", {"build": {"usd": 0.005, "tokens": 0}})  # the fake builder reports $0.01
     jid = await start(env)
     await owner(env, jid)
     job = await db.get_job(jid)
     assert job["status"] == "parked" and "budget" in job["parkReason"]
+
+
+async def test_token_cap_parks_the_job_even_when_the_models_are_free(env, monkeypatch):
+    monkeypatch.setitem(env.cfg.budget, "lanes", {"build": {"usd": 100.0, "tokens": 50}})
+    jid = await start(env)
+    await owner(env, jid)
+    job = await db.get_job(jid)
+    assert job["status"] == "parked" and "token" in job["parkReason"]
+
+
+async def test_router_outage_parks_with_a_clear_reason_instead_of_failing_review_loops(env, monkeypatch):
+    class APIConnectionError(Exception):
+        pass
+
+    async def down(*a, **k):
+        raise APIConnectionError("connection refused")
+    monkeypatch.setattr(env.script, "chat_json", down)
+    set_deps(Deps(chat_json=down, worker=env.worker, deployer=env.dep, checks=env.checks))
+    jid = await start(env)
+    job = await db.get_job(jid)
+    assert job["status"] == "parked" and "9router" in job["parkReason"]
+
+
+def test_build_cost_comes_from_tokens_and_the_price_table_not_the_workers_own_figure():
+    from app.pipeline.stages import worker_usd
+    res = {"tokens_in": 1_000_000, "tokens_out": 100_000, "tokens_cached": 10_000_000, "usd": 99.0}
+    assert worker_usd("cc/claude-haiku-4-5-20251001", res) == 1.0 + 0.5 + 1.0
+    assert worker_usd("cc/claude-haiku-4-5-20251001", {"usd": 0.25}) == 0.25
+
+
+async def test_jobs_carry_only_their_lanes_stages_and_an_hours_deadline(env):
+    job = jobs.new_job("client", "t", dict(GOOD_BRIEF))
+    assert "research" not in job["stages"] and job["lane"] == "build"
+    assert job["deadlineAt"] - job["createdAt"] == 7 * 3600 * 1000
+    v = jobs.new_job("own", "t", {"title": "t"}, lane="validate")
+    assert list(v["stages"]) == ["intake", "research"]
 
 
 async def test_approvals_are_idempotent(env):
@@ -441,7 +479,7 @@ async def test_expired_previews_are_taken_down(env):
 
 
 def test_stage_order_comes_from_config_not_from_storage_order():
-    cfg_names = [s["name"] for s in load_config().pipeline["stages"]]
+    cfg_names = [s["name"] for s in load_config().pipeline["stages"] if s["name"] != "research"]  # build lane
     job = jobs.new_job("client", "T", {"title": "T"})
     job["stages"] = dict(reversed(list(job["stages"].items())))  # what a JSONB round trip may do
     assert [s["name"] for s in jobs.public(job)["stages"]] == cfg_names

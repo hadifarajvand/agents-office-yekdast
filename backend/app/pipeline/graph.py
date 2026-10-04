@@ -39,6 +39,7 @@ NEXT = {"verify": "scope", "scope": "build", "build": "security", "security": "p
 class JobState(TypedDict, total=False):
     job_id: str
     kind: str
+    lane: str
     brief: dict
     requested_tier: int
     scope: dict
@@ -60,8 +61,10 @@ def _work_node(stage: str):
             return {"route": "kill"}
         await jobs.set_stage(jid, stage, "working")
         job = await db.get_job(jid)
-        cap = max(0.0, float(load_config().budget.get("usd_per_job", 1.0)) - job["costs"]["usd"])
-        meter = RunMeter(label=f"job:{jid}:{stage}", usd_cap=cap)
+        usd_cap, token_cap = jobs.lane_budget(load_config(), job.get("lane", "build"))
+        if token_cap and job["costs"]["tokens"] >= token_cap:
+            return await _park(jid, stage, f'budget: {job["costs"]["tokens"]} tokens used, at the {token_cap} token cap')
+        meter = RunMeter(label=f"job:{jid}:{stage}", usd_cap=max(0.0, usd_cap - job["costs"]["usd"]))
         tok = current_meter.set(meter)
         out: dict = {}
         try:
@@ -70,18 +73,34 @@ def _work_node(stage: str):
             return await _park(jid, stage, f"budget: {exc}")
         except Exception as exc:
             log.exception("job %s stage %s failed", jid, stage)
+            if router_down(exc):
+                return await _park(jid, stage, "the model router (9router) is unreachable; start it and retry this stage")
             return await _park(jid, stage, f"{stage} failed: {type(exc).__name__}")
         finally:
             current_meter.reset(tok)
             extra = out.pop("_cost", None) if isinstance(out, dict) else None
             await jobs.add_cost(jid, meter.tokens + (extra or {}).get("tokens", 0), meter.usd + (extra or {}).get("usd", 0.0))
-        spent = (await db.get_job(jid))["costs"]["usd"]
-        cap_total = float(load_config().budget.get("usd_per_job", 1.0))
-        if spent > cap_total:  # includes spend the build worker reports itself
-            return await _park(jid, stage, f"budget: ${spent:.2f} spent, over the ${cap_total:.2f} cap")
+        costs = (await db.get_job(jid))["costs"]
+        if costs["usd"] > usd_cap:  # includes the build worker's tokens, priced from the table
+            return await _park(jid, stage, f'budget: ${costs["usd"]:.2f} spent, over the ${usd_cap:.2f} cap')
+        if token_cap and costs["tokens"] > token_cap:
+            return await _park(jid, stage, f'budget: {costs["tokens"]} tokens used, over the {token_cap} token cap')
         await jobs.set_stage(jid, stage, "review")
         return {**out, "route": ""}
     return node
+
+
+_ROUTER_DOWN = {"APIConnectionError", "APITimeoutError", "ConnectError", "ConnectTimeout", "ReadTimeout"}
+
+
+def router_down(exc: BaseException) -> bool:
+    """True when the error (or anything it was raised from) is a connection failure to the router."""
+    seen = 0
+    while exc is not None and seen < 6:
+        if type(exc).__name__ in _ROUTER_DOWN:
+            return True
+        exc, seen = exc.__cause__ or exc.__context__, seen + 1
+    return False
 
 
 async def _park(jid: str, stage: str, reason: str) -> dict:
@@ -108,7 +127,15 @@ def _review_node(stage: str):
         for role in roles:
             if role in existing:
                 continue
-            out = await leads.review(stage, role, role, job, evidence)
+            try:
+                out = await leads.review(stage, role, role, job, evidence)
+            except Exception as exc:
+                if router_down(exc):
+                    return await _park(jid, stage, "the model router (9router) is unreachable; start it and retry this stage")
+                raise
+            c = out.get("cost") or {}
+            if c.get("tokens") or c.get("usd"):
+                await jobs.add_cost(jid, int(c.get("tokens", 0)), float(c.get("usd", 0.0)))
             await db.record_approval(jid, stage, role, out["verdict"], "; ".join(out["reasons"]), out["cites"], role)
             await jobs.event(jid, f'{role} {out["verdict"]} on {stage}')
         return {}

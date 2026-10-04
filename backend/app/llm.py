@@ -87,10 +87,12 @@ def resolve_model(model_key: str | None = None, model: str | None = None, role: 
     return model_id(model_key)
 
 
-def _price(model: str, tokens: int) -> float:
-    table = (load_config().budget.get("usd_per_1k_tokens") or {})
-    rate = table.get(model, table.get("default", 0.0))
-    return round(float(rate) * tokens / 1000.0, 6)
+def price(model: str, tokens_in: int, tokens_out: int = 0) -> float:
+    """Estimated USD for one call or one worker run: budget.usd_per_mtok[model] (or its "default"),
+    USD per million input/output tokens. A model missing from the table is never free."""
+    table = load_config().budget.get("usd_per_mtok") or {}
+    rate = table.get(model) or table.get(model.split("/")[-1]) or table.get("default") or {"in": 1.0, "out": 5.0}
+    return round((float(rate.get("in", 0)) * tokens_in + float(rate.get("out", 0)) * tokens_out) / 1e6, 6)
 
 
 def same_model(pinned: str, seen: str) -> bool:
@@ -127,7 +129,7 @@ async def _record(resp, pinned: str) -> None:
     seen = str(meta.get("model_name") or meta.get("model") or "")
     usage = getattr(resp, "usage_metadata", None) or {}
     tin, tout = int(usage.get("input_tokens", 0) or 0), int(usage.get("output_tokens", 0) or 0)
-    call = Call(pinned, seen, tin, tout, _price(pinned, tin + tout))
+    call = Call(pinned, seen, tin, tout, price(pinned, tin, tout))
     meter = current_meter.get()
     if meter is not None:
         meter.calls.append(call)

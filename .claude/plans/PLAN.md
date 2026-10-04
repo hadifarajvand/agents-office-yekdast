@@ -19,7 +19,10 @@ Items marked **[verified]** were checked against a source or by running code. **
 | Strictness | Strict: building a bad idea costs more than missing a good one. TEST is a common outcome | owner |
 | Agents may | Research, validate, build, deploy a **preview** | owner |
 | Agents may not | Marketing, client outreach, production deploy, spend. Owner does all outreach personally | owner |
-| After GO | **3-day** launch deadline, otherwise archived | owner |
+| After GO | **3-day** launch deadline, otherwise archived. **Superseded 2026-10-04**: target is idea → validated or live product in **one working day (3–6 h, at most 7)**; see §14 | owner |
+| Lanes | **validate** (own idea / is there a market: web research memo, optional landing-page test) and **build** (client or GO idea: scope → build → run-checks → preview → owner Promote) | owner 2026-10-04 |
+| Production | **Owner Promote button** only; agents stay preview-only | owner 2026-10-04 |
+| Web research | The owner's existing **keyless** web fetcher, bound through the `WebTool` port (not in this repo; laptop S1b finds it) | owner 2026-10-04 |
 | 60-day success metric | A verdict the owner trusts, plus a deployable MVP preview. (First paying customer comes later) | owner |
 | Orchestration | **LangChain + LangGraph are required** | owner |
 | Checkpoint store | **Postgres** | owner |
@@ -317,3 +320,34 @@ Preflight: `./setup`; `cp .env.example .env.local` and fill values; `npm run che
 - 2026-10-04 · Agent architecture §4a adopted: seats run inside stages as information-only workers, leads may spawn bench roles and consult other leads, brain search is Postgres full text, agents propose notes and the owner approves, one context builder for both execution paths. Playbooks live in `brain-yekdast/Playbooks/` (tracked), not under the git-ignored `Agents Office/`.
 - 2026-10-04 · **One-slice go-live.** Only `exec` (intake, verify) and `engineering` (scope, build) act as agents: config `pipeline.live_departments` (default `["exec","engineering"]`). Every stage owned by another department needs the owner instead of its lead (`exposure.stage_roles`), no persona or seat of an offline department is sent to a model, and bench spawns and consults are refused for offline leads. Gated and public previews are refused (HTTP 400) until `secdata` and `exec` are both live, so separation of duties is never weakened. Widen one department at a time in the order devops, secdata, revenue (then frontend, fin, content) with a pass/fail line each in §11. Offline seats show STANDBY in the UI and the Jobs stepper shows OWNER on their stages.
 - 2026-10-04 · Boot and verification prepared for the laptop (`scripts/boot.sh`, `stop.sh`, `restart_api.sh`, `verify_slice.py`, `verify_ui.mjs`; `npm run boot|stop|verify`). Proven here against the scripted stack on real Postgres (32 API checks incl. a real process kill and resume, 11 UI checks); that run found and fixed a real bug (spawn/consult evidence was written as a bare string into a JSONB column; the fakes hid it, now covered by a Postgres test). Not run here: real 9router, workers, Docker, Dokploy.
+
+## 14. Revision for the one-day goal (audit 2026-10-04)
+
+**Goal [owner]**: the owner is the only human (CEO); departments are the employees. An idea (own or a client's) becomes either a validated or killed idea, or a live product, within one working day.
+
+**Verdict of the audit.** The governance layer is worth keeping. That means the deterministic pipeline, lead and owner gates, the evidence blackboard, Postgres checkpoints, the sandbox spec, the egress proxy, audit-before-call and the Dokploy allow-list. The production layer was thin and in places set up to fail. Most effort had gone into the org chart (seats, bench, 3D office), which added cost and no capability because no agent had a tool.
+
+**Findings (most serious first; fact unless marked)**
+1. The platform never ran the app. Build passed on "worker exit 0 + bundle exists", and the security checks only checked that test files existed.
+2. Market validation was impossible: there was no web tool (`web_bound` always False), and there was no own-idea lane (intake demanded `deposit_ref`).
+3. The cost cap was broken both ways. Router calls were priced at $0 (`usd_per_1k_tokens.default = 0`). The worker's own `total_cost_usd` could park every real build at the $1 cap (assumption: Claude Code prices recognised models at list rates).
+4. Builder = Haiku from an empty directory: the model chose stack, auth, DB, tests and Dockerfile from scratch each time.
+5. No route to production for anyone, not even the owner.
+6. Seats and bench gave opinions without tools: multiple GLM calls per stage, no evidence.
+7. 9router-only model access (terms risk, silent fallback). The owner keeps it; the model-swap check stays on every gate input.
+8. The owner was the bottleneck with no notification channel, and the 3-day deadline was baked into the prompts.
+9. Two execution engines (Task engine and job pipeline).
+10. The worker bake-off was too wide (3 harnesses, unverified flags).
+
+**Owner answers**: Haiku stays the fixed builder; 9router only; use the existing keyless web fetcher; owner Promote button for production.
+
+**Changes (status is kept current below; the run order is in §11)**
+- C1 · Budget: estimated per-model price table, per-lane USD **and** token caps, worker cost = worker tokens × table (not the worker's own USD), router outage parks with a clear reason. Seats are off by default (`seats: []`); a seat returns only when it owns a tool or a check.
+- C2 · Run-checks: the job container installs, builds, tests and starts the app and smoke-tests `/healthz` and `/` (`infra/sandbox/run-job.sh` → `/out/checks.json`). The build gate cannot PASS unless they are green, and a retry continues the same workspace with the failing output.
+- C3 · Golden template `templates/webapp/` is copied into every new workspace. The builder edits it, never starts blank, and Dokploy builds its Dockerfile.
+- C4 · Lanes: `lane: validate | build`. The validate lane: research with the `WebTool` port; the memo's verdict is computed by code from the evidence counts (§2a), never stated by a model; optional landing-page test.
+- C5 · Owner Promote: owner-only endpoint and button with a checklist (checks green, preview healthy, security PASS), creating a per-product repo and a production Dokploy app. Agents never call it.
+- C6 · CEO inbox: one "Needs you" list (gates, parked jobs, promote-ready) and a `Notifier` port (Telegram or email; env-var names only).
+- C7 · One worker on the default path (Claude Code); OpenHands and mini-swe stay behind the interface but leave the defaults and the runbook.
+
+**Time budget (assumption until §11 measures it)**: validate 30–60 min; landing page 30–45 min; scope 10 min; build 60–180 min; checks 15 min; preview 10 min; owner review 15–30 min. That is 3–6 h for a small CRUD/SaaS MVP. Market proof (people paying) cannot happen in hours. The platform produces the memo and the test asset; traffic and outreach are the owner's.

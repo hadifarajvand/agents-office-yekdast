@@ -31,6 +31,8 @@ async def _evidence(state: dict, stage: str, kind: str, title: str, ok: bool | N
 
 def _seats(stage: str) -> list[str]:
     cfg = load_config()
+    if not cfg.pipeline.get("seats_enabled"):
+        return []
     for s in cfg.pipeline.get("stages", []):
         if s["name"] == stage:
             return list(s.get("seats") or []) if exp.is_live(cfg, s["dept"]) else []
@@ -113,7 +115,9 @@ async def verify(state: dict) -> dict:
         "scout": "Name the competitors or substitutes this client could use instead, and what is publicly known about demand. Say what you cannot know from the brief.",
         "ilm": "Judge how well this request fits a small web-app MVP client we want: clarity, budget signals, red flags.",
         "enzo": "Judge whether the stated price fits the effort and what the margin risk is."})
-    user = (f"Brief:\n{fence(json.dumps(b)[:4000])}\nDeadline: {load_config().pipeline.get('deadline_days', 3)} days."
+    from .jobs import lane_hours
+    user = (f"Brief:\n{fence(json.dumps(b)[:4000])}\nDelivery target: a working preview within "
+            f"{lane_hours(load_config(), state.get('lane', 'build')):g} hours, built from our standard web-app template."
             + (f"\n\nSpecialist findings:\n{found}" if found else "") + _feedback(state))
     system = await _lead_pack(state, "verify", json.dumps(b)[:300]) + system
     data = await get_deps().chat_json(system, user, role="research")
@@ -160,7 +164,18 @@ async def build(state: dict) -> dict:
                      "log_path": res.get("log_path"), "tokens": res.get("tokens", 0), "usd": res.get("usd", 0.0),
                      "models_seen": res.get("models_seen", []), "model_swapped": swapped}, "patch")
     return {"patch": {"path": res.get("patch_path"), "log": res.get("log_path")},
-            "_cost": {"tokens": int(res.get("tokens", 0)), "usd": float(res.get("usd", 0.0))}}
+            "_cost": {"tokens": int(res.get("tokens", 0)), "usd": worker_usd(pinned, res)}}
+
+
+def worker_usd(model: str, res: dict) -> float:
+    """The build's cost from its token counts and the price table, so the cap means the same
+    thing for every worker. Cache reads are priced at a tenth of input. Only a worker that
+    reports no split falls back to its own USD figure."""
+    from ..llm import price
+    if "tokens_in" in res or "tokens_out" in res:
+        return price(model, int(res.get("tokens_in", 0)), int(res.get("tokens_out", 0))) + \
+            round(price(model, int(res.get("tokens_cached", 0))) * 0.1, 6)
+    return float(res.get("usd", 0.0))
 
 
 def _check_owner(name: str) -> str:

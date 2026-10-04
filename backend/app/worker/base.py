@@ -87,4 +87,5 @@ class ContainerWorker:
             "ok" if res.exit_code == 0 and bundle.exists() and not meta.get("is_error") else "failed")
         return {"patch_path": str(bundle) if bundle.exists() else "", "log_path": str(stdout_f if stdout_f.exists() else ""),
                 "tokens": int(meta.get("tokens", 0)), "usd": float(meta.get("usd", 0.0)),
+                **{k: int(meta[k]) for k in ("tokens_in", "tokens_out", "tokens_cached") if k in meta},
                 "models_seen": list(meta.get("models_seen", [])), "exit_state": state}

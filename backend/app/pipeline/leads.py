@@ -49,7 +49,9 @@ async def review(stage: str, lead_id: str, lead_label: str, job: dict, evidence:
     try:
         from ..context import build_pack, fence
         from . import spawn as sp
-        offered = [f'{b["citadel_id"]} ({b["description"]})' for b in sp.bench().get(_dept_of(lead_id), [])][:25]
+        from ..config import load_config
+        spawn_on = bool((load_config().pipeline.get("spawn") or {}).get("enabled"))
+        offered = [f'{b["citadel_id"]} ({b["description"]})' for b in sp.bench().get(_dept_of(lead_id), [])][:25] if spawn_on else []
         system = await build_pack(lead_id, stage=stage, query=str(job.get("title", ""))) + "\n\n" + SYSTEM
         if offered:
             system += "\nBench roles you may spawn: " + "; ".join(offered)
@@ -64,20 +66,25 @@ async def review(stage: str, lead_id: str, lead_label: str, job: dict, evidence:
                 except sp.SpawnRefused as e:
                     notes.append(f"- refused: {e}")
             data = await get_deps().chat_json(system, user + "\n\nSpecialist answers (information only):\n" + "\n".join(notes), role=role)
-    except Exception as exc:  # unparsable or unreachable model: a lead that cannot answer does not pass
-        return {"verdict": "FAIL", "actor": lead_id, "cites": [], "reasons": [f"review failed: {type(exc).__name__}"]}
+    except Exception as exc:  # unparsable model output: a lead that cannot answer does not pass
+        from .graph import router_down
+        if router_down(exc):
+            raise  # the graph parks the job: an outage is not the work's fault
+        return {"verdict": "FAIL", "actor": lead_id, "cites": [], "reasons": [f"review failed: {type(exc).__name__}"],
+                "cost": {"tokens": meter.tokens, "usd": meter.usd}}
     finally:
         current_meter.reset(tok)
+    cost = {"tokens": meter.tokens, "usd": meter.usd}
 
     if not meter.valid:
-        return {"verdict": "FAIL", "actor": lead_id, "cites": [],
+        return {"verdict": "FAIL", "actor": lead_id, "cites": [], "cost": cost,
                 "reasons": ["review void: " + "; ".join(meter.mismatches)]}
     verdict = str(data.get("verdict", "")).upper()
     reasons = [str(r)[:300] for r in (data.get("reasons") or [])][:6]
     ids = {e["id"] for e in mine}
     cites = [c for c in (data.get("cites") or []) if c in ids]
     if verdict == "PASS" and not cites:
-        return {"verdict": "FAIL", "actor": lead_id, "cites": [], "reasons": ["PASS without citing evidence"] + reasons}
+        return {"verdict": "FAIL", "actor": lead_id, "cites": [], "reasons": ["PASS without citing evidence"] + reasons, "cost": cost}
     if verdict not in ("PASS", "FAIL"):
-        return {"verdict": "FAIL", "actor": lead_id, "cites": cites, "reasons": ["unclear verdict"] + reasons}
-    return {"verdict": verdict, "actor": lead_id, "cites": cites, "reasons": reasons}
+        return {"verdict": "FAIL", "actor": lead_id, "cites": cites, "reasons": ["unclear verdict"] + reasons, "cost": cost}
+    return {"verdict": verdict, "actor": lead_id, "cites": cites, "reasons": reasons, "cost": cost}

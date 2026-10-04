@@ -131,8 +131,11 @@ def main() -> int:
         s = (e.get("body") or {}).get("seat")
         if e["kind"] == "finding" and s:
             seats[e["stage"]].add(s)
-    check("evidence: verify findings come from scout, ilm, enzo", seats.get("verify", set()) == {"scout", "ilm", "enzo"}, str(seats.get("verify")))
-    check("evidence: scope findings come from pco", seats.get("scope", set()) == {"pco"}, str(seats.get("scope")))
+    if p.get("seatsEnabled"):
+        check("evidence: verify findings come from scout, ilm, enzo", seats.get("verify", set()) == {"scout", "ilm", "enzo"}, str(seats.get("verify")))
+        check("evidence: scope findings come from pco", seats.get("scope", set()) == {"pco"}, str(seats.get("scope")))
+    else:
+        check("evidence: seats are off, so no seat findings were made", not any(seats.values()), str(seats))
     allseats = {s for v in seats.values() for s in v} | {(e.get("body") or {}).get("seat") for e in ev if (e.get("body") or {}).get("seat")}
     check("evidence: no offline department's seat contributed", not (allseats & OFFLINE_SEATS), str(sorted(allseats & OFFLINE_SEATS)))
     sec = [e for e in ev if e["stage"] == "security" and e["kind"] == "check"]

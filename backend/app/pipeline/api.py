@@ -89,9 +89,10 @@ async def create_job(req: Request):
                                       "only private (Tier 0) previews exist until then"}, status_code=400)
     brief = {k: str(body.get(k) or "").strip()[:8000] for k in ("title", "description", "client", "deposit_ref", "acceptance")}
     brief["title"] = title
-    job = jobs.new_job(kind, title, brief, requested_tier=tier)
+    lane = "build"
+    job = jobs.new_job(kind, title, brief, requested_tier=tier, lane=lane)
     await db.save_job(job)
-    cfgd = {"job_id": job["id"], "kind": kind, "brief": brief, "requested_tier": tier, "loops": {}, "feedback": "", "route": ""}
+    cfgd = {"job_id": job["id"], "kind": kind, "lane": lane, "brief": brief, "requested_tier": tier, "loops": {}, "feedback": "", "route": ""}
     _spawn(_drive(job["id"], cfgd))
     return jobs.public(job)
 

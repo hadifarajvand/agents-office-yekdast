@@ -26,6 +26,8 @@ DEFAULT_STAGES = [
     {"name": "preview", "dept": "devops", "lead": "qa", "label": "Preview deploy", "seats": ["dash"]},
     {"name": "exposure", "dept": "secdata", "lead": "comply", "label": "Exposure", "seats": []},
     {"name": "handoff", "dept": "revenue", "lead": "lexi", "label": "Handoff", "seats": ["piper", "cmail"]},
+    # Validate lane only: web research and a memo whose verdict is computed from the evidence.
+    {"name": "research", "dept": "exec", "lead": "olead", "label": "Market research", "seats": []},
 ]
 
 DEFAULTS: dict = {
@@ -61,10 +63,27 @@ DEFAULTS: dict = {
         "lead_review": "kr/glm-5",
         "chat": "kr/glm-5",
     },
-    "budget": {"usd_per_job": 1.0, "usd_per_1k_tokens": {"default": 0.0}},
-    "pipeline": {"stages": DEFAULT_STAGES, "deadline_days": 3, "max_review_loops": 2,
-                 "owner_gates": ["verify", "handoff"],
-                 "spawn": {"max_per_stage": 3},
+    # Caps per lane, in estimated USD and in tokens (free-tier models cost $0 but are still bounded).
+    # Prices are USD per million tokens, estimated from list prices: 9router's own cost figures are
+    # estimates too, and a model missing from the table is priced at "default" (never at zero).
+    "budget": {
+        "lanes": {"validate": {"usd": 1.0, "tokens": 800_000}, "build": {"usd": 5.0, "tokens": 8_000_000}},
+        "usd_per_mtok": {
+            "default": {"in": 1.0, "out": 5.0},
+            "cc/claude-haiku-4-5-20251001": {"in": 1.0, "out": 5.0},
+            "kr/glm-5": {"in": 0.0, "out": 0.0},
+        },
+    },
+    "pipeline": {"stages": DEFAULT_STAGES, "max_review_loops": 2,
+                 "owner_gates": ["verify", "handoff", "research"],
+                 # Two lanes over one graph. "hours" is the wall-clock target the owner sees.
+                 "lanes": {"validate": {"stages": ["intake", "research"], "hours": 2},
+                           "build": {"stages": ["intake", "verify", "scope", "build", "security", "preview",
+                                                "exposure", "handoff"], "hours": 7}},
+                 # Seats (specialist workers) only run when this is on: a seat with no tool or check of
+                 # its own adds model calls, not evidence (PLAN.md section 14).
+                 "seats_enabled": False,
+                 "spawn": {"enabled": False, "max_per_stage": 3},
                  # Departments whose leads and seats act in a job. Every other stage waits for the
                  # owner instead of a lead. Widen one department at a time (see PLAN.md section 11).
                  "live_departments": ["exec", "engineering"]},  # stages that also need the owner's click
