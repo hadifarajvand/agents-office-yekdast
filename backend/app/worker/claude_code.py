@@ -1,4 +1,8 @@
-"""Claude Code in headless mode (`claude --bare -p ... --output-format json`).
+"""Claude Code in headless mode (`claude --bare -p ... --output-format stream-json --verbose`).
+
+stream-json is one JSON event per line, so agent.stdout is the full log and survives a kill;
+the last line is the same result object `json` gave. trace() digests it into out/trace.jsonl.
+`--verbose` (required by stream-json with -p) and the event shapes are UNVERIFIED until the S2 run.
 
 Model access: ANTHROPIC_BASE_URL points at the router gateway (which holds the real
 key); the container only sees a placeholder key. Every model alias is pinned to the
@@ -10,6 +14,9 @@ present, so a swapped model is detected; if the key is missing the field stays e
 and the run is not provably clean (the bake-off must confirm the key exists).
 """
 from __future__ import annotations
+
+import json
+from pathlib import Path
 
 from ..config import load_config
 from .base import ContainerWorker
@@ -23,7 +30,7 @@ class ClaudeCodeWorker(ContainerWorker):
         model = limits.get("model") or load_config().roles["builder"]
         return ["claude", "--bare", "-p",
                 "Read /workspace/TASK.md and carry out the task completely. Run the tests until they pass.",
-                "--output-format", "json", "--model", model, "--max-turns", str(limits.get("max_turns", 80)),
+                "--output-format", "stream-json", "--verbose", "--model", model, "--max-turns", str(limits.get("max_turns", 80)),
                 "--dangerously-skip-permissions"]
 
     def env(self, limits):
@@ -37,6 +44,42 @@ class ClaudeCodeWorker(ContainerWorker):
             "ANTHROPIC_SMALL_FAST_MODEL": model,
             "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1", "DISABLE_AUTOUPDATER": "1", "DISABLE_TELEMETRY": "1",
         }
+
+    def trace(self, stdout, out_dir):
+        """stream-json -> out/trace.jsonl: one short line per say / tool call / tool result."""
+        def cut(v, n=400):
+            s = v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)
+            return s if len(s) <= n else s[:n] + "…"
+        rows = []
+        for line in stdout.splitlines():
+            try:
+                e = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(e, dict):
+                continue
+            kind = e.get("type")
+            if kind == "system" and e.get("subtype") == "init":
+                rows.append({"t": "init", "model": e.get("model"), "tools": len(e.get("tools") or [])})
+            elif kind in ("assistant", "user"):
+                content = (e.get("message") or {}).get("content")
+                for b in content if isinstance(content, list) else []:
+                    bt = b.get("type")
+                    if bt == "text" and kind == "assistant":
+                        rows.append({"t": "say", "text": cut(b.get("text", ""))})
+                    elif bt == "tool_use":
+                        rows.append({"t": "tool", "name": b.get("name"), "input": cut(b.get("input", {}))})
+                    elif bt == "tool_result":
+                        c = b.get("content")
+                        if isinstance(c, list):
+                            c = " ".join(x.get("text", "") for x in c if isinstance(x, dict))
+                        rows.append({"t": "result", "ok": not b.get("is_error"), "out": cut(c or "")})
+            elif kind == "result":
+                rows.append({"t": "final", "subtype": e.get("subtype"), "is_error": bool(e.get("is_error")),
+                             "turns": e.get("num_turns"), "ms": e.get("duration_ms"), "text": cut(e.get("result", ""))})
+        p = Path(out_dir) / "trace.jsonl"
+        p.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+        return str(p)
 
     def parse(self, stdout, out_dir):
         d = self._last_json_line(stdout) or {}

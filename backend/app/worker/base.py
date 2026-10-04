@@ -81,6 +81,10 @@ class ContainerWorker:
         """-> {tokens, usd, models_seen}"""
         return {"tokens": 0, "usd": 0.0, "models_seen": []}
 
+    def trace(self, stdout: str, out_dir: Path) -> str:
+        """Write out/trace.jsonl, a readable digest of what the agent did. Returns its path or ''."""
+        return ""
+
     @staticmethod
     def _last_json_line(text: str) -> dict | None:
         for line in reversed([ln for ln in text.splitlines() if ln.strip()]):
@@ -111,10 +115,15 @@ class ContainerWorker:
             meta = self.parse(stdout, out)
         except Exception:
             log.exception("could not parse %s output", self.kind)
+        trace_path = ""
+        try:  # the trace is for people; failing to write it never fails the build
+            trace_path = self.trace(stdout, out)
+        except Exception:
+            log.exception("could not write the %s trace", self.kind)
         state = "timeout" if res.timed_out else (
             "ok" if res.exit_code == 0 and bundle.exists() and not meta.get("is_error") else "failed")
         from ..checks.run import read_checks
-        return {"checks": read_checks(out), "patch_path": str(bundle) if bundle.exists() else "", "log_path": str(stdout_f if stdout_f.exists() else ""),
+        return {"checks": read_checks(out), "patch_path": str(bundle) if bundle.exists() else "", "log_path": str(stdout_f if stdout_f.exists() else ""), "trace_path": trace_path,
                 "tokens": int(meta.get("tokens", 0)), "usd": float(meta.get("usd", 0.0)),
                 **{k: int(meta[k]) for k in ("tokens_in", "tokens_out", "tokens_cached") if k in meta},
                 "models_seen": list(meta.get("models_seen", [])), "exit_state": state}
