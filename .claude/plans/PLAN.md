@@ -150,6 +150,25 @@ Dropped from the old stack: Redis (existed only for a multi-replica routine lock
 ### 3.2 Why LangGraph here
 Pause-and-resume at approval gates, parallel evidence branches merged into a critic, durable job state in Postgres. Required by the owner regardless.
 
+## 4a. Agent architecture — departments, seats, sub-agents and the brain (decided 2026-10-04)
+
+**Research.** LangGraph supports a central supervisor, nested supervisors, or workers exposed as tools, with a checkpointer for short-term and a store for long-term memory ([langgraph-supervisor](https://pypi.org/project/langgraph-supervisor/)). Anthropic's orchestrator-worker research system beat a single agent by more than 90% on research but used about 15x the tokens and is less effective on tightly interdependent work such as coding ([Anthropic](https://www.anthropic.com/engineering/multi-agent-research-system)). Agent memory is usually split into semantic, episodic and procedural parts ([overview](https://patronus.ai/ai-agent-development/agentic-memory)). **Not evaluable from sources:** whether any of it helps this workload (small JS/TS MVPs on Haiku/GLM at $1/job); that is a laptop bake-off item (§11).
+
+**What was there before this change.** Two paths that shared nothing: the task engine (router, ReAct loop, brain notes, skills, lessons) and the job pipeline, whose stages called a model with one hard-coded prompt each. No seat persona, brief, skill or brain note reached a pipeline call, so 19 of 27 seats did nothing in a job. The brain was a keyword count over the first 500 characters of each note. The bench spawn existed but nothing called it.
+
+**Verdict: keep the gated pipeline, the lead-per-stage verdicts, the file-based brain and Postgres. Change how seats, sub-agents and the brain are used.** Rejected: a free-form supervisor swarm (non-deterministic gates, about 15x cost, poor for coding); Mem0/LangMem or a vector database now (new moving part, owner wants editable files). Postgres full-text first; pgvector only if recall measurably fails.
+
+**Structure.**
+1. *Workflow outside, agents inside.* The graph stays deterministic. Each stage = a **lead** (owns the verdict), **seats** (specialist workers, config `pipeline.stages[*].seats`) and **bench** roles (lead-spawned). Free-form model work happens only inside a stage.
+2. *Stage to seats:* verify = scout, ilm, enzo (parallel findings); scope = pco; build = the single build worker (coding is not a swarm); security = recon, kmail, vmail own the deterministic checks (attribution only; the check decides); preview = dash; handoff = piper, cmail. Seats are specialists only: not a lead, never on the exposure stage. Validated in `exposure.validate_config`.
+3. *Seats give information, never verdicts.* A seat writes evidence of kind `finding` with `ok=None`. Only leads (via `leads.review`) and the owner record approvals.
+4. *Communication is the job blackboard* (Postgres `evidence`), not agent chat. A lead may ask another department's lead a read-only **consult** (max 2 per stage) or spawn a **bench** role from its own department (depth 1, max 3 per stage, audited before the call, cost on the job meter). `leads.review` can request spawns once before it decides.
+5. *Brain, three layers.* Charter: owner-edited markdown (company notes, `Playbooks/<dept>.md`, skills). Job memory: the evidence blackboard. Lessons: `feedback/<seat>.md`. Retrieval: `brain.search()` over Postgres full text (`brain_chunks`, rebuilt when a note changes), falling back to keyword scoring if the index is unavailable.
+6. *Write rule.* Agents never edit notes. `proposals.py`: a seat proposes, the owner approves; an approved note goes to `Agents Office/notes/` and never overwrites a file.
+7. *One context builder.* `context.build_pack(seat, stage, query, evidence)` = persona + playbook + brief/boundaries/skills/lessons + top brain chunks + evidence summary, capped at 7000 characters; the task engine and the pipeline both use it. Client-supplied text is wrapped with `fence()` as untrusted data.
+
+**Not done yet.** Proposals are made through `POST /api/brain/proposals` and decided by the owner (`POST /api/brain/proposals/{id}`); no agent creates one automatically and the Brain screen has no list for them. Preview seats other than `dash` (report, imail) and the build-stage seats have no checks to own until the laptop runbook produces real ones. Seat quality versus a single prompt per stage is untested.
+
 ## 4. Build worker — chosen by bake-off
 
 **Why not LangGraph/LangChain as the worker**: they provide the loop and plumbing, not a coding harness (file-edit recovery, long-lived shell, code search, context compaction, test-and-fix loop). Building one is weeks of work against a 3-day client deadline. LangGraph remains the **orchestrator**; the worker is a prebuilt harness inside a container. The cost is control: tool calls inside the harness are not LangGraph nodes, so gating happens at the container boundary and the harness's own confirmation mode, and the harness keeps its own conversation state (two state stores).
@@ -238,7 +257,7 @@ Dokploy is a self-hosted PaaS on Docker Swarm with Traefik for routing and autom
 
 ## 8. Implemented (offline, 2026-10-03) — by file
 
-Verified here: 182 backend tests, real-Postgres tests (incl. restart/resume of a paused job), 24/24 `node check.mjs` (offline UI smoke + live-UI smoke on a real API over Postgres with scripted models, headless Chromium). **Never run live**: 9router, real worker CLIs, Docker sandbox, Dokploy, VPS.
+Verified here: 198 backend tests, real-Postgres tests (incl. restart/resume of a paused job), 24/24 `node check.mjs` (offline UI smoke + live-UI smoke on a real API over Postgres with scripted models, headless Chromium). **Never run live**: 9router, real worker CLIs, Docker sandbox, Dokploy, VPS.
 
 | Area | Files |
 |---|---|
@@ -253,6 +272,7 @@ Verified here: 182 backend tests, real-Postgres tests (incl. restart/resume of a
 | Dokploy (allow-list `Guard`, HARD_DENY, audit before call) and read-only GitHub | `connectors/` |
 | Infra: Postgres (loopback), squid egress, nginx router-gateway (key injected, never in containers), AlmaLinux hardening script (dry-run default) | `docker-compose.yml`, `Dockerfile`, `infra/` |
 | UI: Jobs overlay (J), stage stepper, tier pills, evidence, owner approve/reject/retry/kill, lead approval card; live-mode purge of demo tasks | `src/{jobs,api,main,tasks,brain,mcp}.js`, `shell.html` |
+| Agent architecture (§4a): context pack, brain search, seat fan-out, bench spawn, consult, proposals | `context.py`, `brain.py`, `proposals.py`, `pipeline/{stages,leads,spawn}.py`, `migrations/002_brain.sql`, `brain-yekdast/Playbooks/` |
 | Tooling | `check.mjs`, `setup`, `backend/tests/` (`ui_server.py` = real app + Postgres + scripted models) |
 
 Exposure flow (as built): gate on "auth configured" evidence → apply route with basic auth → probe without credentials → if not refused, stop the app and park at `preview`. A PASS must cite real evidence ids; a failed deterministic check fails without a model call; a verdict from the wrong model is void.
@@ -293,4 +313,4 @@ Preflight: `./setup`; `cp .env.example .env.local` and fill values; `npm run che
 - 2026-10-03 · Frontend shows up to 10 seats per department (`SEATS_PER_DEPT`, `FREE_SEATS` in `src/data.js`): 35 named seats + 45 empty desks, drawn only, no agent/backend entry. Staffing a seat = move it into `AGENTS` and the seed. Plinths resized (d=40) and re-spaced; overview zoom 0.62, min zoom 0.5. Only ~8 seats matter to the pipeline; keep the rest unstaffed. Billboard cards overlap more in the overview now (cosmetic, unfixed).
 - 2026-10-04 · Departments relabelled (STRATEGY & LEGAL, MARKET & SALES, BACKEND BUILD, PRODUCT & FRONTEND, DEVOPS & QA, SECURITY & PRIVACY, FINANCE & PRICING, CONTENT & SUPPORT; keys unchanged). 27 staffed seats take their roles from the Citadel registry (MIT, NOTICE); ids of the existing leads and tested seats are kept so stage→lead mapping is unchanged. The other 8 old seats were dropped; their demo scripts are filtered out in `src/tasks.js`.
 - 2026-10-04 · Bench (`backend/app/seed/bench.json`, 226 Citadel roles, no hr-people) is not seats. A lead may spawn a role from its own department's bench through `app/pipeline/spawn.py` / `POST /api/jobs/{id}/spawn`: depth 1, max 3 per job stage, audited before the model call, information only (evidence kind `spawn`, never a verdict). **Not yet wired** into the automatic lead review; today it is an API/tool the laptop session can attach (§11 personas).
-
+- 2026-10-04 · Agent architecture §4a adopted: seats run inside stages as information-only workers, leads may spawn bench roles and consult other leads, brain search is Postgres full text, agents propose notes and the owner approves, one context builder for both execution paths. Playbooks live in `brain-yekdast/Playbooks/` (tracked), not under the git-ignored `Agents Office/`.

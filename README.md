@@ -33,7 +33,7 @@ Secrets are env-var names in config, never values; copy `.env.example` to `.env.
 
 ## Tests
 
-`cd backend && python -m pytest -q` (182 tests, fakes for models, workers, Docker and Dokploy).
+`cd backend && python -m pytest -q` (198 tests, fakes for models, workers, Docker and Dokploy).
 Set `AO_TEST_DATABASE_URL=postgresql://…` to also run the real-Postgres tests, including restart-and-resume of a paused job.
 `?norender=1` on the UI URL skips 3D drawing (needed in headless browsers without a GPU).
 

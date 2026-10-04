@@ -161,3 +161,15 @@ async def test_pipeline_job_waiting_for_the_owner_survives_a_restart(pool, tmp_p
         db._pool = None
         await pool2.close()
         set_deps(None)
+
+
+async def test_brain_full_text_index_ranks_and_replaces(pool, tmp_path):
+    from app import brain
+    (tmp_path / "offer.md").write_text("# Offer\nStarter bakery ordering site 1500 USD")
+    (tmp_path / "lunch.md").write_text("# Lunch\nSandwich menu")
+    brain._index_sig["sig"] = None
+    hits = await brain.search(tmp_path, "price of a bakery ordering site", k=2)
+    assert hits[0]["note"] == "offer" and all(h["note"] != "lunch" for h in hits)
+    (tmp_path / "offer.md").write_text("# Offer\nnothing relevant now")
+    assert await brain.reindex(tmp_path) > 0
+    assert await brain.search(tmp_path, "bakery") == []

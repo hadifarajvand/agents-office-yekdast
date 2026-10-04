@@ -67,6 +67,15 @@ def validate_config(cfg, agents: list) -> list[str]:
             problems.append(f'stage {s["name"]}: "{s["lead"]}" is not a department lead')
         elif a.department != s["dept"]:
             problems.append(f'stage {s["name"]}: {s["lead"]} is in {a.department}, not {s["dept"]}')
+    for s in cfg.pipeline.get("stages", []):
+        for sid in s.get("seats", []):
+            a = by_id.get(sid)
+            if not a:
+                problems.append(f'stage {s["name"]}: seat "{sid}" does not exist')
+            elif a.lead:
+                problems.append(f'stage {s["name"]}: seat "{sid}" is a lead; list only specialist seats')
+            elif s["name"] == "exposure":
+                problems.append("the exposure stage takes no seat workers; its evidence is deterministic")
     keys = exposure_keys(cfg)
     if set(keys) != {"security", "commercial"}:
         problems.append('exposure.keys must name exactly "security" and "commercial"')

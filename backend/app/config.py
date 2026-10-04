@@ -18,14 +18,14 @@ ROOT = Path(__file__).resolve().parents[2]
 # Pipeline stage -> (owning department, approving lead seat). The building
 # department never appears as an approver of "exposure" (see pipeline/exposure.py).
 DEFAULT_STAGES = [
-    {"name": "intake", "dept": "exec", "lead": "olead", "label": "Intake"},
-    {"name": "verify", "dept": "exec", "lead": "olead", "label": "Verify"},
-    {"name": "scope", "dept": "engineering", "lead": "dlead", "label": "Scope"},
-    {"name": "build", "dept": "engineering", "lead": "dlead", "label": "Build"},
-    {"name": "security", "dept": "secdata", "lead": "comply", "label": "Security review"},
-    {"name": "preview", "dept": "devops", "lead": "qa", "label": "Preview deploy"},
-    {"name": "exposure", "dept": "secdata", "lead": "comply", "label": "Exposure"},
-    {"name": "handoff", "dept": "revenue", "lead": "lexi", "label": "Handoff"},
+    {"name": "intake", "dept": "exec", "lead": "olead", "label": "Intake", "seats": []},
+    {"name": "verify", "dept": "exec", "lead": "olead", "label": "Verify", "seats": ["scout", "ilm", "enzo"]},
+    {"name": "scope", "dept": "engineering", "lead": "dlead", "label": "Scope", "seats": ["pco"]},
+    {"name": "build", "dept": "engineering", "lead": "dlead", "label": "Build", "seats": []},
+    {"name": "security", "dept": "secdata", "lead": "comply", "label": "Security review", "seats": ["recon", "kmail", "vmail"]},
+    {"name": "preview", "dept": "devops", "lead": "qa", "label": "Preview deploy", "seats": ["dash"]},
+    {"name": "exposure", "dept": "secdata", "lead": "comply", "label": "Exposure", "seats": []},
+    {"name": "handoff", "dept": "revenue", "lead": "lexi", "label": "Handoff", "seats": ["piper", "cmail"]},
 ]
 
 DEFAULTS: dict = {

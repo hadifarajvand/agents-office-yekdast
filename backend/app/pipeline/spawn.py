@@ -63,3 +63,27 @@ async def spawn(lead_id: str, bench_id: str, task: str, *, job_id: str, stage: s
         _in_spawn.reset(tok)
     eid = await db.add_evidence(job_id, stage, "spawn", f"{bench_id} (spawned by {lead_id})", None, text[:4000])
     return {"ok": True, "bench_id": bench_id, "text": text, "evidence_id": eid}
+
+
+async def consult(from_lead: str, to_lead: str, question: str, *, job_id: str, stage: str) -> dict:
+    """A lead asks another department's lead a question. Read-only: the answer is information
+    (evidence kind \"consult\"), the answering lead gains no say in this stage's verdict."""
+    from ..context import build_pack, fence
+    a = next((x for x in defaults() if x.id == from_lead), None)
+    b = next((x for x in defaults() if x.id == to_lead), None)
+    if not a or not a.lead or not b or not b.lead:
+        raise SpawnRefused("both sides of a consult must be department leads")
+    if a.department == b.department:
+        raise SpawnRefused("consult another department; use your own seats for your own questions")
+    if not str(question or "").strip():
+        raise SpawnRefused("a question is required")
+    used = [e for e in await db.list_evidence(job_id) if e["kind"] == "consult" and e["stage"] == stage]
+    if len(used) >= 2:
+        raise SpawnRefused(f"{stage} already used its 2 consults")
+    await db.audit(from_lead, a.department, "consult", to_lead, f"{job_id}/{stage}", True)
+    system = (await build_pack(to_lead, stage=stage, query=question)) + (
+        f"\n\nThe {a.name} asks you a question about this job. Answer briefly from your department's point of view. "
+        "You are not deciding anything; you give information only.")
+    text = await ask(system, fence(str(question)[:3000], "consult question"), role="research", max_tokens=1000)
+    eid = await db.add_evidence(job_id, stage, "consult", f"{to_lead} answers {from_lead}", None, text[:4000])
+    return {"ok": True, "from": from_lead, "to": to_lead, "text": text, "evidence_id": eid}

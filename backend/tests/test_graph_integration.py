@@ -46,7 +46,7 @@ def test_compile_graph_with_checkpointer_persists_state(monkeypatch):
     engine.compile_graph(checkpointer=None)
 
 
-def test_run_task_works_through_recompiled_graph(monkeypatch, tmp_path: Path):
+def test_run_task_works_through_recompiled_graph(monkeypatch, tmp_path: Path, fake_db):
     async def fake_ask_with_tools(messages, tools, model_key=None, max_tokens=4096):
         return {"content": "drafted", "tool_calls": []}
 
@@ -64,7 +64,7 @@ def test_run_task_works_through_recompiled_graph(monkeypatch, tmp_path: Path):
     engine.compile_graph(checkpointer=None)
 
 
-def test_draft_pauses_and_approve_resumes_same_thread(monkeypatch, tmp_path: Path):
+def test_draft_pauses_and_approve_resumes_same_thread(monkeypatch, tmp_path: Path, fake_db):
     """Task 4: a "draft" run pauses at the "gate" node (via interrupt_before) instead
     of running to completion, and resume_task() continues that exact paused thread —
     via the durable checkpoint, not a fresh run_task() call — once the owner approves."""

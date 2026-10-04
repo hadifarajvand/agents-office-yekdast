@@ -19,6 +19,7 @@ class FakeDB:
         self.audit_rows: list[dict] = []
         self.costs: list[dict] = []
         self.counters: dict[str, int] = {}
+        self.chunks: list[dict] = []
 
     # tasks
     async def list_tasks(self):
@@ -119,10 +120,25 @@ class FakeDB:
         self.counters[name] = self.counters.get(name, 0) + 1
         return self.counters[name]
 
+    async def brain_replace(self, chunks):
+        self.chunks = [dict(c) for c in chunks]
+        return len(chunks)
+
+    async def brain_search(self, words, k=6):
+        scored = []
+        for c in self.chunks:
+            hay = (c["note"] + " " + c["body"]).lower()
+            s = sum(hay.count(w) for w in words)
+            if s:
+                scored.append((s, c))
+        scored.sort(key=lambda x: (-x[0], x[1]["note"], x[1]["idx"]))
+        return [{**c, "rank": s} for s, c in scored[:k]]
+
     def install(self, monkeypatch):
         for name in ("list_tasks", "get_task", "save_task", "claim_task", "delete_task", "fail_interrupted_tasks",
                      "load_routine_state", "save_routine_state", "claim_routine_slot", "save_job", "get_job",
                      "list_jobs", "record_approval", "clear_approvals", "list_approvals", "add_evidence",
-                     "list_evidence", "audit", "record_cost", "usage_window", "counter", "bump_counter"):
+                     "list_evidence", "audit", "record_cost", "usage_window", "counter", "bump_counter",
+                     "brain_replace", "brain_search"):
             monkeypatch.setattr(db, name, getattr(self, name))
         return self

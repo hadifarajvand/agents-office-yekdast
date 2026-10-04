@@ -310,3 +310,31 @@ async def bump_counter(name: str) -> int:
 
 def lock_key(*parts: str) -> int:
     return zlib.crc32(":".join(parts).encode()) & 0x7FFFFFFF
+
+
+# ---------- brain index (rebuildable; the markdown files are the source of truth) ----------
+
+async def brain_replace(chunks: list[dict]) -> int:
+    """Replace the whole index. chunks: {note, idx, folder, body}."""
+    p = await get_pool()
+    async with p.connection() as c:
+        async with c.transaction():
+            await c.execute("DELETE FROM brain_chunks")
+            for ch in chunks:
+                await c.execute("INSERT INTO brain_chunks (note, idx, folder, body) VALUES (%s,%s,%s,%s)",
+                                (ch["note"], ch["idx"], ch.get("folder", ""), ch["body"]))
+    return len(chunks)
+
+
+async def brain_search(words: list[str], k: int = 6) -> list[dict]:
+    """Ranked chunks matching ANY of `words` (already sanitised to [a-z0-9])."""
+    if not words:
+        return []
+    q = " | ".join(words[:24])
+    p = await get_pool()
+    async with p.connection() as c:
+        cur = await c.execute(
+            "SELECT note, idx, folder, body, ts_rank(tsv, to_tsquery('simple', %s)) AS rank "
+            "FROM brain_chunks WHERE tsv @@ to_tsquery('simple', %s) ORDER BY rank DESC, note, idx LIMIT %s",
+            (q, q, k))
+        return [dict(r) for r in await cur.fetchall()]

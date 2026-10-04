@@ -286,6 +286,37 @@ async def get_agents():
     return {"agents": agents_out(), "problems": _roster_cache["problems"], "files": _roster_cache["files"]}
 
 
+@app.get("/api/brain/proposals")
+async def api_proposals(status: str = ""):
+    from . import proposals
+    return {"proposals": proposals.list_proposals(status, cfg.brain_path)}
+
+
+@app.post("/api/brain/proposals")
+async def api_propose(req: Request):
+    from . import proposals
+    b = await body_of(req)
+    from .context import seat as seat_of
+    if not seat_of(str(b.get("seat") or "")):
+        return JSONResponse({"error": "unknown seat"}, status_code=400)
+    try:
+        return proposals.propose(str(b.get("seat") or ""), b.get("title"), b.get("body"),
+                                 job_id=str(b.get("job_id") or ""), brain_path=cfg.brain_path)
+    except proposals.ProposalError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
+@app.post("/api/brain/proposals/{pid}")
+async def api_decide_proposal(pid: str, req: Request):
+    """The owner approves or rejects a proposed note."""
+    from . import proposals
+    b = await body_of(req)
+    try:
+        return proposals.decide(pid, str(b.get("verdict") or ""), cfg.brain_path)
+    except proposals.ProposalError as e:
+        return JSONResponse({"error": str(e)}, status_code=409)
+
+
 @app.get("/api/bench")
 async def api_bench():
     from .pipeline.spawn import bench, limits

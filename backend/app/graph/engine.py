@@ -27,6 +27,7 @@ from .. import roster as roster_mod
 from ..llm import RunMeter, ask, ask_haiku_json, ask_with_tools, current_meter
 from ..mcp import registry as mcp_registry
 from ..models import effort_for, model_for
+from ..context import build_pack
 from ..roster import Agent
 from ..skills import Skills
 
@@ -248,12 +249,12 @@ async def run_task(
     """Mirrors serve.mjs's run(task, feedback, mode)."""
     index = brainmod.vault_index(brain_path)
     biz = brainmod.business_context(index)
-    notes = brainmod.relevant_notes(index, task["dept"], task["text"])
-    notes_text = brainmod.context_text(index, notes)
+    notes = [h["note"] for h in await brainmod.search(brain_path, f'{task.get("title", "")} {task["text"]}', k=4, dept=task["dept"])]
+    pack = await build_pack(agent.id, query=f'{task.get("title", "")} {task["text"]}', agent=agent, skills=skills,
+                            brain_path=brain_path)
 
     system_parts = [
-        f"You are {persona(agent)} at this company.",
-        agent_brief(agent, skills, brain_path),
+        pack,
         mcp_registry.prompt_text(agent.tools),
         policy.EXECUTION_BOUNDARY,
         policy.UNTRUSTED_CONTENT_RULE,
@@ -261,8 +262,6 @@ async def run_task(
     ]
     if biz:
         system_parts.append(f"COMPANY CONTEXT\n{biz}")
-    if notes_text:
-        system_parts.append(f"RELEVANT NOTES\n{notes_text}")
     system = "\n\n".join(p for p in system_parts if p)
 
     m = model_for(task.get("model"), task.get("routineModel"), agent.model, office_model)

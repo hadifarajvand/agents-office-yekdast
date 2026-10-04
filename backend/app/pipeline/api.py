@@ -133,6 +133,23 @@ async def spawn_subagent(job_id: str, req: Request):
         return JSONResponse({"error": str(e)}, status_code=403)
 
 
+@router.post("/{job_id}/consult")
+async def consult_lead(job_id: str, req: Request):
+    """One department lead asks another a read-only question (information, never a verdict)."""
+    from . import spawn as sp
+    body = await body_of(req)
+    job = await db.get_job(job_id)
+    if not job:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    if job["status"] in jobs.TERMINAL:
+        return JSONResponse({"error": "the job is finished"}, status_code=409)
+    try:
+        return await sp.consult(str(body.get("from") or ""), str(body.get("to") or ""), str(body.get("question") or ""),
+                                job_id=job_id, stage=str(body.get("stage") or job.get("stage") or ""))
+    except sp.SpawnRefused as e:
+        return JSONResponse({"error": str(e)}, status_code=403)
+
+
 @router.post("/{job_id}/retry")
 async def retry_parked(job_id: str, req: Request):
     body = await body_of(req)

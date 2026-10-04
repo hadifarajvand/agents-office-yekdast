@@ -37,10 +37,14 @@ class Script:
     def __init__(self):
         self.review_verdicts: dict[str, list[str]] = {}   # stage -> queue of verdicts ("PASS"/"FAIL"/"NOCITE")
         self.calls: list[str] = []
+        self.seat_calls: list[str] = []
         self.mismatch = False
 
     async def chat_json(self, system, user, *, role="drafts"):
         self.calls.append(role)
+        if '"finding":"2-4 sentences"' in system:
+            self.seat_calls.append(re.search(r"You are ([A-Z &]+)", system).group(1).strip())
+            return {"finding": "looks workable", "risks": ["one risk"], "confidence": "medium"}
         if "reviewing your own team's stage" in system:
             stage = re.search(r"Stage: (\w+)", user).group(1)
             q = self.review_verdicts.get(stage, [])

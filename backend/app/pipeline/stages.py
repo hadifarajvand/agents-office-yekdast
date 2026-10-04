@@ -12,6 +12,8 @@ from pathlib import Path
 
 from .. import db
 from ..config import load_config
+from ..context import build_pack, fence
+from ..context import seat as seat_of
 from ..policy import redact_secrets
 from .ports import get_deps
 
@@ -24,6 +26,53 @@ async def _evidence(state: dict, stage: str, kind: str, title: str, ok: bool | N
     attempt = int(state.get("loops", {}).get(stage, 0))
     return await db.add_evidence(state["job_id"], stage, kind, title, ok, {**body, "attempt": attempt},
                                  evidence_id=_eid(state["job_id"], stage, attempt, n))
+
+
+def _seats(stage: str) -> list[str]:
+    for s in load_config().pipeline.get("stages", []):
+        if s["name"] == stage:
+            return list(s.get("seats") or [])
+    return []
+
+
+SEAT_JSON = ('Reply with JSON only: {"finding":"2-4 sentences","risks":["..."],"confidence":"low|medium|high"}. '
+             "You give information for the lead to weigh; you do not approve or reject anything.")
+
+
+async def run_seats(state: dict, stage: str, tasks: dict[str, str], *, role: str = "research") -> str:
+    """Run the stage's seat workers in parallel. Each returns a finding (evidence kind \"finding\", ok=None:
+    information, never a verdict). A seat that fails writes a note instead of failing the stage.
+    Returns the findings as text for the lead's own step."""
+    import asyncio
+    deps = get_deps()
+    wanted = [s for s in _seats(stage) if s in tasks]
+    brief = fence(json.dumps(state["brief"])[:4000])
+    evidence = await db.list_evidence(state["job_id"])
+
+    async def one(sid: str) -> tuple[str, dict]:
+        try:
+            system = await build_pack(sid, stage=stage, query=f'{state["brief"].get("title", "")} {tasks[sid]}', evidence=evidence)
+            data = await deps.chat_json(system + "\n\n" + SEAT_JSON, f"Your task: {tasks[sid]}\n\nBrief:\n{brief}", role=role)
+            return sid, {"finding": str(data.get("finding", ""))[:1200], "risks": [str(r)[:200] for r in data.get("risks", [])][:5],
+                         "confidence": str(data.get("confidence", ""))[:10]}
+        except Exception as exc:  # a seat that cannot answer must not stop the stage
+            return sid, {"finding": "", "risks": [], "error": type(exc).__name__}
+
+    out = await asyncio.gather(*(one(s) for s in wanted))
+    lines = []
+    for sid, d in out:
+        seat_ = seat_of(sid)
+        await _evidence(state, stage, "finding", f"{seat_.name if seat_ else sid}: finding", None, {**d, "seat": sid}, f"seat-{sid}")
+        if d.get("finding"):
+            lines.append(f"- {sid}: {d['finding']} Risks: {'; '.join(d['risks']) or 'none stated'}")
+    return "\n".join(lines)
+
+
+def _lead(state: dict, stage: str) -> str:
+    for s in load_config().pipeline.get("stages", []):
+        if s["name"] == stage:
+            return s["lead"]
+    return ""
 
 
 def _feedback(state: dict) -> str:
@@ -51,7 +100,13 @@ async def verify(state: dict) -> dict:
               '{"deposit_real":bool,"scope_clear":bool,"price_fits_effort":bool,"deadline_realistic":bool,'
               '"repeatable":bool,"risks":["..."],"summary":"..."}. Base every answer only on the brief; '
               "if the brief does not say, answer false and name it under risks.")
-    user = f"Brief:\n{json.dumps(b)[:4000]}\nDeadline: {load_config().pipeline.get('deadline_days', 3)} days." + _feedback(state)
+    found = await run_seats(state, "verify", {
+        "scout": "Name the competitors or substitutes this client could use instead, and what is publicly known about demand. Say what you cannot know from the brief.",
+        "ilm": "Judge how well this request fits a small web-app MVP client we want: clarity, budget signals, red flags.",
+        "enzo": "Judge whether the stated price fits the effort and what the margin risk is."})
+    user = (f"Brief:\n{fence(json.dumps(b)[:4000])}\nDeadline: {load_config().pipeline.get('deadline_days', 3)} days."
+            + (f"\n\nSpecialist findings:\n{found}" if found else "") + _feedback(state))
+    system = await build_pack(_lead(state, "verify"), stage="verify", query=json.dumps(b)[:300]) + "\n\n" + system
     data = await get_deps().chat_json(system, user, role="research")
     checks = {k: bool(data.get(k)) for k in ("deposit_real", "scope_clear", "price_fits_effort", "deadline_realistic")}
     ok = all(checks.values())
@@ -66,7 +121,10 @@ async def scope(state: dict) -> dict:
     system = ("You scope a small JavaScript/TypeScript web app MVP. Reply with JSON only: "
               '{"acceptance_criteria":["testable statement",...],"tasks":["..."],"stack":"...","estimate_hours":number,'
               '"out_of_scope":["..."]}. Criteria must be checkable by an automated test.')
-    user = f"Brief:\n{json.dumps(b)[:4000]}" + _feedback(state)
+    found = await run_seats(state, "scope", {
+        "pco": "List the technical risks and unknowns in building this brief as a small JS/TS web app, and what you would do first."}, role="drafts")
+    user = f"Brief:\n{fence(json.dumps(b)[:4000])}" + (f"\n\nSpecialist findings:\n{found}" if found else "") + _feedback(state)
+    system = await build_pack(_lead(state, "scope"), stage="scope", query=json.dumps(b)[:300]) + "\n\n" + system
     data = await get_deps().chat_json(system, user, role="drafts")
     crit = [str(c) for c in data.get("acceptance_criteria", [])][:12]
     ok = len(crit) >= 1
@@ -96,13 +154,22 @@ async def build(state: dict) -> dict:
             "_cost": {"tokens": int(res.get("tokens", 0)), "usd": float(res.get("usd", 0.0))}}
 
 
+def _check_owner(name: str) -> str:
+    """Which security seat owns a deterministic check (attribution only; the check decides, not the seat)."""
+    n = name.lower()
+    seats = _seats("security")
+    pick = "kmail" if "secret" in n else "vmail" if any(w in n for w in ("depend", "audit", "licen", "package")) else "recon"
+    return pick if pick in seats else (seats[0] if seats else "")
+
+
 async def security(state: dict) -> dict:
     patch = (state.get("patch") or {}).get("path")
     if not patch:
         await _evidence(state, "security", "check", "patch is available", False, {"detail": "no patch to scan"}, "nopatch")
         return {}
     for i, r in enumerate(await get_deps().checks.scan(patch)):
-        await _evidence(state, "security", "check", r["name"], bool(r["ok"]), {"detail": redact_secrets(str(r.get("detail", "")))}, f"c{i}")
+        await _evidence(state, "security", "check", r["name"], bool(r["ok"]),
+                        {"detail": redact_secrets(str(r.get("detail", ""))), "seat": _check_owner(r["name"])}, f"c{i}")
     return {}
 
 
@@ -115,7 +182,8 @@ async def preview(state: dict) -> dict:
     prev = {"app_id": info.get("app_id"), "internal_url": info.get("internal_url"), "url": None, "tier": 0,
             "expiresAt": db.now_ms() + ttl * 86400 * 1000}
     await _evidence(state, "preview", "check", "preview deployed privately (Tier 0)", bool(info.get("app_id")),
-                    {"app_id": info.get("app_id"), "internal_url": info.get("internal_url"), "public": False}, "deploy")
+                    {"app_id": info.get("app_id"), "internal_url": info.get("internal_url"), "public": False,
+                     "seat": "dash" if "dash" in _seats("preview") else ""}, "deploy")
     from . import jobs
     await jobs.touch(state["job_id"], preview=prev, tier=0)
     return {"preview": prev}
@@ -147,8 +215,12 @@ async def handoff(state: dict) -> dict:
     system = ("Write the client handoff memo for a finished MVP preview as JSON only: "
               '{"summary":"...","how_to_open":"...","what_was_built":["..."],"known_limits":["..."],"next_steps":["..."]}. '
               "Do not invent URLs or credentials; the owner adds those. Plain language for a non-technical client.")
-    user = (f"Brief:\n{json.dumps(state['brief'])[:3000]}\nScope:\n{json.dumps(state.get('scope', {}))[:2000]}\n"
-            f"Preview tier: {prev.get('tier', 0)}; expires: {prev.get('expiresAt')}.") + _feedback(state)
+    found = await run_seats(state, "handoff", {
+        "piper": "State what the client was promised, the price and terms position, and the next commercial step for the owner.",
+        "cmail": "Write 3 plain-language sentences telling a non-technical client what they will receive."}, role="drafts")
+    system = await build_pack(_lead(state, "handoff"), stage="handoff", query=json.dumps(state["brief"])[:300]) + "\n\n" + system
+    user = (f"Brief:\n{fence(json.dumps(state['brief'])[:3000])}\nScope:\n{json.dumps(state.get('scope', {}))[:2000]}\n"
+            f"Preview tier: {prev.get('tier', 0)}; expires: {prev.get('expiresAt')}." + (f"\n\nSpecialist findings:\n{found}" if found else "")) + _feedback(state)
     data = await get_deps().chat_json(system, user, role="drafts")
     memo = {k: data.get(k) for k in ("summary", "how_to_open", "what_was_built", "known_limits", "next_steps")}
     await _evidence(state, "handoff", "memo", "client handoff memo", bool(memo.get("summary")), memo, "memo")

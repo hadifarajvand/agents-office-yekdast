@@ -9,7 +9,10 @@ here in full.
 from __future__ import annotations
 
 import re
+import time
 from pathlib import Path
+
+from . import db
 
 NOTE_EXT = {".md", ".txt"}
 
@@ -57,6 +60,79 @@ def relevant_notes(index: dict[str, str], dept: str, text: str, n: int = 4) -> l
 def context_text(index: dict[str, str], names: list[str], limit: int = 800) -> str:
     parts = [f"## {n}\n{index[n][:limit]}" for n in names if n in index]
     return "\n\n".join(parts)
+
+
+# ---------- search: Postgres full text over note chunks, keyword scoring as the fallback ----------
+
+CHUNK_CHARS = 900
+_index_sig: dict = {"sig": None}
+
+
+def chunk_note(name: str, body: str, folder: str = "") -> list[dict]:
+    """Split a note on blank lines into chunks of about CHUNK_CHARS."""
+    out, cur = [], ""
+    for para in re.split(r"\n\s*\n", body):
+        if cur and len(cur) + len(para) > CHUNK_CHARS:
+            out.append(cur.strip())
+            cur = ""
+        cur += para + "\n\n"
+    if cur.strip():
+        out.append(cur.strip())
+    return [{"note": name, "idx": i, "folder": folder, "body": c[: CHUNK_CHARS * 2]} for i, c in enumerate(out)]
+
+
+def _signature(brain_path: Path) -> tuple:
+    files = [p for p in brain_path.rglob("*") if p.is_file() and p.suffix.lower() in NOTE_EXT] if brain_path.exists() else []
+    return (str(brain_path), len(files), max((p.stat().st_mtime for p in files), default=0))
+
+
+async def reindex(brain_path: Path, force: bool = False) -> int:
+    """Rebuild the search index when any note changed. Returns the number of chunks written (0 = unchanged)."""
+    sig = _signature(brain_path)
+    if not force and _index_sig["sig"] == sig:
+        return 0
+    chunks: list[dict] = []
+    for name, body in vault_index(brain_path).items():
+        chunks.extend(chunk_note(name, body))
+    n = await db.brain_replace(chunks)
+    _index_sig["sig"] = sig
+    return n
+
+
+_STOP = {"the", "and", "for", "with", "that", "this", "from", "are", "was", "not", "but", "you", "your", "our",
+         "has", "have", "will", "can", "all", "any", "its", "into", "than", "then", "them", "they", "what", "when"}
+
+
+def _words(text: str) -> list[str]:
+    seen: list[str] = []
+    for w in re.findall(r"[a-z0-9]{3,}", text.lower()):
+        if w not in seen and w not in _STOP:
+            seen.append(w)
+    return seen
+
+
+async def search(brain_path: Path, query: str, k: int = 4, dept: str = "") -> list[dict]:
+    """Best chunks for a query: [{note, body}]. Never raises: on any index problem it falls back
+    to the keyword scorer over the files, so an agent is never left without context."""
+    try:
+        await reindex(brain_path)
+        hits = await db.brain_search(_words(query), k=k * 3)
+        if dept:  # a note whose name mentions the department ranks first
+            hits.sort(key=lambda h: 0 if re.search(dept, h["note"], re.IGNORECASE) else 1)
+        seen, out = set(), []
+        for h in hits:
+            if h["note"] in seen:
+                continue
+            seen.add(h["note"])
+            out.append({"note": h["note"], "body": h["body"]})
+            if len(out) >= k:
+                break
+        if out:
+            return out
+    except Exception:
+        _index_sig["sig"] = None
+    idx = vault_index(brain_path)
+    return [{"note": n, "body": idx[n][:800]} for n in relevant_notes(idx, dept or "zzzz", query, k)]
 
 
 def brain_summary(brain_path: Path) -> dict:
