@@ -20,6 +20,17 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN npx -y "playwright@${PLAYWRIGHT_VERSION}" install --with-deps chromium \
  && chmod -R a+rx /ms-playwright
 
+# The platform's own template dependencies are baked in: its lockfile is installed once here
+# and the npm cache stays in the image, so a job's `npm ci` resolves offline from this copy
+# instead of fetching from the registry every time. Only a dependency the builder adds is
+# fetched (through the egress proxy). The template comes in as a named build context:
+#   docker build --pull=false --build-context template=templates/webapp -f infra/sandbox/worker-node.Dockerfile -t agents-office/worker-node:latest infra/sandbox
+ENV npm_config_cache=/opt/npm-cache
+COPY --from=template package.json package-lock.json /opt/template/
+RUN cd /opt/template && npm ci --no-audit --no-fund --ignore-scripts \
+ && rm -rf /opt/template/node_modules \
+ && chmod -R a+rwX /opt/npm-cache
+
 COPY run-job.sh /opt/run-job.sh
 COPY run-checks.mjs /opt/run-checks.mjs
 RUN chmod 0755 /opt/run-job.sh /opt/run-checks.mjs \

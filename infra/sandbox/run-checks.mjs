@@ -50,10 +50,10 @@ async function main() {
   // makes `npm ci` refuse. Fall back to `npm install` (it rewrites the lock) so a legitimate
   // dependency is not a failed build; a genuine install error still fails on the second try.
   let install = existsSync('package-lock.json')
-    ? await run('npm', ['ci', '--no-audit', '--no-fund'])
-    : await run('npm', ['install', '--no-audit', '--no-fund']);
+    ? await run('npm', ['ci', '--prefer-offline', '--no-audit', '--no-fund'])
+    : await run('npm', ['install', '--prefer-offline', '--no-audit', '--no-fund']);
   if (!install.ok && existsSync('package-lock.json')) {
-    install = await run('npm', ['install', '--no-audit', '--no-fund']);
+    install = await run('npm', ['install', '--prefer-offline', '--no-audit', '--no-fund']);
   }
   record('dependencies install', install.ok, install.out, install.ms);
   if (!install.ok) return;
