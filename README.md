@@ -25,7 +25,8 @@ Forked from [ajsahni/agents-office](https://github.com/ajsahni/agents-office) (s
 ```
 ./setup            # preflight only: venv, npm ci, build, .env.local. Starts nothing.
 npm run check      # build + backend tests + headless-browser smoke (live-UI part needs AO_TEST_DATABASE_URL)
-npm start          # postgres + egress + router-gateway via Docker, then the API on 127.0.0.1:4520
+npm run boot       # postgres + egress + router-gateway via Docker, then the API on 127.0.0.1:4520 (npm run stop)
+npm run verify     # behaviour checklist for the live slice (exec + engineering) against the running office
 ```
 
 Mutating API calls need the header `X-AO-Client: office` (the bundled UI sends it) and, if `AO_API_TOKEN` is set, `X-AO-Token`.

@@ -33,7 +33,7 @@ async def test_a_lead_spawns_from_its_own_bench_and_the_call_is_audited(fake_db,
     assert fake_db.audit_rows[0]["agent"] == "dlead" and fake_db.audit_rows[0]["server"] == "spawn"
     assert asked[0][2]["role"] == "research"
     ev = await fake_db.list_evidence("j1")
-    assert ev[0]["kind"] == "spawn" and ev[0]["ok"] is None  # information, never a pass
+    assert ev[0]["kind"] == "spawn" and ev[0]["ok"] is None and ev[0]["body"]["text"].startswith("finding")  # information, never a pass
 
 
 async def test_only_leads_and_only_their_own_bench(fake_db, asked):

@@ -175,3 +175,18 @@ async def test_brain_full_text_index_ranks_and_replaces(pool, tmp_path):
     (tmp_path / "offer.md").write_text("# Offer\nnothing relevant now")
     assert await brain.reindex(tmp_path) > 0
     assert await brain.search(tmp_path, "bakery") == []
+
+
+async def test_spawn_and_consult_evidence_round_trips_through_jsonb(pool, monkeypatch):
+    """The fakes accept any body; JSONB does not. Spawn and consult once wrote a bare string and broke every read."""
+    from app import db
+    from app.pipeline import spawn as sp
+
+    async def fake_ask(system, user, **kw):
+        return "answer text"
+    monkeypatch.setattr(sp, "ask", fake_ask)
+    await db.save_job({"id": "jx", "kind": "client", "title": "x", "stage": "intake", "status": "running"})
+    await sp.spawn("dlead", "eng-api-designer", "name the endpoints", job_id="jx", stage="scope")
+    await sp.consult("olead", "dlead", "how long?", job_id="jx", stage="verify")
+    ev = await db.list_evidence("jx")
+    assert {e["kind"] for e in ev} == {"spawn", "consult"} and all(e["body"]["text"] == "answer text" for e in ev)

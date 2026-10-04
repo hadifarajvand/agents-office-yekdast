@@ -6,6 +6,9 @@
   "private": true,
   "scripts": {
     "start": "docker compose up -d postgres egress router-gateway && backend/.venv/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port 4520",
+    "boot": "scripts/boot.sh",
+    "stop": "scripts/stop.sh",
+    "verify": "python3 scripts/verify_slice.py --with-restart && node scripts/verify_ui.mjs",
     "build": "node build.mjs",
     "check": "node check.mjs",
     "test:backend": "cd backend && python3 -m pytest -q",

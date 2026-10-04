@@ -24,7 +24,8 @@ from test_pipeline import FakeChecks, FakeDeployer, FakeWorker, Script  # noqa: 
 from app.config import load_config  # noqa: E402
 from app.pipeline import exposure as _exp  # noqa: E402
 
-load_config().pipeline["live_departments"] = list(_exp.ALL_DEPTS)  # the UI smoke walks a gated job through every lead
+if os.environ.get("AO_UI_SLICE") != "1":  # AO_UI_SLICE=1 keeps the default go-live slice (exec + engineering)
+    load_config().pipeline["live_departments"] = list(_exp.ALL_DEPTS)  # the UI smoke walks a gated job through every lead
 
 script, worker, deployer, checks = Script(), FakeWorker(), FakeDeployer(), FakeChecks()
 
@@ -42,6 +43,8 @@ async def ask_with_tools(messages, tools, **kw):
 
 
 engine.ask_haiku_json, engine.ask, engine.ask_with_tools = route_json, ask, ask_with_tools
+from app.pipeline import spawn as _spawn  # noqa: E402
+_spawn.ask = ask  # sub-agents and consults answer from the script too
 deps_mod.build_deps = lambda: Deps(chat_json=script.chat_json, worker=worker, deployer=deployer, checks=checks,
                                    jobs_dir=Path(os.environ.get("AO_BRAIN", "/tmp")) / "jobs")
 

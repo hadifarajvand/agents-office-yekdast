@@ -64,7 +64,7 @@ async def spawn(lead_id: str, bench_id: str, task: str, *, job_id: str, stage: s
         text = await ask(system, str(task)[:4000], role="research", max_tokens=1500)
     finally:
         _in_spawn.reset(tok)
-    eid = await db.add_evidence(job_id, stage, "spawn", f"{bench_id} (spawned by {lead_id})", None, text[:4000])
+    eid = await db.add_evidence(job_id, stage, "spawn", f"{bench_id} (spawned by {lead_id})", None, {"text": text[:4000], "bench": bench_id, "by": lead_id})
     return {"ok": True, "bench_id": bench_id, "text": text, "evidence_id": eid}
 
 
@@ -92,5 +92,5 @@ async def consult(from_lead: str, to_lead: str, question: str, *, job_id: str, s
         f"\n\nThe {a.name} asks you a question about this job. Answer briefly from your department's point of view. "
         "You are not deciding anything; you give information only.")
     text = await ask(system, fence(str(question)[:3000], "consult question"), role="research", max_tokens=1000)
-    eid = await db.add_evidence(job_id, stage, "consult", f"{to_lead} answers {from_lead}", None, text[:4000])
+    eid = await db.add_evidence(job_id, stage, "consult", f"{to_lead} answers {from_lead}", None, {"text": text[:4000], "from": from_lead, "to": to_lead})
     return {"ok": True, "from": from_lead, "to": to_lead, "text": text, "evidence_id": eid}

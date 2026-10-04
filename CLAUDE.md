@@ -3,7 +3,7 @@
 Read `.claude/plans/PLAN.md` before doing anything. It is the single plan and holds the decisions, the architecture and **§11, the laptop runbook**. Update it when a decision changes; do not create other plan files.
 
 ## Your job on the laptop
-Execute the runbook in order: S1 9router → S2 worker bake-off → S3 Postgres restart/resume → S4 cost metering → S5 Dokploy preview → boot → stress test → agent personas. Record each result (pass/fail line, evidence) in PLAN.md §11 and fix the code only where a check proves it wrong.
+Boot with `npm run boot`, check the live slice with `npm run verify`, and execute the runbook in order: S1 9router → S2 worker bake-off → S3 Postgres restart/resume → S4 cost metering → S5 Dokploy preview → boot → stress test → agent personas. Record each result (pass/fail line, evidence) in PLAN.md §11 and fix the code only where a check proves it wrong.
 
 ## Rules that do not bend
 - Agents may build and deploy **previews** only. Never production, marketing, outreach or spending.
