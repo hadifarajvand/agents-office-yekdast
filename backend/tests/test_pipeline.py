@@ -72,11 +72,15 @@ class FakeWorker:
         self.runs = 0
         self.exit_state = "ok"
         self.models = ["claude-haiku-4-5-20251001"]
+        self.checks = [{"name": "unit tests pass (npm test)", "ok": True, "detail": "12 passed"}]
+        self.briefs: list[dict] = []
 
     async def run(self, job_dir, brief, limits):
         self.runs += 1
+        self.briefs.append(brief)
+        checks = self.checks.pop(0) if self.checks and isinstance(self.checks[0], list) else self.checks
         return {"patch_path": str(job_dir / "patch.bundle"), "log_path": str(job_dir / "log.txt"), "tokens": 1000,
-                "usd": 0.01, "models_seen": self.models, "exit_state": self.exit_state}
+                "usd": 0.01, "models_seen": self.models, "exit_state": self.exit_state, "checks": checks}
 
 
 class FakeDeployer:
@@ -483,3 +487,23 @@ def test_stage_order_comes_from_config_not_from_storage_order():
     job = jobs.new_job("client", "T", {"title": "T"})
     job["stages"] = dict(reversed(list(job["stages"].items())))  # what a JSONB round trip may do
     assert [s["name"] for s in jobs.public(job)["stages"]] == cfg_names
+
+
+async def test_a_failing_test_run_fails_the_build_and_the_retry_sees_the_output(env):
+    red = [{"name": "unit tests pass (npm test)", "ok": False, "detail": "FAIL src/order.test.ts: expected 3 got 2"}]
+    green = [{"name": "unit tests pass (npm test)", "ok": True, "detail": "12 passed"}]
+    env.worker.checks = [red, green]
+    jid = await start(env)
+    await owner(env, jid)
+    assert env.worker.runs == 2
+    assert "expected 3 got 2" in env.worker.briefs[1]["feedback"]
+    ev = [e for e in await db.list_evidence(jid) if e["stage"] == "build" and e["kind"] == "check"]
+    assert any(e["ok"] is False for e in ev) and any(e["ok"] is True for e in ev)
+
+
+async def test_a_worker_without_check_results_cannot_pass_the_build(env):
+    env.worker.checks = None
+    jid = await start(env)
+    await owner(env, jid)
+    job = await db.get_job(jid)
+    assert job["status"] == "parked" and job["stage"] == "build"

@@ -92,7 +92,9 @@ class DokployDeployer:
             raise RuntimeError("Dokploy did not return an application id")
         await self.guard.call(TOOLS["git"], {"applicationId": app_id, "customGitUrl": repo, "customGitBranch": branch,
                                              "customGitBuildPath": "/"})
-        await self.guard.call(TOOLS["build"], {"applicationId": app_id, "buildType": "nixpacks"})
+        # The template ships a Dockerfile; building it is deterministic, unlike nixpacks' guess.
+        await self.guard.call(TOOLS["build"], {"applicationId": app_id, "buildType": "dockerfile",
+                                               "dockerfile": "Dockerfile", "dockerContextPath": "", "dockerBuildStage": ""})
         user, password = "preview", secrets.token_urlsafe(18)
         await self.guard.call(TOOLS["auth"], {"applicationId": app_id, "username": user, "password": password})
         f = self._creds_file(job)

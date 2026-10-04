@@ -24,6 +24,12 @@ def _fmt(e: dict) -> str:
     return f'- id={e["id"]} [{e["kind"]}] {e["title"]} ({ok}): {body}'
 
 
+def _detail(e: dict) -> str:
+    """The end of a failed check's output, so the retry knows what broke (not just that it broke)."""
+    d = str((e.get("body") or {}).get("detail") or "").strip()
+    return f" — {d[-400:]}" if d else ""
+
+
 def _dept_of(lead_id: str) -> str:
     from ..context import seat
     a = seat(lead_id)
@@ -37,7 +43,7 @@ async def review(stage: str, lead_id: str, lead_label: str, job: dict, evidence:
     failed = [e for e in mine if e.get("ok") is False]
     if failed:
         return {"verdict": "FAIL", "actor": lead_id, "cites": [e["id"] for e in failed],
-                "reasons": [f'check failed: {e["title"]}' for e in failed]}
+                "reasons": [f'check failed: {e["title"]}' + _detail(e) for e in failed]}
     if not mine:
         return {"verdict": "FAIL", "actor": lead_id, "cites": [], "reasons": ["no evidence was produced for this stage"]}
 

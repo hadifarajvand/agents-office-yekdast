@@ -91,7 +91,8 @@ DEFAULTS: dict = {
     # commercial consent. Neither may be the building department's lead.
     "exposure": {"tier1_owner_clicks": 3, "preview_ttl_days": 7,
                  "keys": {"security": "comply", "commercial": "olead"}},
-    "worker": {"kind": "fake", "timeout_minutes": 180, "images": {
+    # template: copied into every new job workspace (PLAN.md section 14, C3).
+    "worker": {"kind": "fake", "timeout_minutes": 180, "template": "templates/webapp", "images": {
         "claude_code": "agents-office/worker-node:latest",
         "openhands": "agents-office/worker-openhands:latest",
         "mini_swe": "agents-office/worker-node:latest",

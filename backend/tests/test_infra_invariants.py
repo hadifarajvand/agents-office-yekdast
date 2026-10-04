@@ -65,7 +65,7 @@ def test_router_gateway_exposes_only_the_model_api_and_adds_the_key():
 
 def test_job_entrypoint_never_runs_agent_code_on_the_host_and_makes_the_artifacts():
     s = (ROOT / "infra/sandbox/run-job.sh").read_text()
-    for needle in ("patch.bundle", "tree.tar.gz", "npm-audit.json", "core.hooksPath=/dev/null"):
+    for needle in ("patch.bundle", "tree.tar.gz", "npm-audit.json", "core.hooksPath=/dev/null", "run-checks.mjs"):
         assert needle in s
 
 

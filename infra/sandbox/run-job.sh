@@ -5,6 +5,7 @@
 #   /out/patch.bundle      git bundle of the work
 #   /out/tree.tar.gz       source tree without .git and node_modules (scanned on the host)
 #   /out/npm-audit.json    npm audit of production dependencies
+#   /out/checks.json       install / build / test / start / browser-test results (run-checks.mjs)
 #   /out/agent.stdout|stderr, /out/exit_code
 set -uo pipefail
 cd /workspace
@@ -24,6 +25,9 @@ if [ -f package.json ]; then
   [ -f package-lock.json ] || npm install --package-lock-only --ignore-scripts >/dev/null 2>&1
   npm audit --omit=dev --json >/out/npm-audit.json 2>/dev/null
 fi
+
+# Prove the app works, here in the job container: the host only reads the results.
+node /opt/run-checks.mjs >/out/checks.log 2>&1 || true
 
 echo "$code" >/out/exit_code
 exit "$code"

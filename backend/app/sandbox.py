@@ -58,7 +58,8 @@ def container_spec(job_id: str, *, image: str, command: list[str], env: dict[str
         "HOME": "/home/agent", "HTTP_PROXY": proxy, "HTTPS_PROXY": proxy, "http_proxy": proxy, "https_proxy": proxy,
         "NO_PROXY": cfg.get("no_proxy", "router-gateway,localhost,127.0.0.1"),
         "no_proxy": cfg.get("no_proxy", "router-gateway,localhost,127.0.0.1"),
-        "npm_config_update_notifier": "false", "CI": "1",
+        "npm_config_update_notifier": "false", "CI": "1", "NEXT_TELEMETRY_DISABLED": "1",
+        "PLAYWRIGHT_BROWSERS_PATH": "/ms-playwright",
         **(env or {}),
     }
     return {

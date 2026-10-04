@@ -153,7 +153,7 @@ def _gate_node(stage: str):
         if fails:
             loops = dict(state.get("loops") or {})
             loops[stage] = loops.get(stage, 0) + 1
-            notes = "; ".join(f'{a["role"]}: {a["note"]}' for a in fails)[:1500]
+            notes = "; ".join(f'{a["role"]}: {a["note"]}' for a in fails)[:3000]
             await db.clear_approvals(jid, stage)
             if loops[stage] > int(cfg.pipeline.get("max_review_loops", 2)):
                 return {**await _park(jid, stage, f"{stage} failed review {loops[stage]} times: {notes}"), "loops": loops}

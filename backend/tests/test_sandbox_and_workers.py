@@ -375,3 +375,21 @@ async def test_patch_checks_end_to_end(tmp_path):
     res = await PatchChecks().scan(str(out / "patch.bundle"))
     assert len(res) == 6 and all(r["ok"] for r in res)
     assert (await PatchChecks().scan(str(tmp_path / "nowhere" / "patch.bundle")))[0]["ok"] is False
+
+
+def test_a_new_workspace_starts_from_the_template_and_a_retry_keeps_its_code(tmp_path):
+    from app.worker.base import seed_workspace
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    assert seed_workspace(ws) is True
+    assert (ws / "package.json").exists() and (ws / "CLAUDE.md").exists() and (ws / "src/app/healthz/route.ts").exists()
+    assert not (ws / "node_modules").exists() and not (ws / ".next").exists()
+    (ws / "src/app/page.tsx").write_text("changed by the builder")
+    assert seed_workspace(ws) is False
+    assert (ws / "src/app/page.tsx").read_text() == "changed by the builder"
+
+
+def test_task_md_tells_the_builder_to_extend_the_template():
+    from app.worker.base import task_markdown
+    md = task_markdown({"title": "Bakery", "description": "orders", "scope": {"stack": "Vue + Firebase"}})
+    assert "CLAUDE.md" in md and "Fixed by the template" in md and "npm run test:e2e" in md

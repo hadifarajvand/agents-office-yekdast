@@ -13,8 +13,16 @@ RUN apt-get update \
 RUN npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
  && python3 -m pip install --no-cache-dir --break-system-packages "mini-swe-agent${MINI_SWE_VERSION:+==$MINI_SWE_VERSION}"
 
+# Chromium for the template's Playwright tests. Keep PLAYWRIGHT_VERSION equal to the version
+# pinned in templates/webapp/package.json, or the browser and the library will not match.
+ARG PLAYWRIGHT_VERSION=1.63.0
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN npx -y "playwright@${PLAYWRIGHT_VERSION}" install --with-deps chromium \
+ && chmod -R a+rx /ms-playwright
+
 COPY run-job.sh /opt/run-job.sh
-RUN chmod 0755 /opt/run-job.sh \
+COPY run-checks.mjs /opt/run-checks.mjs
+RUN chmod 0755 /opt/run-job.sh /opt/run-checks.mjs \
  && useradd --uid 1000 --create-home --home-dir /home/agent --shell /bin/bash agent || true
 
 USER 1000:1000

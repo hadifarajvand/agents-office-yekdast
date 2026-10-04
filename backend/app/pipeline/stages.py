@@ -131,7 +131,9 @@ async def verify(state: dict) -> dict:
 
 async def scope(state: dict) -> dict:
     b = state["brief"]
-    system = ("You scope a small JavaScript/TypeScript web app MVP. Reply with JSON only: "
+    system = ("You scope a small web app MVP that will be built on our fixed template (Next.js App Router + TypeScript, "
+              "Drizzle on Postgres, Better Auth email/password, Vitest, Playwright); do not propose another stack. "
+              "Keep it to what one builder can finish in a few hours. Reply with JSON only: "
               '{"acceptance_criteria":["testable statement",...],"tasks":["..."],"stack":"...","estimate_hours":number,'
               '"out_of_scope":["..."]}. Criteria must be checkable by an automated test.')
     found = await run_seats(state, "scope", {
@@ -159,6 +161,13 @@ async def build(state: dict) -> dict:
     from ..llm import same_model
     swapped = [m for m in res.get("models_seen", []) if not same_model(pinned, m)]
     ok = res.get("exit_state") == "ok" and bool(res.get("patch_path")) and not swapped
+    checks = res.get("checks")
+    if checks is None:  # a worker that cannot prove the app runs does not pass the build
+        checks = [{"name": "the app was installed, built, tested and started", "ok": False,
+                   "detail": "this worker reports no check results"}]
+    for i, c in enumerate(checks[:12]):
+        await _evidence(state, "build", "check", c["name"], bool(c.get("ok")),
+                        {"detail": redact_secrets(str(c.get("detail", "")))[-2500:], "ms": int(c.get("ms") or 0)}, f"run{i}")
     await _evidence(state, "build", "patch", "build result", ok,
                     {"exit_state": res.get("exit_state"), "patch_path": res.get("patch_path"),
                      "log_path": res.get("log_path"), "tokens": res.get("tokens", 0), "usd": res.get("usd", 0.0),

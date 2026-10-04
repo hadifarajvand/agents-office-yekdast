@@ -14,4 +14,6 @@ class FakeWorker:
         (out / "patch.bundle").write_text("fake bundle\n")
         (out / "agent.stdout").write_text("fake worker: no code was written\n")
         return {"patch_path": str(out / "patch.bundle"), "log_path": str(out / "agent.stdout"), "tokens": 0,
-                "usd": 0.0, "models_seen": [load_config().roles.get("builder", "")], "exit_state": "ok"}
+                "usd": 0.0, "models_seen": [load_config().roles.get("builder", "")], "exit_state": "ok",
+                "checks": [{"name": "fake worker: nothing was built or tested", "ok": True,
+                            "detail": "set worker.kind to a real worker to get real checks"}]}
