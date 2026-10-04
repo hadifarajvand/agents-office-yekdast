@@ -214,7 +214,9 @@ export function initTasks(ctx) {
     feedPush(R[t.agent], '📄', `Delivered: ${t.title}`);
     if (brain && t.read) for (const n of t.read.slice(0, 2)) brain.readNote(t.agent, n);
   }
+  const SERVED = location.protocol.startsWith('http'); // served by the office server: only real work, never invented tasks
   function brainSend(id) { // the Brain drops a fresh job into the agent's backlog
+    if (SERVED) return null; // demo theatre is for the offline file:// demo only
     const t = freshTask(id, { via: 'brain' });
     touch(t, 'added');
     spawnEmote(R[id], '📋');
@@ -222,7 +224,7 @@ export function initTasks(ctx) {
   }
 
   /* ---------- seed a believable morning ---------- */
-  {
+  if (!SERVED) {
     const now = performance.now(), wall = Date.now();
     for (const a of AGENTS) {
       const r = R[a.id];

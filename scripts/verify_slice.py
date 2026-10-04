@@ -34,6 +34,18 @@ headers = {"X-AO-Client": "office"}
 if os.environ.get("AO_API_TOKEN"):
     headers["X-AO-Token"] = os.environ["AO_API_TOKEN"]
 c = httpx.Client(base_url=BASE, headers=headers, timeout=60)
+created: list[str] = []  # every job this run submits; finish() kills the ones still open so they do not pile up in the owner's inbox
+
+
+def _track(resp):
+    if resp.request.method == "POST" and resp.request.url.path == "/api/jobs" and resp.status_code == 200:
+        try:
+            created.append(resp.json()["id"])
+        except Exception:
+            pass
+
+
+c.event_hooks["response"] = [_track]
 results: list[dict] = []
 
 
@@ -240,7 +252,17 @@ def main() -> int:
     return finish()
 
 
+def cleanup_jobs() -> None:
+    for jid in created:
+        try:
+            if get_job(jid).get("status") not in ("killed", "done"):
+                c.post(f"/api/jobs/{jid}/kill")
+        except Exception:
+            pass
+
+
 def finish() -> int:
+    cleanup_jobs()
     out = ROOT / "data"
     out.mkdir(exist_ok=True)
     (out / "verify-report.json").write_text(json.dumps({"at": time.time(), "base": BASE, "scripted": SCRIPTED, "results": results}, indent=1))

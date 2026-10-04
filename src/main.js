@@ -341,6 +341,13 @@ function tickDim(dt) {
     m.color.copy(m.userData.baseColor).lerp(m.userData.dimColor, focusDim);
 }
 
+// Served by the office server = production: no invented activity, numbers or tasks. Only file:// plays the demo.
+const SERVED = location.protocol.startsWith('http');
+if (SERVED) {
+  for (const k in STATS) STATS[k] = 0;
+  for (const k of KPIS) k.val = 0;
+}
+
 /* ---------- department billboards — v1's exact agreed metric rows + amber approval row ---------- */
 const kv = id => KPIS.find(k => k.id === id).val;
 let brainNotes = brain.state.notes;
@@ -534,7 +541,7 @@ addEventListener('keydown', (e) => {
   else if (e.key === '+' || e.key === '=') zoomStep(1.5);
   else if (e.key === '-' || e.key === '_') zoomStep(1 / 1.5);
   else if (e.key === '0') zoomOut();
-  else if (e.key === 'x' || e.key === 'X') { if (!meeting) planMeeting(performance.now()); }
+  else if (!SERVED && (e.key === 'x' || e.key === 'X')) { if (!meeting) planMeeting(performance.now()); }
   else if (e.key >= '1' && e.key <= '8') { // jump straight to a department
     const dept = DEPT_KEYS[+e.key - 1];
     if (dept && focused !== dept) enterFocus(dept);
@@ -547,7 +554,7 @@ addEventListener('keydown', (e) => {
   }
   else if (e.key === 'v' || e.key === 'V') setCam(!document.body.classList.contains('cam'));
   else if (e.key === 'd' || e.key === 'D') setDark(!darkOn);
-  else if (e.key === 'w' || e.key === 'W') requestApproval('apay'); // demo cue: Accounts Payable asks for approval
+  else if (!SERVED && (e.key === 'w' || e.key === 'W')) requestApproval('apay'); // demo cue: Accounts Payable asks for approval
 });
 
 // camera mode: mid-tone backdrop for filming the screen (#cam=1 / V toggles)
@@ -665,10 +672,11 @@ function renderChat(id) {
   mMsgs.scrollTop = mMsgs.scrollHeight;
 }
 function renderActivity(id) {
-  const r = R[id], v = r.v1;
-  const task = rnd(v.tasks || ['Working through the queue'])
+  const r = R[id]; let v = r.v1;
+  const task = SERVED ? (r.feed[0] ? r.feed[0].text : 'Idle') : rnd(v.tasks || ['Working through the queue'])
     .replace('{co}', rnd(P.co)).replace('{person}', person()).replace('{count}', ri(3, 9));
   document.getElementById('mNow').innerHTML = `NOW &nbsp;<b>${esc(task)}</b>`;
+  if (SERVED) { v = { ...v, stats: [], chart: [], chartLbl: '' }; }
   document.getElementById('mStats').innerHTML = (v.stats || []).map(([l, val]) => `
     <div class="st"><div class="st-l">${esc(l)}</div><div class="st-v">${esc(String(typeof val === 'function' ? val() : val))}</div></div>`).join('');
   const chip = DEPTS[r.a.dept].chip;
@@ -1081,7 +1089,7 @@ function fireAgentEvent(seedTs) {
   }
 }
 // seed a believable history so Activity isn't empty at boot
-for (let i = 0; i < 170; i++) fireAgentEvent(Date.now() - ri(2, 200) * 60000);
+if (!SERVED) for (let i = 0; i < 170; i++) fireAgentEvent(Date.now() - ri(2, 200) * 60000);
 for (const r of Object.values(R)) r.feed.sort((a, b) => b.ts - a.ts);
 
 /* ---------- minimal sim: work bobs, screen updates, brain meetings ---------- */
@@ -1261,7 +1269,7 @@ function tickSim(now, dt) {
     }
   }
   // ambient emoji work-bubbles pop over random desks every beat or two
-  if (now > nextEmoteAt) {
+  if (!SERVED && now > nextEmoteAt) {
     const ids = Object.keys(R).filter(id => R[id].state === 'working');
     if (ids.length) spawnEmote(R[ids[Math.floor(Math.random() * ids.length)]],
       rnd(['💬', '✉️', '📈', '💡', '✓', '📞', '🔍', '📎']));
@@ -1281,12 +1289,12 @@ function tickSim(now, dt) {
     nextApprovalAt = now + 50000 + Math.random() * 40000;
   }
   // agent events drive everything — feed, chat streams, billboard metrics (nothing is static)
-  if (now > nextMetricAt) {
+  if (!SERVED && now > nextMetricAt) {
     fireAgentEvent();
     nextMetricAt = now + 2600 + Math.random() * 3800;
   }
   // rotate desk screen content — a couple of screens refresh every beat so the room reads busy
-  if (Math.floor(now / 1800) !== Math.floor((now - dt * 1000) / 1800)) {
+  if (!SERVED && Math.floor(now / 1800) !== Math.floor((now - dt * 1000) / 1800)) {
     const n = 1 + (Math.random() < 0.5 ? 1 : 0);
     for (let i = 0; i < n; i++) {
       const ss = screenSets[Math.floor(Math.random() * screenSets.length)];

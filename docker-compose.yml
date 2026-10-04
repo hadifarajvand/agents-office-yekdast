@@ -43,6 +43,7 @@ services:
     volumes:
       - ./infra/egress/squid.conf:/etc/squid/squid.conf:ro
       - ./infra/egress/allowlist.txt:/etc/squid/allowlist.txt:ro
+      - egresslogs:/var/log/squid   # read with: docker compose exec egress tail -f /var/log/squid/access.log
     networks:
       ao-internal: {}
       ao-egress: {}
@@ -130,3 +131,4 @@ networks:
 
 volumes:
   pgdata:
+  egresslogs:
