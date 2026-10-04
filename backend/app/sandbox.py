@@ -122,6 +122,12 @@ def _run_blocking(spec: dict, timeout_s: int, client=None) -> RunResult:
     client = client or _docker()
     spec = {k: v for k, v in spec.items() if v is not None}
     image, command = spec.pop("image"), spec.pop("command")
+    # A run killed by a stop or a crash leaves its exited container behind; a retry of the
+    # same job reuses the name, so clear the leftover first.
+    try:
+        client.containers.get(spec["name"]).remove(force=True)
+    except Exception:  # not found (the normal case) or not removable: let run() report it
+        pass
     c = client.containers.run(image, command, **spec)
     timed_out = False
     try:
