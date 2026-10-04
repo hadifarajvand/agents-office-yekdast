@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from .. import db
+from .. import activity, db
 from ..config import load_config
 
 TERMINAL = {"done", "killed", "failed"}
@@ -59,6 +59,7 @@ async def event(job_id: str, text: str) -> None:
         return
     job["events"] = (job.get("events") or [])[-49:] + [{"at": db.now_ms(), "text": text[:300]}]
     await db.save_job(job)
+    activity.emit("job-event", text, job=job_id, stage=job.get("stage"), connector="postgres")
 
 
 async def set_stage(job_id: str, stage: str, state: str, **extra) -> dict:
@@ -73,6 +74,8 @@ async def set_stage(job_id: str, stage: str, state: str, **extra) -> dict:
     st.update(state=state, **extra)
     job["stage"] = stage
     await db.save_job(job)
+    activity.emit("stage", f'{job.get("title", job_id)[:40]}: {stage} {state}', job=job_id, stage=stage, connector="postgres",
+                  level="warn" if state == "failed" else "info")
     return job
 
 
@@ -90,7 +93,9 @@ async def notify_once(job_id: str, key: str, text: str) -> bool:
         if not n or not getattr(n, "enabled", False):
             return False
         url = load_config().notify.get("office_url", "")
-        return await n.send(f"{text}\n{url}" if url else text)
+        ok = await n.send(f"{text}\n{url}" if url else text)
+        activity.emit("notify", "Telegram: " + text[:80], job=job_id, connector="telegram", agent="olead")
+        return ok
     except Exception:
         return False
 

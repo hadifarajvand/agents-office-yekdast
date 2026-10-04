@@ -135,6 +135,9 @@ async def _record(resp, pinned: str) -> None:
         meter.calls.append(call)
         if not same_model(pinned, seen):
             meter.mismatches.append(f"pinned {pinned}, router answered with {seen}")
+    from . import activity
+    jid, stg = activity.label_parts(meter.label if meter else "")
+    activity.emit("model", f"{pinned}: {tin}+{tout} tokens", job=jid, stage=stg, connector="router")
     for hook in _usage_hooks:
         try:
             await hook(call, meter.label if meter else "")

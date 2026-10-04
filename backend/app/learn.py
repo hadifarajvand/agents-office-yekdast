@@ -34,6 +34,8 @@ def _head(agent) -> str:
 
 
 def read(brain_path: Path, agent_id: str) -> dict:
+    from . import activity
+    activity.emit("brain-read", "read standing rules", agent=agent_id, connector="brain")
     p = _file(brain_path, agent_id)
     if not p.exists():
         return {"rules": [], "oneOffs": []}
@@ -56,6 +58,8 @@ def read(brain_path: Path, agent_id: str) -> dict:
 
 
 def record(brain_path: Path, agent, task, feedback: str, verdict: dict | None) -> dict:
+    from . import activity
+    activity.emit("brain-write", "learned from feedback", agent=agent.id, connector="brain")
     dir_(brain_path).mkdir(parents=True, exist_ok=True)
     p = _file(brain_path, agent.id)
     text = p.read_text() if p.exists() else _head(agent)

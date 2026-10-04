@@ -146,4 +146,11 @@ def _run_blocking(spec: dict, timeout_s: int, client=None) -> RunResult:
 
 async def run_container(spec: dict, timeout_s: int, client=None) -> RunResult:
     assert_hardened(spec)
-    return await asyncio.to_thread(_run_blocking, spec, timeout_s, client)
+    from . import activity
+    name = str(spec.get("name", ""))
+    jid = name[len("ao-job-"):] if name.startswith("ao-job-") else None
+    activity.emit("container", f"container {name or spec.get('image')} started", job=jid, stage="build", connector="docker")
+    res = await asyncio.to_thread(_run_blocking, spec, timeout_s, client)
+    activity.emit("container", f"container {name or spec.get('image')} exit {res.exit_code}", job=jid, stage="build",
+                  connector="docker", level="info" if res.exit_code == 0 else "warn")
+    return res

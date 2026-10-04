@@ -26,7 +26,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
-from . import db, learn, llm, routines as routines_mod, when as whenmod
+from . import activity, db, learn, llm, routines as routines_mod, when as whenmod
 from .brain import brain_graph, brain_summary
 from .config import ROOT, load_config
 from .graph import engine
@@ -343,11 +343,66 @@ async def get_lessons():
     return {"dir": str(learn.dir_(cfg.brain_path)), "agents": out}
 
 
+_stack_cache: dict = {"at": 0.0, "status": {}}
+
+
+async def _stack_status() -> dict:
+    """Live reachability of the stack's own connectors (cached 15 s)."""
+    import time as _t
+    if _t.time() - _stack_cache["at"] < 15:
+        return _stack_cache["status"]
+    import asyncio, httpx, os
+    base = cfg.router.get("base_url", "").rstrip("/")
+    async def router():
+        try:
+            async with httpx.AsyncClient(timeout=2) as c:
+                return (await c.get(base.removesuffix("/v1").replace("host.docker.internal", "127.0.0.1") + "/v1/models")).status_code < 500
+        except Exception:
+            return False
+    async def pg():
+        try:
+            await db.get_job("__ping__")
+            return True
+        except Exception:
+            return False
+    async def dock():
+        try:
+            from .sandbox import _docker
+            return bool(await asyncio.to_thread(lambda: _docker().ping()))
+        except Exception:
+            return False
+    r, p, d = await asyncio.gather(router(), pg(), dock())
+    from .pipeline.ports import get_deps
+    try:
+        notifier = getattr(get_deps(), "notifier", None)
+    except Exception:
+        notifier = None
+    st = {"router": r, "postgres": p, "docker": d, "egress": d, "brain": cfg.brain_path.exists(),
+          "telegram": bool(getattr(notifier, "enabled", False)),
+          "dokploy": bool(os.environ.get(cfg.dokploy.get("url_env", "DOKPLOY_URL")) and os.environ.get(cfg.dokploy.get("api_key_env", "DOKPLOY_API_KEY")))}
+    _stack_cache.update(at=_t.time(), status=st)
+    return st
+
+
 @app.get("/api/mcp")
 async def get_mcp(refresh: int = 0):
     if refresh:
         await mcp_registry.discover()
-    return {**mcp_registry.summary(), "tools": True}
+    summ = mcp_registry.summary()
+    st = await _stack_status()
+    have = {s["key"] for s in summ["servers"]}
+    for key, (name, depts) in activity.STACK.items():
+        if key in have:
+            continue
+        summ["servers"].append({"id": key, "name": name, "key": key, "status": "connected" if st.get(key) else "failed",
+                                "target": "stack", "source": "stack", "depts": depts, "tools": [],
+                                "allowed": True, "denied": False})
+    return {**summ, "tools": True}
+
+
+@app.get("/api/activity")
+async def get_activity(since: int = 0):
+    return activity.since(since)
 
 
 @app.get("/api/brain")

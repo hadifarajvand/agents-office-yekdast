@@ -1406,6 +1406,30 @@ tasks = initTasks({
   toScreen: (p) => toScreen(p), reframe,
 });
 jobs = initJobs({ DEPTS, R, esc, chatPush, feedPush, setStuck: setStuckLive, clearStuck: clearStuckLive, isLive: () => tasks.isLive() });
+// LIVE: every effect below is played from a real backend event (GET /api/activity). Nothing
+// moves unless the office actually did something: a stage moved, a model answered, a container
+// ran, a message went out, a note was read or written.
+const ACT_ICON = { stage: '▶', 'job-event': '•', model: '🧠', container: '📦', notify: '✈️', 'brain-read': '📖', 'brain-write': '✍️' };
+let actSeq = null, actBusy = false;
+async function pollActivity() {
+  if (!SERVED || actBusy) return; actBusy = true;
+  try {
+    const j = await (await fetch('/api/activity?since=' + (actSeq ?? 0))).json();
+    const first = actSeq === null; actSeq = j.seq;
+    if (first) return; // history already happened; only play what happens while the page is open
+    for (const [n, e] of j.events.slice(-12).entries()) setTimeout(() => {
+      const r = R[e.agent] || Object.values(R).find(x => x.a.dept === 'exec') || Object.values(R)[0];
+      if (!r) return;
+      feedPush(r, ACT_ICON[e.kind] || '•', e.text);
+      if (e.connector && mcp && mcp.onToolsUsed) mcp.onToolsUsed(r.a.id, [e.connector]);
+      if (e.kind === 'brain-read') { brain.setQuiet(false); brain.read(r.a.id); brain.setQuiet(true); } // a real read earns its glint
+      else if (e.kind === 'brain-write') brain.write(r.a.id, e.text);
+      else if (e.kind === 'model') spawnEmote(r, '🧠');
+      else if (e.kind === 'stage' || e.kind === 'container' || e.kind === 'notify') spawnEmote(r, ACT_ICON[e.kind]);
+    }, n * 350);
+  } catch { /* offline: no effects */ } finally { actBusy = false; }
+}
+if (SERVED) { pollActivity(); setInterval(pollActivity, 2000); }
 const calendar = initCalendar({
   tasks: tasks.tasks, routines: tasks.routines, agentOf: tasks.agentOf, DEPTS, DEPT_KEYS,
   RT_DEPTS: tasks.RT_DEPTS, rtRefuse: tasks.rtRefuse,
