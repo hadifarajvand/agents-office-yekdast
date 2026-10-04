@@ -10,3 +10,8 @@ Modifications in this fork (Python/LangGraph backend, job pipeline, sandbox,
 connectors and frontend changes) are by the fork's owner and are distributed
 under the same license. Use is limited to noncommercial purposes as defined
 by the license.
+
+Seat roles and the bench (frontend `src/data.js`, `backend/app/seed/roster_seed.json`,
+`backend/app/seed/bench.json`) are derived from the agent registry of
+Citadel-Cloud-Management/citadel-saas-factory (`.claude/agents/_registry.yaml`),
+MIT License, Copyright (c) 2026 Citadel Cloud Management.

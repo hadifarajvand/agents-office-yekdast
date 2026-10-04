@@ -1,6 +1,6 @@
 # Agents Office — Yekdast
 
-A private workshop: 35 named agents (room for 10 seats in each of 8 departments), run from one laptop, that take a request through a gated pipeline —
+A private workshop: 27 staffed seats (room for 10 per department) in 8 departments, plus a bench of Citadel roles that leads can spawn, run from one laptop, that take a request through a gated pipeline —
 **intake → verify → scope → build → security → preview → exposure → handoff** — and stop at every gate for the lead who owns that stage.
 Agents may research, validate, build and deploy a **preview** only. The owner does outreach, production and spending.
 

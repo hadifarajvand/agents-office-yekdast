@@ -63,7 +63,8 @@ DEFAULTS: dict = {
     },
     "budget": {"usd_per_job": 1.0, "usd_per_1k_tokens": {"default": 0.0}},
     "pipeline": {"stages": DEFAULT_STAGES, "deadline_days": 3, "max_review_loops": 2,
-                 "owner_gates": ["verify", "handoff"]},  # stages that also need the owner's click
+                 "owner_gates": ["verify", "handoff"],
+                 "spawn": {"max_per_stage": 3}},  # stages that also need the owner's click
     # Two keys for a gated (Tier 1) preview: an independent security verdict and
     # commercial consent. Neither may be the building department's lead.
     "exposure": {"tier1_owner_clicks": 3, "preview_ttl_days": 7,

@@ -16,63 +16,56 @@ export const TOKENS = {
 // agent's comment below for where it came from.
 export const DEPT_KEYS = ['exec', 'revenue', 'engineering', 'frontend', 'devops', 'secdata', 'fin', 'content'];
 export const DEPTS = {
-  exec:        { name: 'EXECUTIVE & STRATEGY',   short: 'EXEC',        chip: '#BFA2E3', ink: '#7449A9', floor: '#F2ECFA' },
-  revenue:     { name: 'REVENUE',                short: 'REVENUE',     chip: '#F0B86E', ink: '#C47A1E', floor: '#FBEEDC' },
-  engineering: { name: 'ENGINEERING & BACKEND',  short: 'ENGINEERING', chip: '#8FD3F4', ink: '#2E86AB', floor: '#E6F4FB' },
-  frontend:    { name: 'FRONTEND & MOBILE',      short: 'FRONTEND',    chip: '#5ADEB7', ink: '#1E9070', floor: '#E9F6EF' },
+  exec:        { name: 'STRATEGY & LEGAL',   short: 'STRATEGY',        chip: '#BFA2E3', ink: '#7449A9', floor: '#F2ECFA' },
+  revenue:     { name: 'MARKET & SALES',                short: 'MARKET',     chip: '#F0B86E', ink: '#C47A1E', floor: '#FBEEDC' },
+  engineering: { name: 'BACKEND BUILD',  short: 'BACKEND', chip: '#8FD3F4', ink: '#2E86AB', floor: '#E6F4FB' },
+  frontend:    { name: 'PRODUCT & FRONTEND',      short: 'PRODUCT',    chip: '#5ADEB7', ink: '#1E9070', floor: '#E9F6EF' },
   devops:      { name: 'DEVOPS & QA',            short: 'DEVOPS',      chip: '#E69393', ink: '#C46060', floor: '#FAE9E7' },
-  secdata:     { name: 'SECURITY & DATA',        short: 'SECDATA',     chip: '#98A5EF', ink: '#5B66CE', floor: '#EAEDFA' },
-  fin:         { name: 'FINANCE & BILLING',      short: 'FINANCE',     chip: '#EADC8F', ink: '#A08A1E', floor: '#F6F1DA' },
-  content:     { name: 'CONTENT & COMMS',        short: 'CONTENT',     chip: '#B5E8A0', ink: '#5A9E3D', floor: '#EEF8E8' },
+  secdata:     { name: 'SECURITY & PRIVACY',        short: 'SECURITY',     chip: '#98A5EF', ink: '#5B66CE', floor: '#EAEDFA' },
+  fin:         { name: 'FINANCE & PRICING',      short: 'FINANCE',     chip: '#EADC8F', ink: '#A08A1E', floor: '#F6F1DA' },
+  content:     { name: 'CONTENT & SUPPORT',        short: 'CONTENT',     chip: '#B5E8A0', ink: '#5A9E3D', floor: '#EEF8E8' },
   brain:       { name: 'THE BRAIN',              short: 'THE BRAIN',   chip: '#D1DECD', ink: '#4C7A57', floor: '#E9EFE4' },
 };
 
 // 35 agents, 8 departments, every department has a lead (V4, 1 Oct 2026).
 // grid = [col,row] desk slot on the department plinth.
 export const AGENTS = [
-  // EXECUTIVE & STRATEGY (3) — was OPERATIONS's lead + Intel + Legal Review
-  { id: 'olead', name: 'EXEC LEAD',           dept: 'exec',        lead: true,  grid: [0.5, 0], hair: '#111111', skin: '#F0C9A0' },
-  { id: 'scout', name: 'STRATEGY',            dept: 'exec',        grid: [0, 1], hair: '#101820', skin: '#B07850' },
-  { id: 'legal', name: 'GENERAL COUNSEL',     dept: 'exec',        grid: [1, 1], hair: '#20242e', skin: '#F0C9A0' },
-  // REVENUE (8) — merged Sales + Marketing; Sales Lead at the head
-  { id: 'lexi',  name: 'REVENUE LEAD',        dept: 'revenue',     lead: true,  grid: [0.5, 0], hair: '#5a2d0c', skin: '#F0C9A0' },
-  { id: 'enzo',  name: 'LEAD ENRICHER',       dept: 'revenue',     grid: [0, 1], hair: '#1c1c2e', skin: '#E0A878' },
-  { id: 'ilm',   name: 'INBOUND LEADS MANAGER', dept: 'revenue',   grid: [1, 1], hair: '#26140a', skin: '#F5D5B0' },
-  { id: 'pros',  name: 'PROSPECTOR',          dept: 'revenue',     grid: [0, 2], hair: '#2a1a0e', skin: '#E8B98E' },
-  { id: 'piper', name: 'PROPOSAL GENERATOR',  dept: 'revenue',     grid: [1, 2], hair: '#2d1a0a', skin: '#F0C9A0' },
-  { id: 'folo',  name: 'FOLLOW UPS',          dept: 'revenue',     grid: [0, 3], hair: '#171717', skin: '#F5D5B0' },
-  { id: 'ada',   name: 'PPC MANAGER',         dept: 'revenue',     grid: [1, 3], hair: '#3d2814', skin: '#C68B59' },
-  { id: 'iggy',  name: 'SOCIAL MEDIA',        dept: 'revenue',     grid: [0.5, 4], hair: '#552200', skin: '#E8B98E' },
-  // ENGINEERING & BACKEND (6) — Delivery Lead retrained; former delivery crew became the build team
-  { id: 'dlead', name: 'ENGINEERING LEAD',    dept: 'engineering', lead: true,  grid: [0.5, 0], hair: '#1f1f1f', skin: '#F0C9A0' },
-  { id: 'pco',   name: 'SERVICE BUILDER',     dept: 'engineering', grid: [0, 1], hair: '#3d2814', skin: '#E8B98E' },
-  { id: 'crep',  name: 'API DESIGNER',        dept: 'engineering', grid: [1, 1], hair: '#6b3410', skin: '#F5D5B0' },
-  { id: 'cass',  name: 'DB MIGRATOR',         dept: 'engineering', grid: [0, 2], hair: '#141414', skin: '#D9A97E' },
-  { id: 'dasst', name: 'INTEGRATIONS',        dept: 'engineering', grid: [1, 2], hair: '#552200', skin: '#F0C9A0' },
-  { id: 'ona',   name: 'BUG FIXER',           dept: 'engineering', grid: [0.5, 3], hair: '#0d0d0d', skin: '#9C6B43' },
-  // FRONTEND & MOBILE (4) — Marketing Lead retrained; the visual + build-facing crew
-  { id: 'mlead', name: 'FRONTEND LEAD',       dept: 'frontend',    lead: true,  grid: [0.5, 0], hair: '#2a1a0e', skin: '#E0A878' },
-  { id: 'gfx',   name: 'UI DESIGNER',         dept: 'frontend',    grid: [0, 1], hair: '#141414', skin: '#F0C9A0' },
-  { id: 'vid',   name: 'MOBILE DEV',          dept: 'frontend',    grid: [1, 1], hair: '#1b1b24', skin: '#D9A97E' },
-  { id: 'riley', name: 'WEB BUILDER',         dept: 'frontend',    grid: [0.5, 2], hair: '#8a4a1f', skin: '#F5D5B0' },
-  // DEVOPS & QA (5) — QA Checker retrained as Devops Lead; the ship-it crew
-  { id: 'qa',    name: 'DEVOPS LEAD',         dept: 'devops',      lead: true,  grid: [0.5, 0], hair: '#101820', skin: '#C68B59' },
-  { id: 'dash',  name: 'CD DEPLOYER',         dept: 'devops',      grid: [0, 1], hair: '#0d0d0d', skin: '#9C6B43' },
-  { id: 'report', name: 'SMOKE TESTER',       dept: 'devops',      grid: [1, 1], hair: '#2e2118', skin: '#E8B98E' },
-  { id: 'imail', name: 'MONITORING ENGINEER', dept: 'devops',      grid: [0, 2], hair: '#111111', skin: '#C68B59' },
-  { id: 'vmail', name: 'RELEASE MANAGER',     dept: 'devops',      grid: [1, 2], hair: '#7a3b12', skin: '#F5D5B0' },
-  // SECURITY & DATA (3) — Compliance Checker leads; security + analytics
-  { id: 'comply', name: 'SECDATA LEAD',       dept: 'secdata',     lead: true,  grid: [0.5, 0], hair: '#5a3a1a', skin: '#C68B59' },
-  { id: 'recon', name: 'DATA ANALYST',        dept: 'secdata',     grid: [0, 1], hair: '#33221a', skin: '#E8B98E' },
-  { id: 'kmail', name: 'DASHBOARD BUILDER',   dept: 'secdata',     grid: [1, 1], hair: '#4a2a10', skin: '#D89F70' },
-  // FINANCE & BILLING (3) — the accounting team, slimmed; Accounting Lead at the head
-  { id: 'alead', name: 'FINANCE LEAD',        dept: 'fin',         lead: true,  grid: [0.5, 0], hair: '#1f1f1f', skin: '#E0A878' },
-  { id: 'invo',  name: 'INVOICING',           dept: 'fin',         grid: [0, 1], hair: '#4a2a10', skin: '#F5D5B0' },
-  { id: 'apay',  name: 'ACCOUNTS PAYABLE',    dept: 'fin',         grid: [1, 1], hair: '#0a0a0a', skin: '#8A5A32' },
-  // CONTENT & COMMS (3) — Emails Lead retrained; comms + newsletter
-  { id: 'elead', name: 'CONTENT LEAD',        dept: 'content',     lead: true,  grid: [0.5, 0], hair: '#2b2b2b', skin: '#E8B98E' },
-  { id: 'newt',  name: 'NEWSLETTER AGENT',    dept: 'content',     grid: [0, 1], hair: '#26140a', skin: '#D89F70' },
-  { id: 'cmail', name: 'STATUS WRITER',       dept: 'content',     grid: [1, 1], hair: '#3b2b1d', skin: '#F0C9A0' },
+  // 27 staffed seats, roles from Citadel-Cloud-Management/citadel-saas-factory (MIT, see NOTICE). Free desks: FREE_SEATS below.
+  // STRATEGY & LEGAL
+  { id: 'olead', name: 'CEO STRATEGIST', dept: 'exec', lead: true,  grid: [0, 0], hair: '#111111', skin: '#F0C9A0' },
+  { id: 'scout', name: 'COMPETITIVE INTEL', dept: 'exec', grid: [0, 0], hair: '#101820', skin: '#B07850' },
+  { id: 'legal', name: 'CONTRACT COUNSEL', dept: 'exec', grid: [0, 0], hair: '#20242e', skin: '#F0C9A0' },
+  // MARKET & SALES
+  { id: 'lexi', name: 'VP SALES', dept: 'revenue', lead: true,  grid: [0, 0], hair: '#5a2d0c', skin: '#F0C9A0' },
+  { id: 'ilm', name: 'LEAD QUALIFIER', dept: 'revenue', grid: [0, 0], hair: '#26140a', skin: '#F5D5B0' },
+  { id: 'piper', name: 'PROPOSAL WRITER', dept: 'revenue', grid: [0, 0], hair: '#2d1a0a', skin: '#F0C9A0' },
+  { id: 'enzo', name: 'PRICING ANALYST', dept: 'revenue', grid: [0, 0], hair: '#1c1c2e', skin: '#E0A878' },
+  // BACKEND BUILD
+  { id: 'dlead', name: 'VP ENGINEERING', dept: 'engineering', lead: true,  grid: [0, 0], hair: '#1f1f1f', skin: '#F0C9A0' },
+  { id: 'pco', name: 'SERVICE BUILDER', dept: 'engineering', grid: [0, 0], hair: '#3d2814', skin: '#E8B98E' },
+  { id: 'ona', name: 'CODE REVIEWER', dept: 'engineering', grid: [0, 0], hair: '#0d0d0d', skin: '#9C6B43' },
+  // PRODUCT & FRONTEND
+  { id: 'mlead', name: 'FRONTEND LEAD', dept: 'frontend', lead: true,  grid: [0, 0], hair: '#2a1a0e', skin: '#E0A878' },
+  { id: 'riley', name: 'COMPONENT BUILDER', dept: 'frontend', grid: [0, 0], hair: '#8a4a1f', skin: '#F5D5B0' },
+  { id: 'gfx', name: 'UI DESIGNER', dept: 'frontend', grid: [0, 0], hair: '#141414', skin: '#F0C9A0' },
+  // DEVOPS & QA
+  { id: 'qa', name: 'DEVOPS LEAD', dept: 'devops', lead: true,  grid: [0, 0], hair: '#101820', skin: '#C68B59' },
+  { id: 'dash', name: 'IMAGE BUILDER', dept: 'devops', grid: [0, 0], hair: '#0d0d0d', skin: '#9C6B43' },
+  { id: 'report', name: 'SMOKE TESTER', dept: 'devops', grid: [0, 0], hair: '#2e2118', skin: '#E8B98E' },
+  { id: 'imail', name: 'E2E TESTER', dept: 'devops', grid: [0, 0], hair: '#111111', skin: '#C68B59' },
+  // SECURITY & PRIVACY
+  { id: 'comply', name: 'SECURITY LEAD', dept: 'secdata', lead: true,  grid: [0, 0], hair: '#5a3a1a', skin: '#C68B59' },
+  { id: 'recon', name: 'SAST SCANNER', dept: 'secdata', grid: [0, 0], hair: '#33221a', skin: '#E8B98E' },
+  { id: 'kmail', name: 'SECRET SCANNER', dept: 'secdata', grid: [0, 0], hair: '#4a2a10', skin: '#D89F70' },
+  { id: 'vmail', name: 'DEPENDENCY AUDITOR', dept: 'secdata', grid: [0, 0], hair: '#7a3b12', skin: '#F5D5B0' },
+  // FINANCE & PRICING
+  { id: 'alead', name: 'FINANCE LEAD', dept: 'fin', lead: true,  grid: [0, 0], hair: '#1f1f1f', skin: '#E0A878' },
+  { id: 'invo', name: 'PRICING MODELLER', dept: 'fin', grid: [0, 0], hair: '#4a2a10', skin: '#F5D5B0' },
+  { id: 'apay', name: 'USAGE & COST', dept: 'fin', grid: [0, 0], hair: '#0a0a0a', skin: '#8A5A32' },
+  // CONTENT & SUPPORT
+  { id: 'elead', name: 'CONTENT EDITOR', dept: 'content', lead: true,  grid: [0, 0], hair: '#2b2b2b', skin: '#E8B98E' },
+  { id: 'newt', name: 'DOCS WRITER', dept: 'content', grid: [0, 0], hair: '#26140a', skin: '#D89F70' },
+  { id: 'cmail', name: 'STATUS WRITER', dept: 'content', grid: [0, 0], hair: '#3b2b1d', skin: '#F0C9A0' },
 ];
 
 // Up to 10 seats per department (owner, 3 Oct 2026). The named agents above are re-seated onto the

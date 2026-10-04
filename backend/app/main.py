@@ -286,6 +286,12 @@ async def get_agents():
     return {"agents": agents_out(), "problems": _roster_cache["problems"], "files": _roster_cache["files"]}
 
 
+@app.get("/api/bench")
+async def api_bench():
+    from .pipeline.spawn import bench, limits
+    return {"bench": bench(), "limits": limits()}
+
+
 @app.get("/api/skills")
 async def get_skills():
     return refresh_skills().summary()

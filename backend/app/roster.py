@@ -1,4 +1,4 @@
-"""Port of roster.mjs — the roster (35 fixed seats, eight departments).
+"""Port of roster.mjs — the roster (fixed seats from the seed, eight departments).
 
 Precedence, later wins: built-in defaults <- office.agents.json <- <brain>/Agents Office/agents.json
 <- office.agents.local.json (gitignored). Departments, leads and seats cannot change from these
@@ -82,7 +82,7 @@ def validate(doc, base: list[Agent] | None = None) -> dict:
         eid = e["id"]
         a = by_id.get(eid)
         if not a:
-            problems.append(f'"{eid}" is not one of the 35 seats — skipped (new agents are not supported; rename a seat instead)')
+            problems.append(f'"{eid}" is not one of the seats — skipped (new agents are not supported; rename a seat instead)')
             continue
         if eid in seen:
             problems.append(f'"{eid}" appears twice — the later entry wins')

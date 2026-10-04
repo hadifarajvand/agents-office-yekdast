@@ -120,7 +120,7 @@ def test_health_shape(client):
     for key in ("ok", "version", "backend", "model", "models", "depts", "agents", "agentCount",
                 "routines", "roster", "skills", "tools", "mcp", "pipeline", "roles"):
         assert key in body
-    assert isinstance(body["agents"], list) and body["agentCount"] == len(body["agents"]) == 35
+    assert isinstance(body["agents"], list) and body["agentCount"] == len(body["agents"]) == 27
     assert [s["name"] for s in body["pipeline"]["stages"]][:2] == ["intake", "verify"]
 
 

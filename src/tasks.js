@@ -103,6 +103,13 @@ const CHAINS = [
   [['crep', 'September report ready for {co}'], ['cmail', 'Send the {co} report with a summary']],
 ];
 
+// the demo scripts were written for the old 35 seats; drop what refers to a seat that no longer exists
+{
+  const ids = new Set(AGENTS.map(a => a.id));
+  for (const o of [POOL, KEYS]) for (const k of Object.keys(o)) if (!ids.has(k)) delete o[k];
+  for (let i = CHAINS.length - 1; i >= 0; i--) if (CHAINS[i].some(([id]) => !ids.has(id))) CHAINS.splice(i, 1);
+}
+
 function fill(s, v) { return s.replace('{co}', v.co).replace('{n}', v.n).replace('{segment}', v.segment); }
 function vars() { return { co: rnd(P.co), n: ri(6, 40), segment: rnd(SEGMENTS) }; }
 function timeStr(ts) {

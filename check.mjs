@@ -46,6 +46,9 @@ async function launch() {
 }
 
 /* ---------- 1. build ---------- */
+const SEATS = JSON.parse(fs.readFileSync(path.join(ROOT, 'backend', 'app', 'seed', 'roster_seed.json'), 'utf8')).agents.length;
+const { DEPTS: DEPT_NAMES_ALL, DEPT_KEYS: DK } = await import('./src/data.js');
+const DEPT_NAMES = Object.fromEntries(DK.map(k => [k, DEPT_NAMES_ALL[k].short]));
 await step('build: braingraph + bundle', async () => {
   const out = await sh('node', ['build.mjs']);
   const html = fs.readFileSync(path.join(ROOT, 'dist', 'command-centre-v2.html'), 'utf8');
@@ -65,7 +68,7 @@ await step('data: seed, shipped roster and src/data.js agree on every seat', asy
   const seed = JSON.parse(fs.readFileSync(path.join(ROOT, 'backend', 'app', 'seed', 'roster_seed.json'), 'utf8'));
   const shipped = JSON.parse(fs.readFileSync(path.join(ROOT, 'office.agents.json'), 'utf8'));
   const { AGENTS, DEPT_KEYS, DEPTS } = await import('./src/data.js');
-  if (seed.agents.length !== 35 || AGENTS.length !== 35) throw new Error(`seats: seed ${seed.agents.length}, data.js ${AGENTS.length}`);
+  if (seed.agents.length !== AGENTS.length) throw new Error(`seats: seed ${seed.agents.length}, data.js ${AGENTS.length}`);
   const sd = new Map(seed.agents.map(a => [a.id, a]));
   for (const a of AGENTS) {
     const s = sd.get(a.id);
@@ -77,7 +80,7 @@ await step('data: seed, shipped roster and src/data.js agree on every seat', asy
   for (const e of shipped.agents) if (!sd.has(e.id)) throw new Error('office.agents.json names an unknown seat: ' + e.id);
   const leads = AGENTS.filter(a => a.lead).map(a => a.dept).sort().join(',');
   if (leads !== [...DEPT_KEYS].sort().join(',')) throw new Error('every department needs exactly one lead: ' + leads);
-  return `35 seats · ${DEPT_KEYS.length} departments · ${shipped.agents.length} shipped overrides`;
+  return `${AGENTS.length} seats · ${DEPT_KEYS.length} departments · ${shipped.agents.length} shipped overrides`;
 });
 await step('config: office.config.json is valid JSON with no secrets', async () => {
   const text = fs.readFileSync(path.join(ROOT, 'office.config.json'), 'utf8');
@@ -103,10 +106,10 @@ else {
     const errors = []; page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text().slice(0, 120)); });
     await page.goto('file://' + path.join(ROOT, 'dist', 'command-centre-v2.html') + '?s=check&norender=1'); await page.waitForTimeout(3000);
     await step('smoke: loads without page errors', async () => { if (errors.length) throw new Error(errors[0]); });
-    await step('smoke: 35 agents at their desks', async () => { const n = await page.evaluate(() => Object.keys(window.CC.R).length); if (n !== 35) throw new Error('agents: ' + n); return n + ' agents'; });
+    await step('smoke: every seat at its desk', async () => { const n = await page.evaluate(() => Object.keys(window.CC.R).length); if (n !== SEATS) throw new Error('agents: ' + n); return n + ' agents'; });
     await step('smoke: eight department cards + the Brain tag', async () => {
       const t = await page.evaluate(() => [...document.querySelectorAll('.badge .b-name')].map(e => e.textContent.trim()));
-      for (const k of ['EXEC', 'REVENUE', 'ENGINEERING', 'FRONTEND', 'DEVOPS', 'SECDATA', 'FINANCE', 'CONTENT', 'THE BRAIN']) if (!t.some(x => x.startsWith(k))) throw new Error('missing card ' + k);
+      for (const k of [...Object.values(DEPT_NAMES), 'THE BRAIN']) if (!t.some(x => x.startsWith(k))) throw new Error('missing card ' + k);
     });
     await step('smoke: task panel has rows and counts', async () => {
       const n = await page.evaluate(() => document.querySelectorAll('.tp-row').length); if (n < 10) throw new Error('rows: ' + n);
@@ -150,9 +153,9 @@ else {
       await page.fill('.tp-in', 'line one\nline two\nline three'); await page.evaluate(() => document.querySelector('.tp-in').dispatchEvent(new Event('input', { bubbles: true }))); await page.waitForTimeout(200);
       const grown = await page.evaluate(() => document.querySelector('.tp-in').offsetHeight); if (grown < 50) throw new Error('box did not grow: ' + grown + 'px');
       await page.click('.tp-big-btn'); await page.waitForTimeout(300);
-      const bigOn = await page.evaluate(() => document.getElementById('tpBig').classList.contains('on') && document.querySelector('.tb-in').value === document.querySelector('.tp-in').value && document.querySelector('.tb-dept').textContent === 'ENGINEERING & BACKEND'); if (!bigOn) throw new Error('big editor did not open with the text');
+      const bigOn = await page.evaluate((EN) => document.getElementById('tpBig').classList.contains('on') && document.querySelector('.tb-in').value === document.querySelector('.tp-in').value && document.querySelector('.tb-dept').textContent === EN, DEPT_NAMES_ALL.engineering.name); if (!bigOn) throw new Error('big editor did not open with the text');
       await page.type('.tb-in', ' and more'); await page.waitForTimeout(200);
-      const back = await page.evaluate(() => document.querySelector('.tp-in').value.endsWith(' and more') && /ENGINEERING LEAD|Goes to|Probably/.test(document.querySelector('.tb-hint').textContent)); if (!back) throw new Error('big editor did not mirror back');
+      const back = await page.evaluate(() => document.querySelector('.tp-in').value.endsWith(' and more') && /VP ENGINEERING|Goes to|Probably/.test(document.querySelector('.tb-hint').textContent)); if (!back) throw new Error('big editor did not mirror back');
       await page.keyboard.press('Escape'); await page.waitForTimeout(200);
       const bigOff = await page.evaluate(() => !document.getElementById('tpBig').classList.contains('on')); if (!bigOff) throw new Error('Esc did not close the big editor');
       await page.fill('.tp-in', ''); await page.evaluate(() => document.querySelector('.tp-in').dispatchEvent(new Event('input', { bubbles: true }))); await page.evaluate(() => document.querySelector('.tp-in').blur()); await page.click('.tp-chip[data-f="all"]'); // hand the keys back, feed back to All
@@ -180,9 +183,9 @@ else {
       return n + ' notes';
     });
     await step('smoke: approval flow reaches the panel', async () => {
-      await page.evaluate(() => window.CC.requestApproval('ada'));
+      await page.evaluate(() => window.CC.requestApproval('piper'));
       await page.waitForFunction(() => document.querySelectorAll('.tp-row.waiting').length > 0, null, { timeout: 4000 }).catch(() => {}); // the panel renders on the next frame; headless WebGL frames can be slow
-      const w = await page.evaluate(() => document.querySelectorAll('.tp-row.waiting').length); if (!w) throw new Error('no waiting row (ada: ' + (await page.evaluate(() => window.CC.R.ada.state)) + ')');
+      const w = await page.evaluate(() => document.querySelectorAll('.tp-row.waiting').length); if (!w) throw new Error('no waiting row (piper: ' + (await page.evaluate(() => window.CC.R.piper.state)) + ')');
     });
     await step('smoke: no errors after the run', async () => { if (errors.length) throw new Error(errors[0]); });
   } catch (e) { bad('smoke: browser', e.message); }
@@ -282,7 +285,7 @@ await step('server: reachable and honest, if one is running', async () => {
   catch { if (process.env.CHECK_REQUIRE_SERVER === '1') throw new Error(`nothing answers on :${cfg.port}`); return `nothing on :${cfg.port} — skipped (CHECK_REQUIRE_SERVER=1 makes this a failure)`; }
   const h = await r.json();
   for (const k of ['ok', 'version', 'agents', 'pipeline', 'roles', 'router']) if (!(k in h)) throw new Error('health lacks ' + k);
-  if (!Array.isArray(h.agents) || h.agents.length !== 35) throw new Error('health.agents should list 35 seats');
+  if (!Array.isArray(h.agents) || h.agents.length !== SEATS) throw new Error('health.agents should list ' + SEATS + ' seats');
   return `v${h.version} · worker ${h.worker}`;
 });
 

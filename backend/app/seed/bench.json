@@ -1,0 +1,1151 @@
+{
+ "_about": "Bench roles, not seats. Source: Citadel-Cloud-Management/citadel-saas-factory .claude/agents/_registry.yaml (MIT, see NOTICE). A department lead may spawn one as a bounded sub-agent (app/pipeline/spawn.py).",
+ "bench": {
+  "exec": [
+   {
+    "citadel_id": "exec-coo-operations",
+    "name": "COO Operations",
+    "description": "Process optimization, cross-department coordination, resource allocation"
+   },
+   {
+    "citadel_id": "exec-cto-technology",
+    "name": "CTO Technology",
+    "description": "Tech stack decisions, architecture reviews, build vs buy, tech debt"
+   },
+   {
+    "citadel_id": "exec-cmo-marketing",
+    "name": "CMO Marketing",
+    "description": "Marketing strategy, brand positioning, channel mix, growth planning"
+   },
+   {
+    "citadel_id": "exec-cpo-product",
+    "name": "CPO Product",
+    "description": "Product vision, roadmap, feature prioritization (RICE/ICE), market fit"
+   },
+   {
+    "citadel_id": "exec-okr-tracker",
+    "name": "OKR Tracker",
+    "description": "Company/team OKR tracking, progress reports, at-risk identification"
+   },
+   {
+    "citadel_id": "exec-board-reporter",
+    "name": "Board Reporter",
+    "description": "Board reports, investor updates, KPI dashboards, milestone tracking"
+   },
+   {
+    "citadel_id": "exec-decision-logger",
+    "name": "Decision Logger",
+    "description": "Strategic decision recording with context, rationale, and outcomes"
+   },
+   {
+    "citadel_id": "legal-tos",
+    "name": "ToS Writer",
+    "description": "Terms, privacy policy, acceptable use, cookies"
+   },
+   {
+    "citadel_id": "legal-dpa",
+    "name": "DPA Drafter",
+    "description": "Data processing agreements, sub-processors"
+   },
+   {
+    "citadel_id": "legal-ip",
+    "name": "IP Protector",
+    "description": "License compliance, OSS audit, trademarks"
+   },
+   {
+    "citadel_id": "legal-gdpr",
+    "name": "GDPR Agent",
+    "description": "Data subject requests, consent, retention"
+   },
+   {
+    "citadel_id": "legal-soc2",
+    "name": "SOC2 Preparer",
+    "description": "Control docs, evidence, gap analysis"
+   },
+   {
+    "citadel_id": "legal-sla",
+    "name": "SLA Drafter",
+    "description": "SLA docs, uptime commitments, penalties"
+   },
+   {
+    "citadel_id": "legal-incident",
+    "name": "Incident Notifier",
+    "description": "Breach notifications, regulatory timelines"
+   }
+  ],
+  "revenue": [
+   {
+    "citadel_id": "mktg-seo-strategist",
+    "name": "SEO Strategist",
+    "description": "Keyword research, on-page optimization, technical SEO, content gaps"
+   },
+   {
+    "citadel_id": "mktg-content-writer",
+    "name": "Content Writer",
+    "description": "Blog posts, landing pages, emails, case studies, whitepapers"
+   },
+   {
+    "citadel_id": "mktg-social-media",
+    "name": "Social Media",
+    "description": "Post scheduling, captions, hashtags, engagement analysis"
+   },
+   {
+    "citadel_id": "mktg-email-marketer",
+    "name": "Email Marketer",
+    "description": "Campaigns, subject lines, segmentation, A/B testing, flows"
+   },
+   {
+    "citadel_id": "mktg-ppc-manager",
+    "name": "PPC Manager",
+    "description": "Ad copy, bid strategy, audience targeting, ROAS optimization"
+   },
+   {
+    "citadel_id": "mktg-analytics",
+    "name": "Marketing Analytics",
+    "description": "UTM tracking, attribution, funnel analysis, conversion optimization"
+   },
+   {
+    "citadel_id": "mktg-landing-page",
+    "name": "Landing Page",
+    "description": "High-conversion page design and copy, CTA optimization"
+   },
+   {
+    "citadel_id": "mktg-brand-voice",
+    "name": "Brand Voice",
+    "description": "Brand consistency, tone guidelines, style guide enforcement"
+   },
+   {
+    "citadel_id": "mktg-pr-outreach",
+    "name": "PR Outreach",
+    "description": "Press releases, journalist pitching, media lists, coverage tracking"
+   },
+   {
+    "citadel_id": "mktg-influencer",
+    "name": "Influencer Agent",
+    "description": "Influencer ID, outreach scripts, partnership terms, ROI tracking"
+   },
+   {
+    "citadel_id": "mktg-video-scripting",
+    "name": "Video Scriptwriter",
+    "description": "YouTube scripts, social hooks, demo scripts, webinar outlines"
+   },
+   {
+    "citadel_id": "mktg-podcast",
+    "name": "Podcast Producer",
+    "description": "Episode outlines, show notes, guest research, transcripts"
+   },
+   {
+    "citadel_id": "mktg-community",
+    "name": "Community Manager",
+    "description": "Community engagement, UGC curation, feedback collection"
+   },
+   {
+    "citadel_id": "mktg-growth-hacker",
+    "name": "Growth Hacker",
+    "description": "Viral loops, referral programs, PLG mechanics, activation experiments"
+   },
+   {
+    "citadel_id": "mktg-ab-tester",
+    "name": "A/B Test Designer",
+    "description": "Hypothesis generation, stat significance, result analysis"
+   },
+   {
+    "citadel_id": "mktg-competitor",
+    "name": "Competitor Monitor",
+    "description": "Competitor marketing moves, pricing changes, feature launches"
+   },
+   {
+    "citadel_id": "mktg-newsletter",
+    "name": "Newsletter Agent",
+    "description": "Content curation, subject lines, send time optimization"
+   },
+   {
+    "citadel_id": "mktg-webinar",
+    "name": "Webinar Planner",
+    "description": "Planning, registration copy, follow-up sequences, engagement"
+   },
+   {
+    "citadel_id": "mktg-affiliate",
+    "name": "Affiliate Manager",
+    "description": "Program setup, commissions, partner recruitment, payouts"
+   },
+   {
+    "citadel_id": "mktg-product-launch",
+    "name": "Product Launch",
+    "description": "Launch playbook, announcement copy, drip campaigns, press"
+   },
+   {
+    "citadel_id": "mktg-persona",
+    "name": "Persona Builder",
+    "description": "ICP definition, buyer personas, jobs-to-be-done analysis"
+   },
+   {
+    "citadel_id": "mktg-retention",
+    "name": "Retention Agent",
+    "description": "Churn signals, re-engagement campaigns, NPS follow-up"
+   },
+   {
+    "citadel_id": "sales-outbound-writer",
+    "name": "Outbound Writer",
+    "description": "Cold emails, LinkedIn messages, follow-ups, objection handling"
+   },
+   {
+    "citadel_id": "sales-crm-updater",
+    "name": "CRM Updater",
+    "description": "Deal stage updates, activity logging, pipeline hygiene"
+   },
+   {
+    "citadel_id": "sales-demo-prepper",
+    "name": "Demo Prepper",
+    "description": "Pre-demo research, custom scripts, competitive positioning"
+   },
+   {
+    "citadel_id": "sales-contract-drafter",
+    "name": "Contract Drafter",
+    "description": "MSA and order forms, redline tracking, approval routing"
+   },
+   {
+    "citadel_id": "sales-forecast",
+    "name": "Forecast Analyst",
+    "description": "Pipeline forecasting, deal velocity, revenue prediction"
+   },
+   {
+    "citadel_id": "sales-win-loss",
+    "name": "Win/Loss Analyst",
+    "description": "Post-deal analysis, pattern identification, CI extraction"
+   },
+   {
+    "citadel_id": "sales-territory",
+    "name": "Territory Planner",
+    "description": "Territory mapping, account distribution, quota allocation"
+   },
+   {
+    "citadel_id": "sales-upsell",
+    "name": "Upsell Detector",
+    "description": "Expansion opportunities, usage triggers, health signals"
+   },
+   {
+    "citadel_id": "sales-scheduler",
+    "name": "Meeting Scheduler",
+    "description": "Calendar coordination, timezone handling, no-show follow-up"
+   },
+   {
+    "citadel_id": "sales-objection",
+    "name": "Objection Handler",
+    "description": "Objection responses, battle cards, value proposition framing"
+   },
+   {
+    "citadel_id": "sales-referral",
+    "name": "Referral Agent",
+    "description": "Referral program, ask timing, reward fulfillment, tracking"
+   },
+   {
+    "citadel_id": "sales-partner",
+    "name": "Partner Manager",
+    "description": "Deal registration, co-selling, partner enablement content"
+   },
+   {
+    "citadel_id": "sales-call-analyzer",
+    "name": "Call Analyzer",
+    "description": "Transcript analysis, talk ratio, next-step extraction"
+   },
+   {
+    "citadel_id": "sales-pipeline-cleaner",
+    "name": "Pipeline Cleaner",
+    "description": "Stale deal ID, missing data alerts, stage-appropriate actions"
+   },
+   {
+    "citadel_id": "sales-commission",
+    "name": "Commission Calculator",
+    "description": "Commission calculation, plan modeling, quota attainment"
+   }
+  ],
+  "engineering": [
+   {
+    "citadel_id": "eng-api-designer",
+    "name": "API Designer",
+    "description": "REST/GraphQL design, OpenAPI spec, versioning"
+   },
+   {
+    "citadel_id": "eng-model-builder",
+    "name": "Model Builder",
+    "description": "ORM models, relationships, constraints, indexes"
+   },
+   {
+    "citadel_id": "eng-schema-builder",
+    "name": "Schema Builder",
+    "description": "Pydantic schemas, validation, serialization"
+   },
+   {
+    "citadel_id": "eng-repo-builder",
+    "name": "Repository Builder",
+    "description": "Data access, query builders, pagination, filtering"
+   },
+   {
+    "citadel_id": "eng-migration-gen",
+    "name": "Migration Generator",
+    "description": "Schema migrations, safe rollback, zero-downtime"
+   },
+   {
+    "citadel_id": "eng-middleware",
+    "name": "Middleware Builder",
+    "description": "Auth, rate limit, CORS, logging, metrics, headers"
+   },
+   {
+    "citadel_id": "eng-event-handler",
+    "name": "Event Handler",
+    "description": "Event-driven, message bus, async, saga patterns"
+   },
+   {
+    "citadel_id": "eng-worker-builder",
+    "name": "Worker Builder",
+    "description": "Background jobs, retry logic, DLQ, scheduling"
+   },
+   {
+    "citadel_id": "eng-auth-builder",
+    "name": "Auth Builder",
+    "description": "JWT, OAuth2, RBAC, permission guards"
+   },
+   {
+    "citadel_id": "eng-cache-builder",
+    "name": "Cache Builder",
+    "description": "Cache strategies, invalidation, TTL management"
+   },
+   {
+    "citadel_id": "eng-search-builder",
+    "name": "Search Builder",
+    "description": "Full-text, vector (pgvector), hybrid ranking"
+   },
+   {
+    "citadel_id": "eng-webhook",
+    "name": "Webhook Builder",
+    "description": "Dispatch, retry, signature verification, logging"
+   },
+   {
+    "citadel_id": "eng-email",
+    "name": "Email Builder",
+    "description": "Transactional email, templates, queue, tracking"
+   },
+   {
+    "citadel_id": "eng-file-handler",
+    "name": "File Handler",
+    "description": "Upload validation, scanning, storage, signed URLs"
+   },
+   {
+    "citadel_id": "eng-pagination",
+    "name": "Pagination Agent",
+    "description": "Cursor/offset pagination, ordering, optimization"
+   },
+   {
+    "citadel_id": "eng-rate-limiter",
+    "name": "Rate Limiter",
+    "description": "Per-endpoint/user limits, sliding window, token bucket"
+   },
+   {
+    "citadel_id": "eng-health",
+    "name": "Health Builder",
+    "description": "Liveness, readiness, startup probes, dep checks"
+   },
+   {
+    "citadel_id": "eng-websocket",
+    "name": "WebSocket Builder",
+    "description": "Real-time, rooms, broadcast, heartbeat, reconnect"
+   },
+   {
+    "citadel_id": "eng-graphql",
+    "name": "GraphQL Builder",
+    "description": "Schema, resolvers, dataloaders, subscriptions"
+   },
+   {
+    "citadel_id": "eng-multi-tenant",
+    "name": "Multi-Tenant",
+    "description": "RLS, tenant middleware, data isolation"
+   },
+   {
+    "citadel_id": "eng-error-handler",
+    "name": "Error Handler",
+    "description": "Structured errors, exception hierarchy, codes"
+   },
+   {
+    "citadel_id": "eng-logging",
+    "name": "Logging Agent",
+    "description": "JSON logging, correlation IDs, PII redaction"
+   },
+   {
+    "citadel_id": "eng-config",
+    "name": "Config Manager",
+    "description": "Env config, feature flags, dynamic config"
+   }
+  ],
+  "frontend": [
+   {
+    "citadel_id": "design-ux-research",
+    "name": "UX Researcher",
+    "description": "Interview scripts, surveys, usability tests, persona refinement"
+   },
+   {
+    "citadel_id": "design-wireframe",
+    "name": "Wireframer",
+    "description": "Lo-fi wireframes, user flows, information architecture"
+   },
+   {
+    "citadel_id": "design-prototype",
+    "name": "Prototype Builder",
+    "description": "Interactive prototype specs, click-through flows"
+   },
+   {
+    "citadel_id": "design-system",
+    "name": "Design System",
+    "description": "Token management, component library, pattern docs"
+   },
+   {
+    "citadel_id": "design-a11y",
+    "name": "Accessibility",
+    "description": "WCAG 2.1 AA audit, contrast, screen reader, ARIA"
+   },
+   {
+    "citadel_id": "design-responsive",
+    "name": "Responsive Design",
+    "description": "Breakpoints, mobile-first, touch targets, viewport"
+   },
+   {
+    "citadel_id": "design-color",
+    "name": "Color Palette",
+    "description": "Color theory, palette generation, dark/light theming"
+   },
+   {
+    "citadel_id": "design-typography",
+    "name": "Typography",
+    "description": "Font pairing, type scale, readability, web font perf"
+   },
+   {
+    "citadel_id": "design-icon",
+    "name": "Icon System",
+    "description": "Icon library, SVG optimization, consistent metaphors"
+   },
+   {
+    "citadel_id": "design-animation",
+    "name": "Animation",
+    "description": "Micro-interactions, transitions, loading, skeletons"
+   },
+   {
+    "citadel_id": "design-illustration",
+    "name": "Illustration",
+    "description": "Brand illustration style, spot illustrations, empty states"
+   },
+   {
+    "citadel_id": "design-data-viz",
+    "name": "Data Visualization",
+    "description": "Chart selection, dashboard layout, data storytelling"
+   },
+   {
+    "citadel_id": "design-user-flow",
+    "name": "User Flow",
+    "description": "Task flow mapping, happy path, error states, edge cases"
+   },
+   {
+    "citadel_id": "design-heuristic",
+    "name": "Heuristic Eval",
+    "description": "Nielsen heuristics, usability scoring, recommendations"
+   },
+   {
+    "citadel_id": "design-onboarding",
+    "name": "Onboarding UX",
+    "description": "First-run experience, progressive disclosure, tooltips"
+   },
+   {
+    "citadel_id": "design-form",
+    "name": "Form UX",
+    "description": "Form optimization, validation, multi-step, autofill"
+   },
+   {
+    "citadel_id": "design-search",
+    "name": "Search UX",
+    "description": "Search interface, filters, autocomplete, results display"
+   },
+   {
+    "citadel_id": "design-notification",
+    "name": "Notification UX",
+    "description": "Notification design, frequency, channels, preferences"
+   },
+   {
+    "citadel_id": "design-mobile",
+    "name": "Mobile UX",
+    "description": "Native patterns, gestures, thumb-zone, offline states"
+   },
+   {
+    "citadel_id": "fe-layout",
+    "name": "Layout Builder",
+    "description": "Navigation, sidebar, responsive shell"
+   },
+   {
+    "citadel_id": "fe-form",
+    "name": "Form Builder",
+    "description": "RHF and Zod, multi-step, validation, errors"
+   },
+   {
+    "citadel_id": "fe-table",
+    "name": "Table Builder",
+    "description": "Data tables, sorting, filtering, pagination, export"
+   },
+   {
+    "citadel_id": "fe-chart",
+    "name": "Chart Builder",
+    "description": "Recharts/D3 visualizations, real-time updates"
+   },
+   {
+    "citadel_id": "fe-auth",
+    "name": "Auth Flow",
+    "description": "Login, signup, reset, MFA, session management"
+   },
+   {
+    "citadel_id": "fe-state",
+    "name": "State Manager",
+    "description": "Zustand stores, selectors, middleware"
+   },
+   {
+    "citadel_id": "fe-api-client",
+    "name": "API Client",
+    "description": "TanStack Query hooks, errors, loading, optimistic"
+   },
+   {
+    "citadel_id": "fe-a11y",
+    "name": "A11y Auditor",
+    "description": "axe-core, ARIA, keyboard nav, focus management"
+   },
+   {
+    "citadel_id": "fe-responsive",
+    "name": "Responsive",
+    "description": "Mobile-first, breakpoints, touch, viewports"
+   },
+   {
+    "citadel_id": "fe-i18n",
+    "name": "i18n Agent",
+    "description": "Translations, locale, RTL, date/number format"
+   },
+   {
+    "citadel_id": "fe-seo",
+    "name": "SEO Agent",
+    "description": "Meta tags, structured data, sitemap, Open Graph"
+   },
+   {
+    "citadel_id": "fe-performance",
+    "name": "Performance",
+    "description": "Bundle analysis, code splitting, lazy load, CWV"
+   },
+   {
+    "citadel_id": "fe-testing",
+    "name": "Frontend Testing",
+    "description": "Vitest, Playwright E2E, visual regression"
+   },
+   {
+    "citadel_id": "fe-animation",
+    "name": "Animation Builder",
+    "description": "CSS transitions, Framer Motion, scroll animations"
+   },
+   {
+    "citadel_id": "fe-error-boundary",
+    "name": "Error Boundary",
+    "description": "Error boundaries, fallbacks, reporting, recovery"
+   },
+   {
+    "citadel_id": "fe-pwa",
+    "name": "PWA Builder",
+    "description": "Service worker, offline, push notifications"
+   }
+  ],
+  "devops": [
+   {
+    "citadel_id": "devops-ci",
+    "name": "CI Orchestrator",
+    "description": "GitHub Actions pipeline, caching, stages"
+   },
+   {
+    "citadel_id": "devops-gitops",
+    "name": "GitOps Sync",
+    "description": "ArgoCD management, sync policy, drift"
+   },
+   {
+    "citadel_id": "devops-image-scan",
+    "name": "Image Scanner",
+    "description": "Trivy/Grype CVE scanning, base image updates"
+   },
+   {
+    "citadel_id": "devops-image-sign",
+    "name": "Image Signer",
+    "description": "Cosign signing, SBOM generation (Syft)"
+   },
+   {
+    "citadel_id": "devops-helm",
+    "name": "Helm Manager",
+    "description": "Chart creation, values, release lifecycle"
+   },
+   {
+    "citadel_id": "devops-terraform",
+    "name": "Terraform Ops",
+    "description": "Plan, apply, state, modules, drift detection"
+   },
+   {
+    "citadel_id": "devops-ansible",
+    "name": "Ansible Runner",
+    "description": "Playbooks, roles, inventory management"
+   },
+   {
+    "citadel_id": "devops-k8s",
+    "name": "K8s Manager",
+    "description": "Deployments, services, configmaps, secrets"
+   },
+   {
+    "citadel_id": "devops-scaler",
+    "name": "K8s Scaler",
+    "description": "HPA tuning, VPA, cluster autoscaler"
+   },
+   {
+    "citadel_id": "devops-debugger",
+    "name": "K8s Debugger",
+    "description": "Pod diagnostics, log analysis, crash analysis"
+   },
+   {
+    "citadel_id": "devops-canary",
+    "name": "Canary Manager",
+    "description": "Progressive rollout 10/30/60/100 percent"
+   },
+   {
+    "citadel_id": "devops-rollback",
+    "name": "Rollback Agent",
+    "description": "Emergency rollback, version pinning, state restore"
+   },
+   {
+    "citadel_id": "devops-release",
+    "name": "Release Manager",
+    "description": "Semantic versioning, changelog, tags"
+   },
+   {
+    "citadel_id": "devops-cert",
+    "name": "Cert Manager",
+    "description": "TLS lifecycle, auto-renewal, ACME"
+   },
+   {
+    "citadel_id": "devops-dns",
+    "name": "DNS Manager",
+    "description": "DNS records, health checks, failover"
+   },
+   {
+    "citadel_id": "devops-backup",
+    "name": "Backup Agent",
+    "description": "DB backup, object storage backup, retention"
+   },
+   {
+    "citadel_id": "devops-restore",
+    "name": "Restore Agent",
+    "description": "Backup validation, restore, DR testing"
+   },
+   {
+    "citadel_id": "devops-monitoring",
+    "name": "Monitoring Setup",
+    "description": "Prometheus, Grafana, Loki, Tempo deployment"
+   },
+   {
+    "citadel_id": "devops-alerts",
+    "name": "Alert Builder",
+    "description": "Alert rules, routing, escalation, silencing"
+   },
+   {
+    "citadel_id": "devops-logs",
+    "name": "Log Manager",
+    "description": "Promtail/Loki pipeline, retention, format"
+   },
+   {
+    "citadel_id": "devops-mesh",
+    "name": "Service Mesh",
+    "description": "Linkerd deployment, mTLS, traffic policies"
+   },
+   {
+    "citadel_id": "devops-ingress",
+    "name": "Ingress Manager",
+    "description": "Traefik/NGINX, routing, rate limits, headers"
+   },
+   {
+    "citadel_id": "devops-storage",
+    "name": "Storage Manager",
+    "description": "PV/PVC, MinIO, backup storage"
+   },
+   {
+    "citadel_id": "devops-queue",
+    "name": "Queue Manager",
+    "description": "RabbitMQ/NATS, depth monitoring, DLQ"
+   },
+   {
+    "citadel_id": "devops-cost",
+    "name": "Cost Analyzer",
+    "description": "Utilization analysis, rightsizing recommendations"
+   },
+   {
+    "citadel_id": "devops-capacity",
+    "name": "Capacity Planner",
+    "description": "Growth forecasting, resource planning"
+   },
+   {
+    "citadel_id": "qa-unit",
+    "name": "Unit Test Writer",
+    "description": "Unit tests, assertions, edge cases, mocks"
+   },
+   {
+    "citadel_id": "qa-integration",
+    "name": "Integration Writer",
+    "description": "DB/cache integration, fixtures"
+   },
+   {
+    "citadel_id": "qa-api",
+    "name": "API Tester",
+    "description": "REST/GraphQL testing, contract validation"
+   },
+   {
+    "citadel_id": "qa-load",
+    "name": "Load Tester",
+    "description": "k6/Locust load tests, breakpoints"
+   },
+   {
+    "citadel_id": "qa-performance",
+    "name": "Perf Tester",
+    "description": "Regression detection, benchmarks"
+   },
+   {
+    "citadel_id": "qa-security",
+    "name": "Security Tester",
+    "description": "Auth bypass, injection, fuzzing"
+   },
+   {
+    "citadel_id": "qa-a11y",
+    "name": "A11y Tester",
+    "description": "WCAG compliance, screen reader"
+   },
+   {
+    "citadel_id": "qa-visual",
+    "name": "Visual Regression",
+    "description": "Screenshot diff, CSS regression"
+   },
+   {
+    "citadel_id": "qa-coverage",
+    "name": "Coverage Analyzer",
+    "description": "Gaps, uncovered branches, dead code"
+   },
+   {
+    "citadel_id": "qa-mutation",
+    "name": "Mutation Tester",
+    "description": "Mutation testing, test quality"
+   },
+   {
+    "citadel_id": "qa-contract",
+    "name": "Contract Tester",
+    "description": "Consumer-driven contracts, Pact"
+   },
+   {
+    "citadel_id": "qa-chaos",
+    "name": "Chaos Tester",
+    "description": "Failure injection, resilience"
+   },
+   {
+    "citadel_id": "qa-fixture",
+    "name": "Fixture Builder",
+    "description": "Test data factories, fake data"
+   },
+   {
+    "citadel_id": "qa-mock",
+    "name": "Mock Builder",
+    "description": "Mock/stub generation, service virtualization"
+   },
+   {
+    "citadel_id": "qa-regression",
+    "name": "Regression Hunter",
+    "description": "Git bisect, regression ID, fix validation"
+   },
+   {
+    "citadel_id": "qa-flaky",
+    "name": "Flaky Detector",
+    "description": "Flaky test ID, root cause, stabilization"
+   },
+   {
+    "citadel_id": "qa-prioritizer",
+    "name": "Test Prioritizer",
+    "description": "Risk-based ordering, impact analysis"
+   },
+   {
+    "citadel_id": "qa-compat",
+    "name": "Compat Tester",
+    "description": "Browser/device compatibility"
+   },
+   {
+    "citadel_id": "qa-data",
+    "name": "Data Validator",
+    "description": "Data integrity, migration validation"
+   },
+   {
+    "citadel_id": "qa-reporter",
+    "name": "Test Reporter",
+    "description": "Results, trends, quality metrics"
+   }
+  ],
+  "secdata": [
+   {
+    "citadel_id": "sec-dast",
+    "name": "DAST Scanner",
+    "description": "OWASP ZAP dynamic testing, API fuzzing"
+   },
+   {
+    "citadel_id": "sec-container",
+    "name": "Container Scanner",
+    "description": "Image CVE scanning, base image audit"
+   },
+   {
+    "citadel_id": "sec-iac",
+    "name": "IaC Scanner",
+    "description": "Checkov Terraform/K8s scanning"
+   },
+   {
+    "citadel_id": "sec-runtime",
+    "name": "Runtime Monitor",
+    "description": "Falco anomaly detection, container escapes"
+   },
+   {
+    "citadel_id": "sec-policy",
+    "name": "Policy Enforcer",
+    "description": "Kyverno admission, OPA/Rego rules"
+   },
+   {
+    "citadel_id": "sec-incident",
+    "name": "Incident Responder",
+    "description": "IR automation, evidence, containment"
+   },
+   {
+    "citadel_id": "sec-vuln",
+    "name": "Vuln Prioritizer",
+    "description": "CVSS, exploitability, risk prioritization"
+   },
+   {
+    "citadel_id": "sec-patch",
+    "name": "Patch Manager",
+    "description": "Security patching, dep updates, rollout"
+   },
+   {
+    "citadel_id": "sec-access",
+    "name": "Access Reviewer",
+    "description": "IAM audit, permission review, least privilege"
+   },
+   {
+    "citadel_id": "sec-rbac",
+    "name": "RBAC Manager",
+    "description": "Role definitions, permissions, grants"
+   },
+   {
+    "citadel_id": "sec-encryption",
+    "name": "Encryption Agent",
+    "description": "At-rest/transit encryption, key rotation"
+   },
+   {
+    "citadel_id": "sec-audit",
+    "name": "Audit Logger",
+    "description": "Immutable audit log, compliance reporting"
+   },
+   {
+    "citadel_id": "sec-pentest",
+    "name": "Pentest Runner",
+    "description": "Automated pentesting, Nuclei, validation"
+   },
+   {
+    "citadel_id": "sec-threat",
+    "name": "Threat Hunter",
+    "description": "Proactive detection, IOC, SIGMA rules"
+   },
+   {
+    "citadel_id": "sec-network",
+    "name": "Network Segmenter",
+    "description": "NetworkPolicies, micro-segmentation, zero-trust"
+   },
+   {
+    "citadel_id": "sec-waf",
+    "name": "WAF Manager",
+    "description": "WAF rules, DDoS protection, bot detection"
+   },
+   {
+    "citadel_id": "sec-pii",
+    "name": "PII Detector",
+    "description": "PII in logs/data, classification, masking"
+   },
+   {
+    "citadel_id": "sec-supply-chain",
+    "name": "Supply Chain",
+    "description": "SBOM analysis, provenance, Cosign verification"
+   },
+   {
+    "citadel_id": "data-schema",
+    "name": "Schema Designer",
+    "description": "DB schema, normalization, relationships"
+   },
+   {
+    "citadel_id": "data-migration",
+    "name": "Migration Builder",
+    "description": "Safe DDL, zero-downtime, rollback"
+   },
+   {
+    "citadel_id": "data-index",
+    "name": "Index Optimizer",
+    "description": "Query plans, index recs, bloat detection"
+   },
+   {
+    "citadel_id": "data-query",
+    "name": "Query Optimizer",
+    "description": "Slow queries, N+1, rewriting"
+   },
+   {
+    "citadel_id": "data-rls",
+    "name": "RLS Manager",
+    "description": "Row-level security, tenant isolation"
+   },
+   {
+    "citadel_id": "data-backup",
+    "name": "Backup Validator",
+    "description": "Integrity checks, restore testing"
+   },
+   {
+    "citadel_id": "data-etl",
+    "name": "ETL Builder",
+    "description": "Data pipelines, transformations"
+   },
+   {
+    "citadel_id": "data-analytics",
+    "name": "Analytics Builder",
+    "description": "Business metrics, KPI calculation"
+   },
+   {
+    "citadel_id": "data-vector",
+    "name": "Vector Manager",
+    "description": "pgvector embeddings, similarity search"
+   },
+   {
+    "citadel_id": "data-warehouse",
+    "name": "Warehouse Builder",
+    "description": "Star schema, materialized views"
+   },
+   {
+    "citadel_id": "data-report",
+    "name": "Report Generator",
+    "description": "Automated reports, PDF, scheduling"
+   },
+   {
+    "citadel_id": "data-dashboard",
+    "name": "Dashboard Builder",
+    "description": "Grafana/Metabase dashboards, drill-down"
+   },
+   {
+    "citadel_id": "data-events",
+    "name": "Event Tracker",
+    "description": "Event schema, tracking, funnels"
+   },
+   {
+    "citadel_id": "data-cohort",
+    "name": "Cohort Analyzer",
+    "description": "Retention curves, behavioral segmentation"
+   },
+   {
+    "citadel_id": "data-ab",
+    "name": "A/B Analyzer",
+    "description": "Statistical significance, sample size"
+   },
+   {
+    "citadel_id": "data-forecast",
+    "name": "Forecast Model",
+    "description": "Time series, trends, seasonality"
+   },
+   {
+    "citadel_id": "data-anomaly",
+    "name": "Anomaly Detector",
+    "description": "Metric anomalies, baseline deviation"
+   },
+   {
+    "citadel_id": "data-privacy",
+    "name": "Privacy Agent",
+    "description": "Anonymization, retention, GDPR"
+   }
+  ],
+  "fin": [
+   {
+    "citadel_id": "fin-billing",
+    "name": "Billing Agent",
+    "description": "Stripe integration, subscription mgmt, invoices"
+   },
+   {
+    "citadel_id": "fin-payment",
+    "name": "Payment Processor",
+    "description": "Payment flow, retry, dunning, refunds"
+   },
+   {
+    "citadel_id": "fin-subscription",
+    "name": "Subscription Manager",
+    "description": "Plan changes, proration, trials, cancellation"
+   },
+   {
+    "citadel_id": "fin-invoice",
+    "name": "Invoice Generator",
+    "description": "PDF invoices, tax, multi-currency"
+   },
+   {
+    "citadel_id": "fin-revenue",
+    "name": "Revenue Recognizer",
+    "description": "ASC 606, deferred revenue, MRR/ARR"
+   },
+   {
+    "citadel_id": "fin-expense",
+    "name": "Expense Tracker",
+    "description": "Infra costs, vendor payments, budgets"
+   },
+   {
+    "citadel_id": "fin-tax",
+    "name": "Tax Calculator",
+    "description": "Sales tax, VAT, GST by jurisdiction"
+   },
+   {
+    "citadel_id": "fin-reports",
+    "name": "Financial Reporter",
+    "description": "P&L, cash flow, SaaS metrics (LTV, CAC)"
+   },
+   {
+    "citadel_id": "fin-budget",
+    "name": "Budget Planner",
+    "description": "Budgets, variance, forecast vs actual"
+   },
+   {
+    "citadel_id": "fin-ar",
+    "name": "AR Agent",
+    "description": "Outstanding invoices, collections, aging"
+   },
+   {
+    "citadel_id": "fin-fraud",
+    "name": "Fraud Detector",
+    "description": "Payment fraud, velocity checks, risk"
+   },
+   {
+    "citadel_id": "fin-audit",
+    "name": "Audit Preparer",
+    "description": "Financial audit prep, documentation"
+   },
+   {
+    "citadel_id": "fin-runway",
+    "name": "Runway Calculator",
+    "description": "Burn rate, runway projection, scenarios"
+   }
+  ],
+  "content": [
+   {
+    "citadel_id": "cs-onboarding",
+    "name": "Onboarding Agent",
+    "description": "Welcome sequences, setup guides, milestone tracking, TTV"
+   },
+   {
+    "citadel_id": "cs-ticket-router",
+    "name": "Ticket Router",
+    "description": "Auto-categorize, prioritize, route support tickets"
+   },
+   {
+    "citadel_id": "cs-response-drafter",
+    "name": "Response Drafter",
+    "description": "Draft support responses from knowledge base, tone consistency"
+   },
+   {
+    "citadel_id": "cs-escalation",
+    "name": "Escalation Agent",
+    "description": "Escalation signals, senior routing, escalation summaries"
+   },
+   {
+    "citadel_id": "cs-churn-predictor",
+    "name": "Churn Predictor",
+    "description": "Usage analysis, engagement scoring, risk flagging, save offers"
+   },
+   {
+    "citadel_id": "cs-health-scorer",
+    "name": "Health Scorer",
+    "description": "Account health scoring (usage, tickets, NPS, adoption)"
+   },
+   {
+    "citadel_id": "cs-nps",
+    "name": "NPS Collector",
+    "description": "Survey distribution, response collection, follow-up automation"
+   },
+   {
+    "citadel_id": "cs-knowledge",
+    "name": "Knowledge Builder",
+    "description": "FAQ generation, help articles, KB maintenance, search"
+   },
+   {
+    "citadel_id": "cs-chatbot",
+    "name": "Chatbot Trainer",
+    "description": "Support chatbot training, intent refinement, accuracy"
+   },
+   {
+    "citadel_id": "cs-feedback",
+    "name": "Feedback Analyzer",
+    "description": "Categorize feedback, trends, route feature requests"
+   },
+   {
+    "citadel_id": "cs-renewal",
+    "name": "Renewal Manager",
+    "description": "Renewal tracking, pricing prep, contract generation"
+   },
+   {
+    "citadel_id": "cs-qbr",
+    "name": "QBR Generator",
+    "description": "QBR deck generation with usage data and ROI metrics"
+   },
+   {
+    "citadel_id": "cs-adoption",
+    "name": "Adoption Tracker",
+    "description": "Feature adoption, usage depth, enablement gaps"
+   },
+   {
+    "citadel_id": "cs-sla",
+    "name": "SLA Monitor",
+    "description": "SLA compliance, breach alerts, response time monitoring"
+   },
+   {
+    "citadel_id": "cs-voc",
+    "name": "Voice of Customer",
+    "description": "Aggregate feedback across channels into actionable insights"
+   },
+   {
+    "citadel_id": "content-tech-writer",
+    "name": "Tech Writer",
+    "description": "API docs, guides, tutorials, SDK docs"
+   },
+   {
+    "citadel_id": "content-blog",
+    "name": "Blog Writer",
+    "description": "SEO blogs, thought leadership, industry"
+   },
+   {
+    "citadel_id": "content-changelog",
+    "name": "Changelog Writer",
+    "description": "User-facing changelogs, release notes"
+   },
+   {
+    "citadel_id": "content-presentation",
+    "name": "Presentations",
+    "description": "Slide decks, pitch decks, training"
+   },
+   {
+    "citadel_id": "content-internal",
+    "name": "Internal Comms",
+    "description": "All-hands updates, newsletters, decisions"
+   },
+   {
+    "citadel_id": "content-case-study",
+    "name": "Case Study Writer",
+    "description": "Customer success stories, ROI metrics"
+   },
+   {
+    "citadel_id": "content-readme",
+    "name": "README Generator",
+    "description": "Repo READMEs, quickstart, badges"
+   }
+  ]
+ }
+}

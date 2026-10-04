@@ -1,14 +1,14 @@
 from app.roster import DEPTS, boundaries_text, defaults, validate
 
 
-def test_eight_departments_35_seats():
+def test_eight_departments_27_seats():
     assert len(DEPTS) == 8
-    assert len(defaults()) == 35
+    assert len(defaults()) == 27
 
 
 def test_rejects_new_agent():
     r = validate({"agents": [{"id": "not-a-real-seat", "name": "X"}]})
-    assert any("not one of the 35 seats" in p for p in r["problems"])
+    assert any("not one of the seats" in p for p in r["problems"])
 
 
 def test_department_and_lead_are_immutable():
@@ -84,9 +84,9 @@ def test_boundaries_escalation_entry_needs_condition_and_target():
 def test_rejects_new_agent_consistently_with_boundaries_field():
     """Same unknown-seat rejection applies whether the entry sets boundaries
     or any other editable field — boundaries isn't a backdoor around the
-    35-seat limit."""
+    seat limit."""
     r = validate({"agents": [{"id": "not-a-real-seat", "boundaries": {"cannot": ["x"]}}]})
-    assert any("not one of the 35 seats" in p for p in r["problems"])
+    assert any("not one of the seats" in p for p in r["problems"])
 
 
 def test_boundaries_text_renders_can_cannot_escalate():

@@ -116,6 +116,23 @@ async def decide_gate(job_id: str, stage: str, req: Request):
     return {"ok": True}
 
 
+@router.post("/{job_id}/spawn")
+async def spawn_subagent(job_id: str, req: Request):
+    """A lead calls a bench role of its own department for a draft or a finding (information only)."""
+    from . import spawn as sp
+    body = await body_of(req)
+    job = await db.get_job(job_id)
+    if not job:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    if job["status"] in jobs.TERMINAL:
+        return JSONResponse({"error": "the job is finished"}, status_code=409)
+    try:
+        return await sp.spawn(str(body.get("lead") or ""), str(body.get("bench") or ""), str(body.get("task") or ""),
+                              job_id=job_id, stage=str(body.get("stage") or job.get("stage") or ""))
+    except sp.SpawnRefused as e:
+        return JSONResponse({"error": str(e)}, status_code=403)
+
+
 @router.post("/{job_id}/retry")
 async def retry_parked(job_id: str, req: Request):
     body = await body_of(req)
