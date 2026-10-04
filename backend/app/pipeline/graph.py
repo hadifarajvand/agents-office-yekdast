@@ -105,9 +105,10 @@ def router_down(exc: BaseException) -> bool:
 
 
 async def _park(jid: str, stage: str, reason: str) -> dict:
-    await jobs.touch(jid, status="parked", parkReason=reason)
+    job = await jobs.touch(jid, status="parked", parkReason=reason)
     await jobs.set_stage(jid, stage, "failed", reason=reason[:300])
     await jobs.event(jid, f"parked at {stage}: {reason}")
+    await jobs.notify_once(jid, f"park:{stage}:{len(job.get('events') or [])}", f'⚠ "{job["title"]}" is parked at {stage}: {reason[:160]}')
     return {"route": "park", "park_stage": stage, "park_reason": reason}
 
 
@@ -167,9 +168,12 @@ def _gate_node(stage: str):
         passed = {a["role"] for a in approvals if a["verdict"] == "PASS"}
         missing = [r for r in required if r not in passed]
         if missing:
-            await jobs.touch(jid, status="waiting",
-                             pending=[{"stage": stage, "roles": missing, "needsOwner": exp.OWNER in missing}])
+            job = await jobs.touch(jid, status="waiting",
+                                   pending=[{"stage": stage, "roles": missing, "needsOwner": exp.OWNER in missing}])
             await jobs.set_stage(jid, stage, "waiting")
+            if exp.OWNER in missing:
+                await jobs.notify_once(jid, f"gate:{stage}:{(state.get('loops') or {}).get(stage, 0)}",
+                                       f'⏸ "{job["title"]}" needs your decision at {stage}.')
             return {"route": "wait", "missing": missing}
         await jobs.touch(jid, status="running", pending=[])
         await jobs.set_stage(jid, stage, "approved")
@@ -236,8 +240,10 @@ async def _park_node(state: JobState) -> dict:
 async def _finish(state: JobState) -> dict:
     if state.get("route") == "kill" or await jobs.is_killed(state["job_id"]):
         return {}
-    await jobs.touch(state["job_id"], status="done", pending=[])
+    job = await jobs.touch(state["job_id"], status="done", pending=[])
     await jobs.event(state["job_id"], "handed off")
+    what = "the market memo is ready" if job.get("lane") == "validate" else "it is done; Promote is yours if you want it live"
+    await jobs.notify_once(state["job_id"], "done", f'✓ "{job["title"]}": {what}.')
     return {}
 
 

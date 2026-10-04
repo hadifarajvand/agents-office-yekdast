@@ -76,6 +76,25 @@ async def set_stage(job_id: str, stage: str, state: str, **extra) -> dict:
     return job
 
 
+async def notify_once(job_id: str, key: str, text: str) -> bool:
+    """Tell the owner once per key (graph nodes re-run on resume, so this must be idempotent).
+    Never raises: a dead notification channel must not stop a job."""
+    from .ports import get_deps
+    job = await db.get_job(job_id)
+    if job is None or key in (job.get("notified") or []):
+        return False
+    job["notified"] = (job.get("notified") or [])[-40:] + [key]
+    await db.save_job(job)
+    try:
+        n = getattr(get_deps(), "notifier", None)
+        if not n or not getattr(n, "enabled", False):
+            return False
+        url = load_config().notify.get("office_url", "")
+        return await n.send(f"{text}\n{url}" if url else text)
+    except Exception:
+        return False
+
+
 async def add_cost(job_id: str, tokens: int, usd: float) -> dict:
     job = await db.get_job(job_id)
     job["costs"] = {"tokens": job["costs"]["tokens"] + tokens, "usd": round(job["costs"]["usd"] + usd, 6)}

@@ -137,6 +137,9 @@ DEFAULTS: dict = {
     # Owner-only promotion (PLAN.md section 14, C5): one private repo per product under this owner,
     # one app in this Dokploy project. Env holds the NAMES of the variables with the values.
     "production": {"project": "production", "github_owner_env": "PRODUCT_GITHUB_OWNER", "token_env": "PRODUCT_REPO_TOKEN"},
+    # Owner notifications (Telegram). "office_url" is put in messages so a tap opens the Jobs screen.
+    "notify": {"telegram_token_env": "TELEGRAM_BOT_TOKEN", "telegram_chat_env": "TELEGRAM_CHAT_ID",
+               "office_url": "http://127.0.0.1:4520"},
     "github": {"token_env": "GITHUB_TOKEN", "url": "https://api.githubcopilot.com/mcp/readonly", "readonly": True},
     "api": {"token_env": "AO_API_TOKEN", "allowed_hosts": ["localhost", "127.0.0.1", "testserver"]},
 }
@@ -184,6 +187,7 @@ class Config:
     api: dict = field(default_factory=dict)
     web: dict = field(default_factory=dict)
     production: dict = field(default_factory=dict)
+    notify: dict = field(default_factory=dict)
     rubric: dict = field(default_factory=dict)
     problems: list = field(default_factory=list)
 
@@ -260,7 +264,7 @@ def _load() -> Config:
         router=merged["router"], roles=merged["roles"], budget=merged["budget"],
         pipeline=merged["pipeline"], exposure=merged["exposure"], worker=merged["worker"],
         sandbox=merged["sandbox"], dokploy=merged["dokploy"], github=merged["github"],
-        api=merged["api"], web=merged["web"], rubric=merged["rubric"], production=merged["production"], problems=problems,
+        api=merged["api"], web=merged["web"], rubric=merged["rubric"], production=merged["production"], notify=merged["notify"], problems=problems,
     )
 
 

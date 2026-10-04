@@ -714,3 +714,5 @@ async def chat(req: Request):
 from .pipeline.api import router as pipeline_router  # noqa: E402
 
 app.include_router(pipeline_router)
+from .pipeline.api import inbox_router  # noqa: E402
+app.include_router(inbox_router)

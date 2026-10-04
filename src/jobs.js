@@ -68,6 +68,8 @@ body.dark #jobsOv { --jb-line: rgba(236,234,227,.12); --jb-card: #1E1F24; --jb-s
 #jobsOv .jb-verdict { margin: 16px 0; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--jb-line); background: var(--jb-card); }
 #jobsOv .jb-verdict .big { font-family: var(--serif); font-size: 30px; } #jobsOv .jb-verdict .GO { color: #1E9070; } #jobsOv .jb-verdict .NO-GO { color: #B5482F; } #jobsOv .jb-verdict .TEST { color: #B7791F; }
 #jobsOv .jb-verdict ul { margin: 6px 0 0 18px; font-size: 12px; line-height: 1.6; } #jobsOv .jb-verdict a { color: inherit; }
+#jobsOv .jb-inbox { border: 1px solid #F2B33D; background: #FFF8E6; color: #151414; border-radius: 12px; padding: 8px 10px 4px; margin-bottom: 10px; }
+#jobsOv .jb-need { font-size: 12px; padding: 6px 0; border-top: 1px solid rgba(21,20,20,.08); cursor: pointer; } #jobsOv .jb-need b { display: block; font-weight: 600; } #jobsOv .jb-need span { color: #6b6257; }
 #jobsOv .jb-empty { color: var(--grey); font-size: 13px; line-height: 1.6; padding: 30px 6px; }
 @media (max-width: 900px) { #jobsOv .jb-body { grid-template-columns: 1fr; } #jobsOv .jb-stepper { grid-template-columns: repeat(4, 1fr); } }
 `;
@@ -75,7 +77,7 @@ body.dark #jobsOv { --jb-line: rgba(236,234,227,.12); --jb-card: #1E1F24; --jb-s
 export function initJobs(ctx) {
   const { DEPTS, R, esc, chatPush, feedPush, setStuck, clearStuck, isLive } = ctx;
   const API = '/api/jobs';
-  let jobs = [], sel = null, open = false, timer = null, pipe = null, showForm = false, detail = null, promo = null;
+  let jobs = [], inbox = [], sel = null, open = false, timer = null, pipe = null, showForm = false, detail = null, promo = null;
   const announced = new Set();   // "job|stage|attempt" gates already announced to a lead
   const wanted = new Map();      // stuck-sid -> agent id, for clearing when resolved elsewhere
 
@@ -105,6 +107,7 @@ export function initJobs(ctx) {
   async function poll() {
     if (!isLive()) return;
     try { jobs = await call(''); } catch { return; }
+    try { const r = await fetch('/api/inbox'); inbox = r.ok ? await r.json() : []; } catch { inbox = []; }
     if (sel && open) {
       try { detail = await call('/' + sel); } catch { detail = null; }
       promo = null;
@@ -130,8 +133,7 @@ export function initJobs(ctx) {
       setStuck(st.lead, ask, sid);
     }
     for (const [sid, agent] of [...wanted]) if (!live.has(sid)) { wanted.delete(sid); clearStuck(agent, sid); }
-    const waiting = jobs.filter(j => j.status === 'waiting' && j.pending[0] && j.pending[0].needsOwner).length;
-    btn.querySelector('.n').textContent = waiting ? String(waiting) : '';
+    btn.querySelector('.n').textContent = inbox.length ? String(inbox.length) : '';
   }
 
   /* ---------- decisions ---------- */
@@ -184,8 +186,11 @@ export function initJobs(ctx) {
     if (d.kind === 'own') { delete d.deposit_ref; d.requestedTier = 0; }
     try { const j = await call('', 'POST', d); sel = j.id; $form.reset(); $new.onclick(); $form.querySelector('#jbErr').textContent = ''; await poll(); } catch (err) { $form.querySelector('#jbErr').textContent = err.message; }
   };
+  const INBOX_MARK = { gate: '⏸', parked: '⚠', production: '▲', promote: '↑', memo: '✎' };
   function renderList() {
-    $list.innerHTML = jobs.length ? [...jobs].reverse().map(j => `<div class="jb-card${j.id === sel ? ' sel' : ''}" data-id="${j.id}"><h4>${esc(j.title)}</h4><span class="jb-badge ${j.status}">${STATUS_LABEL[j.status] || j.status}</span> <span class="jb-badge">${esc(j.stage.toUpperCase())}</span>${stepBar(j)}</div>`).join('') : '<div class="jb-empty">No jobs yet. Press <b>NEW JOB</b>: an idea of yours gets market research first; a client job needs the deposit or contract reference before anything is built.</div>';
+    const needs = inbox.length ? `<div class="jb-inbox"><h5 style="margin:4px 0 6px">NEEDS YOU · ${inbox.length}</h5>${inbox.map(i => `<div class="jb-need" data-id="${esc(i.jobId)}"><b>${INBOX_MARK[i.kind] || '•'} ${esc(i.title)}</b><span>${esc(i.text)}</span></div>`).join('')}</div>` : '';
+    $list.innerHTML = needs + (jobs.length ? [...jobs].reverse().map(j => `<div class="jb-card${j.id === sel ? ' sel' : ''}" data-id="${j.id}"><h4>${esc(j.title)}</h4><span class="jb-badge ${j.status}">${STATUS_LABEL[j.status] || j.status}</span> <span class="jb-badge">${esc(j.stage.toUpperCase())}</span>${stepBar(j)}</div>`).join('') : '<div class="jb-empty">No jobs yet. Press <b>NEW JOB</b>: an idea of yours gets market research first; a client job needs the deposit or contract reference before anything is built.</div>');
+    $list.querySelectorAll('.jb-need').forEach(c => c.onclick = () => { sel = c.dataset.id; lastSig = ''; poll(); });
     $list.querySelectorAll('.jb-card').forEach(c => c.onclick = () => { sel = c.dataset.id; lastSig = ''; poll(); });
   }
   function renderMain() {
@@ -238,7 +243,7 @@ export function initJobs(ctx) {
   let lastSig = '';
   function render() {
     if (!open) return;
-    const sig = JSON.stringify([jobs, detail, sel, promo]);
+    const sig = JSON.stringify([jobs, detail, sel, promo, inbox]);
     if (sig === lastSig) return;
     lastSig = sig;
     const keepNote = ($main.querySelector('#jbNote') || {}).value;

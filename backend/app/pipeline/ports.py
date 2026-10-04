@@ -52,6 +52,7 @@ class Deps:
     checks: Checks | None = None
     web: object | None = None      # connectors.web.WebTool (research stage only)
     promoter: object | None = None # connectors.promote.Promoter (owner endpoint only, never the graph)
+    notifier: object | None = None # connectors.notify: tells the owner a gate / park / finish needs them
     jobs_dir: Path = field(default_factory=lambda: Path("data/jobs"))
 
 

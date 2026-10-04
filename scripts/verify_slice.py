@@ -184,6 +184,11 @@ def main() -> int:
         if r.status_code == 200:
             c.post(f'/api/jobs/{r.json()["id"]}/kill')
 
+    # 4c. the owner's inbox
+    ib = c.get("/api/inbox")
+    kinds = [i.get("kind") for i in (ib.json() if ib.status_code == 200 else [])]
+    check("inbox: one list of what waits for the owner answers", ib.status_code == 200 and all(k in ("gate", "parked", "production", "promote", "memo") for k in kinds), str(kinds))
+
     # 5. sub-agents and consults
     j2 = c.post("/api/jobs", json={**BRIEF, "title": "Bakery spawn test", "requestedTier": 0}).json()["id"]
     wait_for(j2, lambda j: j["status"] in ("waiting", "running"))

@@ -98,6 +98,11 @@ async def create_job(req: Request):
     brief["title"] = title
     job = jobs.new_job(kind, title, brief, requested_tier=tier, lane=lane)
     await db.save_job(job)
+    if kind == "own" and lane == "build":  # the memo was acted on: it leaves the owner's inbox
+        try:
+            await jobs.touch(str(body["fromJob"]), followedBy=job["id"])
+        except KeyError:
+            pass
     cfgd = {"job_id": job["id"], "kind": kind, "lane": lane, "brief": brief, "requested_tier": tier, "loops": {}, "feedback": "", "route": ""}
     _spawn(_drive(job["id"], cfgd))
     return jobs.public(job)
@@ -257,3 +262,37 @@ async def promote(job_id: str, req: Request):
         await jobs.event(job_id, f'production {prod["state"]}: {prod["url"]} (healthz {res.get("status")})')
         return {"ok": bool(res.get("ok")), "production": prod}
     return JSONResponse({"error": 'step must be "prepare" or "deploy"'}, status_code=400)
+
+
+# ---------- the owner's inbox: everything that waits for the CEO, newest first ----------
+
+inbox_router = APIRouter(prefix="/api/inbox")
+
+
+@inbox_router.get("")
+async def inbox():
+    """Gates waiting for the owner, parked jobs, finished builds ready to promote, production that
+    did not come up healthy. One list, so the owner never has to walk the office to find work."""
+    from ..connectors.promote import checklist
+    items = []
+    for j in await db.list_jobs():
+        if not (j.get("stages") and j.get("status")):
+            continue
+        base = {"jobId": j["id"], "title": j.get("title", ""), "lane": j.get("lane", "build")}
+        p = (j.get("pending") or [{}])[0]
+        if j["status"] == "waiting" and p.get("needsOwner"):
+            items.append({**base, "kind": "gate", "stage": p["stage"], "text": f'decide {p["stage"]}'})
+        elif j["status"] == "parked":
+            items.append({**base, "kind": "parked", "stage": j.get("stage"), "text": (j.get("parkReason") or "")[:200]})
+        elif j["status"] == "done" and j.get("lane", "build") == "build":
+            prod = j.get("production") or {}
+            if prod.get("state") == "unhealthy":
+                items.append({**base, "kind": "production", "text": "production did not answer /healthz"})
+            elif prod.get("state") == "prepared":
+                items.append({**base, "kind": "production", "text": "set the production variables, then deploy"})
+            elif not prod and all(i["ok"] for i in checklist(j, await db.list_evidence(j["id"]))):
+                items.append({**base, "kind": "promote", "text": "ready to promote to production"})
+        elif j["status"] == "done" and j.get("lane") == "validate" and not j.get("followedBy"):
+            items.append({**base, "kind": "memo", "text": "market memo ready: build a test or the MVP, or drop it"})
+    order = {"gate": 0, "parked": 1, "production": 2, "promote": 3, "memo": 4}
+    return sorted(items, key=lambda i: order[i["kind"]])
