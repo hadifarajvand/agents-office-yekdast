@@ -320,6 +320,19 @@ function dimTwin(m) {
   }
   return dimCache.get(m.uuid);
 }
+// Focus on a department: the other departments are not drawn at all (their meshes are hidden, so
+// they also stop casting shadows). The overview and ?cull=0 draw everything. Only what we hid is restored.
+const CULL = new URLSearchParams(location.search).get('cull') !== '0';
+const culled = [];
+function uncullScene() { for (const m of culled) m.visible = true; culled.length = 0; }
+function cullTo(deptKey) {
+  uncullScene();
+  if (!CULL || !deptKey || deptKey === 'brain') return;
+  scene.traverse(o => {
+    if (!o.isMesh || !o.userData.dept || o.userData.dept === deptKey || !o.visible) return;
+    o.visible = false; culled.push(o);
+  });
+}
 function applySceneDim(deptKey) {
   restoreSceneDim();
   scene.traverse(o => {
@@ -701,6 +714,7 @@ function focusTarget(k, atPos) {
 }
 function enterFocus(k, pendingAgentId) {
   if (k === 'brain') { // the Brain keeps its plain fly-in (AJ's call)
+    uncullScene();
     focused = 'brain';
     if (tasks) tasks.onFocusChange('brain');
     flyTo([LAYOUT.brain.pos[0], 0, LAYOUT.brain.pos[1] + 1.5], 3.1, 700);
@@ -708,7 +722,7 @@ function enterFocus(k, pendingAgentId) {
     return;
   }
   if (focused === k && !pendingAgentId) return;
-  if (focused && focused !== k) { rail.classList.remove('open', 'agentOpen'); modalOpen = null; }
+  if (focused && focused !== k) { uncullScene(); rail.classList.remove('open', 'agentOpen'); modalOpen = null; }
   focused = k;
   if (tasks) tasks.onFocusChange(k);
   focusDimTarget = 1;
@@ -717,7 +731,7 @@ function enterFocus(k, pendingAgentId) {
   const t = focusTarget(k);
   flyTo(t.pos, t.zoom, 950, {
     arc: RAIL_SIDE[k] === 'left' ? 0.10 : -0.10,
-    onDone: () => { if (pendingAgentId) openAgentRail(pendingAgentId, pendingTab, true); pendingTab = 'chat'; },
+    onDone: () => { if (focused === k) cullTo(k); if (pendingAgentId) openAgentRail(pendingAgentId, pendingTab, true); pendingTab = 'chat'; },
   });
   buildDeptRail(k);
   rail.className = RAIL_SIDE[k];
@@ -738,6 +752,7 @@ function exitFocus(flyOut = true) {
   if (!focused) return;
   const k = focused;
   focused = null;
+  uncullScene();
   modalOpen = null;
   if (tasks) tasks.onFocusChange(null);
   focusDimTarget = 0;
@@ -1475,7 +1490,7 @@ const NO_RENDER = new URLSearchParams(location.search).has('norender');
 let last = performance.now();
 const FRAME_MS = 1000 / 30; // the office does not need display rate: 30 fps halves GPU and CPU load
 function loop(now) {
-  if (document.hidden || now - last < FRAME_MS - 1) { requestAnimationFrame(loop); return; }
+  if (now - last < FRAME_MS - 1) { requestAnimationFrame(loop); return; }
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   tickTween(now);
   applyCamera();
