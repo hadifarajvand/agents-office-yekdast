@@ -14,5 +14,5 @@ export default defineConfig({
   },
   webServer: process.env.BASE_URL
     ? undefined
-    : { command: "PORT=3100 npm start", url: `${baseURL}/healthz`, reuseExistingServer: true, timeout: 60_000 },
+    : { command: "PORT=3100 EPHEMERAL_DB=1 npm start", url: `${baseURL}/healthz`, reuseExistingServer: true, timeout: 60_000 },
 });

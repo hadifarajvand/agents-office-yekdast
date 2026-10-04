@@ -191,3 +191,69 @@ async def kill_job(job_id: str):
     _spawn(_drive(job_id, Command(resume={"action": "kill"})))
     await jobs.event(job_id, "killed by the owner")
     return {"ok": True, "status": "killed"}
+
+
+# ---------- production: the owner's Promote button (never reachable from the graph or an agent) ----------
+
+@router.get("/{job_id}/promote")
+async def promote_status(job_id: str):
+    from ..connectors.promote import checklist
+    job = await db.get_job(job_id)
+    if not job:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    items = checklist(job, await db.list_evidence(job_id))
+    return {"checklist": items, "ready": all(i["ok"] for i in items), "production": job.get("production")}
+
+
+@router.post("/{job_id}/promote")
+async def promote(job_id: str, req: Request):
+    """step "prepare" {domain}: repo + production app, not deployed; step "deploy" {envConfirmed}: deploy + probe."""
+    from ..connectors.promote import HOST, checklist, env_names
+    from .ports import get_deps
+    body = await body_of(req)
+    job = await db.get_job(job_id)
+    if not job:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    items = checklist(job, await db.list_evidence(job_id))
+    if not all(i["ok"] for i in items):
+        return JSONResponse({"error": "not ready for production: " + "; ".join(i["name"] for i in items if not i["ok"])}, status_code=409)
+    step, prod = str(body.get("step") or ""), dict(job.get("production") or {})
+    promoter = get_deps().promoter
+    if step == "prepare":
+        domain = str(body.get("domain") or "").strip().lower()
+        if not HOST.match(domain):
+            return JSONResponse({"error": "give the production domain, e.g. app.example.com"}, status_code=400)
+        if prod.get("state") in ("deploying", "live"):
+            return JSONResponse({"error": "this job is already in production"}, status_code=409)
+        bundle = ((job.get("patch") or {}).get("path")) or next(
+            (e["body"].get("patch_path") for e in reversed(await db.list_evidence(job_id))
+             if e["stage"] == "build" and e["kind"] == "patch" and e.get("ok")), "")
+        if not bundle:
+            return JSONResponse({"error": "the job has no approved build to promote"}, status_code=409)
+        try:
+            out = await promoter.prepare(job, bundle, domain)
+        except Exception as e:
+            log.exception("promote prepare failed for %s", job_id)
+            return JSONResponse({"error": f"prepare failed: {str(e)[:200]}"}, status_code=502)
+        prod = {**out, "state": "prepared", "domain": domain, "env": env_names(str(bundle).rsplit("/", 1)[0]),
+                "preparedAt": db.now_ms()}
+        await jobs.touch(job_id, production=prod)
+        await jobs.event(job_id, f"owner prepared production at {domain}")
+        return {"ok": True, "production": prod}
+    if step == "deploy":
+        if prod.get("state") not in ("prepared", "unhealthy"):
+            return JSONResponse({"error": "prepare production first"}, status_code=409)
+        if body.get("envConfirmed") is not True:
+            return JSONResponse({"error": "confirm that the production variables are set in Dokploy"}, status_code=400)
+        await jobs.touch(job_id, production={**prod, "state": "deploying"})
+        try:
+            res = await promoter.deploy(prod)
+        except Exception as e:
+            log.exception("promote deploy failed for %s", job_id)
+            await jobs.touch(job_id, production={**prod, "state": "prepared"})
+            return JSONResponse({"error": f"deploy failed: {str(e)[:200]}"}, status_code=502)
+        prod = {**prod, "state": "live" if res.get("ok") else "unhealthy", "probe": res, "deployedAt": db.now_ms()}
+        await jobs.touch(job_id, production=prod)
+        await jobs.event(job_id, f'production {prod["state"]}: {prod["url"]} (healthz {res.get("status")})')
+        return {"ok": bool(res.get("ok")), "production": prod}
+    return JSONResponse({"error": 'step must be "prepare" or "deploy"'}, status_code=400)

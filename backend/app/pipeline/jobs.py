@@ -101,6 +101,7 @@ def public(job: dict, approvals: list[dict] | None = None, evidence: list[dict] 
     out["brief"] = job.get("brief", {})
     out["parkReason"] = job.get("parkReason")
     out["lane"] = job.get("lane", "build")
+    out["production"] = job.get("production")
     out["ownerClicksNeeded"] = int(cfg.exposure.get("tier1_owner_clicks", 3))
     if approvals is not None:
         out["approvals"] = approvals

@@ -14,6 +14,11 @@ const url = process.env.DATABASE_URL;
 const migrationsFolder = process.env.MIGRATIONS_DIR || path.join(process.cwd(), "drizzle");
 
 function open() {
+  // Production without a database would keep its data in memory and lose it on restart.
+  // Only the platform's checks and private previews may run that way (EPHEMERAL_DB=1).
+  if (!url && process.env.NODE_ENV === "production" && process.env.EPHEMERAL_DB !== "1" && process.env.NEXT_PHASE !== "phase-production-build") {
+    throw new Error("DATABASE_URL is not set. Set it, or EPHEMERAL_DB=1 for a throwaway preview.");
+  }
   if (url) {
     const db = drizzlePg(new Pool({ connectionString: url, max: 10 }), { schema });
     return { db, migrate: () => migratePg(db, { migrationsFolder }) };

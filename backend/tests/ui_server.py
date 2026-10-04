@@ -21,6 +21,7 @@ from app.graph import engine  # noqa: E402
 from app.pipeline.ports import Deps  # noqa: E402
 from test_pipeline import FakeChecks, FakeDeployer, FakeWorker, Script  # noqa: E402
 from test_validate_lane import FakeWeb  # noqa: E402
+from test_promote import FakePromoter  # noqa: E402
 
 from app.config import load_config  # noqa: E402
 from app.pipeline import exposure as _exp  # noqa: E402
@@ -46,7 +47,7 @@ async def ask_with_tools(messages, tools, **kw):
 engine.ask_haiku_json, engine.ask, engine.ask_with_tools = route_json, ask, ask_with_tools
 from app.pipeline import spawn as _spawn  # noqa: E402
 _spawn.ask = ask  # sub-agents and consults answer from the script too
-deps_mod.build_deps = lambda: Deps(chat_json=script.chat_json, worker=worker, deployer=deployer, checks=checks, web=FakeWeb(),
+deps_mod.build_deps = lambda: Deps(chat_json=script.chat_json, worker=worker, deployer=deployer, checks=checks, web=FakeWeb(), promoter=FakePromoter(),
                                    jobs_dir=Path(os.environ.get("AO_BRAIN", "/tmp")) / "jobs")
 
 if __name__ == "__main__":

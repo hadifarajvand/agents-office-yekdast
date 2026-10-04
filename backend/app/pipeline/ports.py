@@ -51,6 +51,7 @@ class Deps:
     deployer: Deployer | None = None
     checks: Checks | None = None
     web: object | None = None      # connectors.web.WebTool (research stage only)
+    promoter: object | None = None # connectors.promote.Promoter (owner endpoint only, never the graph)
     jobs_dir: Path = field(default_factory=lambda: Path("data/jobs"))
 
 

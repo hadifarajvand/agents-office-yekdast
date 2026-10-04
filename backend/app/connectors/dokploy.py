@@ -31,7 +31,7 @@ from .mcp_client import McpSession
 TOOLS = {
     "projects": "project-all", "create_app": "application-create", "git": "application-saveGitProvider",
     "build": "application-saveBuildType", "deploy": "application-deploy", "stop": "application-stop",
-    "auth": "security-create", "domain": "domain-create",
+    "auth": "security-create", "domain": "domain-create", "env": "application-saveEnvironment",
 }
 
 
@@ -72,14 +72,15 @@ class DokployDeployer:
         d.mkdir(parents=True, exist_ok=True)
         return d / "preview-credentials.txt"
 
-    async def _environment_id(self) -> str:
+    async def _environment_id(self, project: str | None = None) -> str:
+        name = project or self._cfg()["project"]
         projects = _unwrap(await self.guard.call(TOOLS["projects"], {}))
         for p in projects if isinstance(projects, list) else []:
-            if p.get("name") == self._cfg()["project"]:
+            if p.get("name") == name:
                 envs = p.get("environments") or []
                 if envs:
                     return envs[0]["environmentId"]
-        raise RuntimeError(f'Dokploy has no project named "{self._cfg()["project"]}" (create it once, by hand)')
+        raise RuntimeError(f'Dokploy has no project named "{name}" (create it once, by hand)')
 
     # ----- Deployer protocol -----
     async def deploy_preview(self, job: dict, patch_path: str) -> dict:
@@ -95,6 +96,8 @@ class DokployDeployer:
         # The template ships a Dockerfile; building it is deterministic, unlike nixpacks' guess.
         await self.guard.call(TOOLS["build"], {"applicationId": app_id, "buildType": "dockerfile",
                                                "dockerfile": "Dockerfile", "dockerContextPath": "", "dockerBuildStage": ""})
+        # A preview has no database of its own: the template refuses that in production unless told.
+        await self.guard.call(TOOLS["env"], {"applicationId": app_id, "env": "EPHEMERAL_DB=1\n"})
         user, password = "preview", secrets.token_urlsafe(18)
         await self.guard.call(TOOLS["auth"], {"applicationId": app_id, "username": user, "password": password})
         f = self._creds_file(job)

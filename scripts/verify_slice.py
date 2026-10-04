@@ -142,6 +142,24 @@ def main() -> int:
     check("evidence: security checks ran and are not credited to an offline seat", bool(sec) and all((e["body"].get("seat") or "") == "" for e in sec), f"{len(sec)} checks")
     check("evidence: the build produced a patch", any(e["stage"] == "build" and e["kind"] == "patch" and e["ok"] for e in ev))
 
+    # 4a. production: the owner's Promote button
+    pr = c.get(f"/api/jobs/{jid}/promote")
+    st = pr.json() if pr.status_code == 200 else {}
+    real_build = all(not ck["name"].startswith("the app was built") or ck["ok"] for ck in st.get("checklist", []))
+    check("promote: the finished job has a computed production checklist", pr.status_code == 200 and len(st.get("checklist", [])) == 4,
+          "; ".join(f'{"ok" if ck["ok"] else "NO"} {ck["name"]}' for ck in st.get("checklist", [])))
+    r = c.post(f"/api/jobs/{jid}/promote", json={"step": "deploy", "envConfirmed": True})
+    check("promote: deploying before prepare is refused", r.status_code == 409, f"{r.status_code}")
+    if SCRIPTED and st.get("ready"):
+        r = c.post(f"/api/jobs/{jid}/promote", json={"step": "prepare", "domain": "orders.example.com"})
+        check("promote: prepare makes the repo and the production app, not deployed", r.status_code == 200 and r.json()["production"]["state"] == "prepared", r.text[:120])
+        r = c.post(f"/api/jobs/{jid}/promote", json={"step": "deploy"})
+        check("promote: deploy needs the owner to confirm the variables", r.status_code == 400, f"{r.status_code}")
+        r = c.post(f"/api/jobs/{jid}/promote", json={"step": "deploy", "envConfirmed": True})
+        check("promote: deploy probes /healthz and reports live", r.status_code == 200 and r.json()["production"]["state"] == "live", r.text[:120])
+    else:
+        check("promote: prepare/deploy", False, "real GitHub + Dokploy: do it by hand from the Jobs screen (runbook S6)", skip=True)
+
     # 4b. validate lane: own idea -> web research -> computed verdict -> owner
     r = c.post("/api/jobs", json={"kind": "own", "title": "Bakery order inbox",
                                   "description": "One list of phone, Instagram and walk-in orders for small bakeries, with pickup times."})

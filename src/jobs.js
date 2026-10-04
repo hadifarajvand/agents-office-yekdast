@@ -75,7 +75,7 @@ body.dark #jobsOv { --jb-line: rgba(236,234,227,.12); --jb-card: #1E1F24; --jb-s
 export function initJobs(ctx) {
   const { DEPTS, R, esc, chatPush, feedPush, setStuck, clearStuck, isLive } = ctx;
   const API = '/api/jobs';
-  let jobs = [], sel = null, open = false, timer = null, pipe = null, showForm = false, detail = null;
+  let jobs = [], sel = null, open = false, timer = null, pipe = null, showForm = false, detail = null, promo = null;
   const announced = new Set();   // "job|stage|attempt" gates already announced to a lead
   const wanted = new Map();      // stuck-sid -> agent id, for clearing when resolved elsewhere
 
@@ -107,6 +107,8 @@ export function initJobs(ctx) {
     try { jobs = await call(''); } catch { return; }
     if (sel && open) {
       try { detail = await call('/' + sel); } catch { detail = null; }
+      promo = null;
+      if (detail && detail.lane !== 'validate' && detail.status === 'done') { try { promo = await call(`/${sel}/promote`); } catch { promo = null; } }
       // the detail is fetched after the list, so it can be newer: use it for the list entry too, or the
       // banner could show a gate the lead has not been asked to wave at yet
       if (detail) { const k = jobs.findIndex(x => x.id === detail.id); if (k >= 0) jobs[k] = { ...jobs[k], ...detail, approvals: undefined, evidence: undefined }; }
@@ -146,6 +148,18 @@ export function initJobs(ctx) {
   }
 
   /* ---------- rendering ---------- */
+  // Production is the owner's button. Prepare = the product's own repo + a production app (not deployed);
+  // deploy = only after the owner has set the variables in Dokploy; the server then probes /healthz.
+  function productionPanel(p) {
+    const prod = p.production || {};
+    const list = (p.checklist || []).map(i => `<li class="${i.ok ? 'ok' : 'no'}">${i.ok ? '✓' : '✕'} <span style="color:var(--ink);font-weight:400">${esc(i.name)}${i.detail ? ' — ' + esc(i.detail) : ''}</span></li>`).join('');
+    let act = '';
+    if (!p.ready) act = '<p style="font-size:12px">Not ready: every line above must be ✓.</p>';
+    else if (!prod.state) act = `<div class="jb-row"><input id="jbDomain" placeholder="production domain, e.g. orders.acmebakery.com" style="flex:1;min-width:220px;padding:8px 10px;border-radius:8px;border:1px solid var(--jb-line);font:inherit"><button class="jb-btn" id="jbPrep">PREPARE PRODUCTION</button></div>`;
+    else if (['prepared', 'unhealthy'].includes(prod.state)) act = `<p style="font-size:12px">Repo: ${esc(prod.repo || '')}<br>Set these in the Dokploy app before deploying: <b>${esc((prod.env || []).join(', ') || 'see the app README')}</b>. Point ${esc(prod.domain || '')} at the server.${prod.state === 'unhealthy' ? `<br><span class="no">Last deploy did not answer /healthz (status ${esc(String((prod.probe || {}).status))}).</span>` : ''}</p><div class="jb-row"><label><input type="checkbox" id="jbEnvOk"> the variables are set</label><button class="jb-btn" id="jbDeploy">DEPLOY TO PRODUCTION</button></div>`;
+    else act = `<p style="font-size:12px">${prod.state === 'live' ? '● LIVE' : esc(prod.state)} · <a href="${esc(prod.url || '')}" target="_blank" rel="noopener noreferrer">${esc(prod.url || '')}</a></p>`;
+    return `<h5>PRODUCTION · YOUR DECISION ONLY</h5><div class="jb-verdict jb-prod"><ul style="list-style:none;margin-left:0">${list}</ul>${act}</div>`;
+  }
   // The validate lane's memo: the verdict is computed by the server from verified claims.
   function verdictCard(j, m) {
     const g = m.gates || {}, c = m.counts || {}, log = m.run_log || {};
@@ -197,6 +211,7 @@ export function initJobs(ctx) {
       <div class="jb-row"><span class="jb-badge ${j.status}">${STATUS_LABEL[j.status] || j.status}</span><span class="jb-pill t${j.tier || 0}" title="${esc(tier[1])}">NOW ${tier[0]}</span><span class="jb-pill t${j.requestedTier || 0}" title="${esc(req[1])}">ASKED FOR ${req[0]}</span><span>${esc(cost)}</span><span>${j.status === 'done' || j.status === 'killed' ? '' : esc(fmtLeft(j.deadlineAt))}</span>${j.preview && j.preview.expiresAt && !j.preview.stopped ? `<span>preview expires ${esc(untilText(j.preview.expiresAt))}</span>` : ''}${j.preview && j.preview.url ? `<a href="${esc(j.preview.url)}" target="_blank" rel="noopener noreferrer">${esc(j.preview.url)}</a>` : ''}</div>
       ${banner}<div class="jb-stepper" style="--n:${j.stages.length}">${stages}</div>${verdict}
       ${j.requestedTier ? `<h5>EXPOSURE · THREE KEYS</h5><div class="jb-row"><span>security: <b>${esc(nameOf((pipe && pipe.exposure.keys.security) || ''))}</b></span><span>commercial: <b>${esc(nameOf((pipe && pipe.exposure.keys.commercial) || ''))}</b></span><span>you${j.requestedTier >= 2 ? ': always' : `: the first ${j.ownerClicksNeeded} gated previews (${ownerClicks} so far on this job)`}</span></div>` : ''}
+      ${promo ? productionPanel(promo) : ''}
       <h5>DECISIONS</h5>${appr ? `<table><tr><th>STAGE</th><th>WHO</th><th>VERDICT</th><th>WHY</th><th>EVIDENCE</th></tr>${appr}</table>` : '<div class="jb-empty" style="padding:6px 0">None yet.</div>'}
       <h5>EVIDENCE</h5>${ev || '<div class="jb-empty" style="padding:6px 0">None yet.</div>'}
       <h5>WHAT HAPPENED</h5><div style="font-size:12px;line-height:1.7">${(j.events || []).slice().reverse().map(e => `${esc(new Date(e.at).toLocaleTimeString())} · ${esc(e.text)}`).join('<br>') || '—'}</div>
@@ -213,6 +228,9 @@ export function initJobs(ctx) {
         : (br.description || j.title);
       try { const nj = await call('', 'POST', { kind: 'own', lane: 'build', fromJob: j.id, title: (landing ? 'Landing test: ' : 'MVP: ') + j.title, description: desc, acceptance: landing ? 'A visitor can join the waitlist; the owner sees the sign-ups on /admin.' : '', deposit_ref: '' }); sel = nj.id; lastSig = ''; await poll(); } catch (e) { alert(e.message); }
     });
+    const promote = async body => { try { await call(`/${j.id}/promote`, 'POST', body); } catch (e) { alert(e.message); } lastSig = ''; setTimeout(poll, 300); };
+    if (q('#jbPrep')) q('#jbPrep').onclick = () => promote({ step: 'prepare', domain: (q('#jbDomain') || {}).value || '' });
+    if (q('#jbDeploy')) q('#jbDeploy').onclick = () => { if (!q('#jbEnvOk').checked) { alert('Tick the box once the variables are set in Dokploy.'); return; } promote({ step: 'deploy', envConfirmed: true }); };
     if (q('#jbKill')) q('#jbKill').onclick = async () => { if (!confirm('Stop this job and take its preview down? This cannot be undone.')) return; try { await call(`/${j.id}/kill`, 'POST', {}); } catch (e) { alert(e.message); } setTimeout(poll, 400); };
   }
   // Re-render only when the data changed, and keep what the owner is doing: the note being typed
@@ -220,7 +238,7 @@ export function initJobs(ctx) {
   let lastSig = '';
   function render() {
     if (!open) return;
-    const sig = JSON.stringify([jobs, detail, sel]);
+    const sig = JSON.stringify([jobs, detail, sel, promo]);
     if (sig === lastSig) return;
     lastSig = sig;
     const keepNote = ($main.querySelector('#jbNote') || {}).value;

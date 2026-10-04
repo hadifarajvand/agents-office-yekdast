@@ -47,11 +47,20 @@ try {
   for (const k of ['security review', 'preview deploy', 'exposure', 'handoff']) check(`jobs: ${k} shows OWNER`, by[k] === 'OWNER', by[k]);
   for (const k of ['verify', 'scope', 'build']) check(`jobs: ${k} shows its lead, not OWNER`, !!by[k] && by[k] !== 'OWNER', by[k]);
   await page.screenshot({ path: path.join(SHOTS, 'jobs.png') });
+  // production panel on the finished client job (verify_slice.py promotes it in scripted mode)
+  const site = await page.$('#jobsOv .jb-card:has(h4:text-is("Bakery ordering site"))');
+  if (site) {
+    await site.click();
+    await page.waitForFunction(() => [...document.querySelectorAll('#jobsOv h5')].some(h => h.textContent.startsWith('PRODUCTION')), null, { timeout: 15000 });
+    const items = await page.evaluate(() => document.querySelectorAll('#jobsOv .jb-prod li').length);
+    check('jobs: a finished client job shows the production checklist', items === 4, String(items));
+    await page.screenshot({ path: path.join(SHOTS, 'production.png') });
+  } else check('jobs: the bakery job is listed', false, 'run scripts/verify_slice.py first');
   // the validate lane's memo (verify_slice.py creates "Bakery order inbox")
   const idea = await page.$('#jobsOv .jb-card:has(h4:text-is("Bakery order inbox"))');
   if (idea) {
     await idea.click();
-    await page.waitForSelector('#jobsOv .jb-verdict', { timeout: 15000 });
+    await page.waitForSelector('#jobsOv .jb-verdict .big', { timeout: 15000 });
     const v = await page.evaluate(() => ({ verdict: document.querySelector('#jobsOv .jb-verdict .big').textContent.trim(),
       steps: document.querySelectorAll('#jobsOv .jb-stage').length, build: document.querySelectorAll('#jobsOv [data-build]').length }));
     check('jobs: the idea shows a computed verdict and two stages', ['GO', 'TEST', 'NO-GO'].includes(v.verdict) && v.steps === 2, `${v.verdict}, ${v.steps} stages`);

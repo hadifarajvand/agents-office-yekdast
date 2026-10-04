@@ -188,8 +188,12 @@ async def save_job(job: dict) -> None:
         await c.execute(
             "INSERT INTO jobs (id, kind, title, stage, status, data, created_at, updated_at) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (id) DO UPDATE SET "
-            "title = EXCLUDED.title, stage = EXCLUDED.stage, status = EXCLUDED.status, data = EXCLUDED.data, "
-            "updated_at = EXCLUDED.updated_at",
+            # "killed" is sticky: a graph step that read the job before the kill switch and writes after
+            # it must not bring the job back to life (read-modify-write race, found by verify_slice).
+            "title = EXCLUDED.title, stage = EXCLUDED.stage, "
+            "status = CASE WHEN jobs.status = 'killed' THEN 'killed' ELSE EXCLUDED.status END, "
+            "data = CASE WHEN jobs.status = 'killed' THEN jsonb_set(EXCLUDED.data, '{status}', '\"killed\"') "
+            "ELSE EXCLUDED.data END, updated_at = EXCLUDED.updated_at",
             (job["id"], job["kind"], job["title"], job["stage"], job["status"], Jsonb(job),
              job.get("createdAt", now_ms()), now_ms()),
         )

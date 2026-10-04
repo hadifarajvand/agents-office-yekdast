@@ -35,6 +35,12 @@ def build_deps() -> Deps:
         log.warning("Dokploy deployer unavailable: %s", e)
         deployer = Unconfigured("the Dokploy deployer", str(e))
     from .connectors.web import from_config as web_from_config
+    try:
+        from .connectors.promote import Promoter
+        promoter = Promoter.from_config()
+    except Exception as e:
+        log.warning("production promotion unavailable: %s", e)
+        promoter = Unconfigured("production promotion", str(e))
     return Deps(chat_json=llm.ask_json, worker=make_worker(), deployer=deployer, checks=PatchChecks(),
-                web=web_from_config(cfg),
+                web=web_from_config(cfg), promoter=promoter,
                 jobs_dir=Path(cfg.sandbox["jobs_dir"]))

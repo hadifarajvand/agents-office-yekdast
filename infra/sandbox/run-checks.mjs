@@ -67,7 +67,7 @@ async function main() {
   if (!scripts.start) { record('the app starts (npm start)', false, 'package.json has no "start" script'); return; }
   const t0 = Date.now();
   let log = '';
-  const server = spawn('npm', ['start'], { env: { ...process.env, PORT, HOSTNAME: '127.0.0.1', NODE_ENV: 'production' }, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+  const server = spawn('npm', ['start'], { env: { ...process.env, PORT, HOSTNAME: '127.0.0.1', NODE_ENV: 'production', EPHEMERAL_DB: '1' }, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
   server.stdout.on('data', (d) => (log += d));
   server.stderr.on('data', (d) => (log += d));
   try {

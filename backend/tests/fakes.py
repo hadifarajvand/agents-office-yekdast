@@ -66,7 +66,8 @@ class FakeDB:
 
     # jobs
     async def save_job(self, job):
-        self.jobs[job["id"]] = dict(job)
+        old = self.jobs.get(job["id"])
+        self.jobs[job["id"]] = dict(job, status="killed") if old and old.get("status") == "killed" else dict(job)
 
     async def get_job(self, job_id):
         j = self.jobs.get(job_id)

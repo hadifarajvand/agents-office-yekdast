@@ -190,3 +190,18 @@ async def test_spawn_and_consult_evidence_round_trips_through_jsonb(pool, monkey
     await sp.consult("olead", "dlead", "how long?", job_id="jx", stage="verify")
     ev = await db.list_evidence("jx")
     assert {e["kind"] for e in ev} == {"spawn", "consult"} and all(e["body"]["text"] == "answer text" for e in ev)
+
+
+async def test_a_killed_job_stays_killed_when_a_stale_copy_is_saved(pool):
+    """The graph reads a job, the owner kills it, then the graph writes its stale copy back."""
+    from app import db
+    from app.pipeline import jobs as jobsmod
+    job = jobsmod.new_job("client", "race", {"title": "race"})
+    await db.save_job(job)
+    stale = await db.get_job(job["id"])
+    await jobsmod.touch(job["id"], status="killed", pending=[])
+    stale.update(status="waiting", stage="verify")
+    await db.save_job(stale)
+    back = await db.get_job(job["id"])
+    assert back["status"] == "killed" and back["stage"] == "verify"
+    assert [j["status"] for j in await db.list_jobs() if j["id"] == job["id"]] == ["killed"]
