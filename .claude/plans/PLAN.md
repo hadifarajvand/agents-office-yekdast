@@ -291,6 +291,7 @@ Verified here: 198 backend tests, real-Postgres tests (incl. restart/resume of a
 Exposure flow (as built): gate on "auth configured" evidence → apply route with basic auth → probe without credentials → if not refused, stop the app and park at `preview`. A PASS must cite real evidence ids; a failed deterministic check fails without a model call; a verdict from the wrong model is void.
 
 ## 9. Known gaps in the implementation
+- See §15.6 for the gaps found on the laptop (S2 build, logging, unconfigured connectors).
 - Rev 5: Dokploy tool names/arguments for `application-saveEnvironment`, Dockerfile build type and production apps; how Dokploy authenticates to a private GitHub repo; GitHub repo creation; Telegram; the owner's keyless search tool. None of these has been run.
 - Rev 5: the worker image (Playwright browsers inside it) has not been built; Docker has no daemon in the authoring container.
 - Rev 5: kill reasons (§2a Critic) are not assessed by the validate lane; the memo says "gate X UNKNOWN" instead. The A2 gate (route to first customers) is the owner's judgment and is not computed.
@@ -337,6 +338,8 @@ Preflight: `./setup`; `cp .env.example .env.local` and fill values; `npm run che
   - **Record the minutes per stage** against the 3–6 h target. If Claude Code cannot use 9router's Anthropic endpoint, try `mini_swe` and record it.
 
   Result (2026-10-04): **blocked at the image build, not run**. `node:22-bookworm-slim` pulls, but `apt-get` inside the build fails: inside Docker `deb.debian.org` resolves to `198.20.0.26` (the 198.18.0.0/15 fake-IP range of a TUN/fake-IP VPN or proxy), which the Docker VM cannot reach, while the host reaches the same site fine. Fix on the machine, not in the repo: turn the VPN's TUN/enhanced mode on for Docker, or set Docker Desktop → Settings → Resources → Proxies to the VPN's local HTTP proxy, or pause the VPN for the build. Then rerun the `docker build` line above.
+
+  Update (2026-10-04, later): the image build was cleared and real builds started under Claude Code/Haiku. Attempt 1 failed at `npm ci` (lockfile out of sync after `resend` was added to the template). A later job (`202e5a079b34`) was killed by an owner-requested stop (exit 137) before finishing. **Still open**: no green build, no wall clock. The egress Squid allow-list was fixed along the way and its logs now persist. See §15.6.
 - **S3 · Restart/resume on real Postgres.** `AO_TEST_DATABASE_URL=… pytest backend/tests/test_postgres.py` passes; `npm run verify` includes a real API kill mid-gate with exactly one resume. Result: ____
 - **S4 · Budget.** Set the real prices in `budget.usd_per_mtok` (what 9router charges, or list prices). Run a job and confirm:
   - `run_costs` and the job's `costs` match the router's token counts;
@@ -392,6 +395,8 @@ Preflight: `./setup`; `cp .env.example .env.local` and fill values; `npm run che
 - 2026-10-04 · **Rev 5, the one-day revision (§14).** Owner answers: Haiku stays the fixed builder; 9router only; use the owner's existing keyless web fetcher; production through an owner Promote button. Implemented: per-lane budget with a price table; seats and spawns off by default; the golden template and in-container checks (the build gate needs them green); the validate lane with the rubric computed in code; owner Promote; the inbox and Telegram; a sticky kill (a race found by verify_slice). One worker on the default path (Claude Code); OpenHands left the runbook.
 - 2026-10-04 · Boot and verification prepared for the laptop (`scripts/boot.sh`, `stop.sh`, `restart_api.sh`, `verify_slice.py`, `verify_ui.mjs`; `npm run boot|stop|verify`). Proven here against the scripted stack on real Postgres (32 API checks incl. a real process kill and resume, 11 UI checks); that run found and fixed a real bug (spawn/consult evidence was written as a bare string into a JSONB column; the fakes hid it, now covered by a Postgres test). Not run here: real 9router, workers, Docker, Dokploy.
 
+- 2026-10-04 · **Live UI rule and activity stream.** When served over http the UI shows no demo content; every effect comes from `/api/activity` (backend `activity.emit`) and connector tiles from `/api/mcp` with real status. State of the whole system: §15.
+
 ## 14. Revision for the one-day goal (audit 2026-10-04)
 
 **Goal [owner]**: the owner is the only human (CEO); departments are the employees. An idea (own or a client's) becomes either a validated or killed idea, or a live product, within one working day.
@@ -428,5 +433,58 @@ Preflight: `./setup`; `cp .env.example .env.local` and fill values; `npm run che
 - Template: `run-checks.mjs` 6/6 green, run for real outside Docker. It first caught two real auth bugs in the template: Better Auth's origin check, and a per-bundle secret.
 
 Not run: everything in §9's rev-5 lines and §11.
+
+## 15. System as it stands (2026-10-04, after the first laptop session)
+
+### 15.1 Runtime topology
+- **API**: FastAPI + LangGraph on 127.0.0.1:4520; serves the built UI. Pid in `data/api.pid`, log in `data/api.log`.
+- **Postgres 16** (compose project `agents-office`, loopback): jobs, approvals, evidence, audit, costs, LangGraph checkpoints.
+- **egress**: Squid allow-list proxy (logs in the `egresslogs` volume). **router-gateway**: nginx that injects the router key, so no container holds it.
+- **9router** runs on the laptop at 127.0.0.1:20128 (not in compose). Config holds `http://host.docker.internal:20128`, which resolves in containers but **not on the host**, so host-side probes map it to 127.0.0.1.
+- **Job containers** `ao-job-<id>` from `agents-office/worker-node:latest`: hardened, no docker.sock, egress only through Squid.
+- **Boot**: `set -a; . ./.env.local; set +a; npm run boot`. **Stop**: `scripts/stop.sh` (also needs `ROUTER_API_KEY` sourced for `docker compose`). Mutating API calls need header `X-AO-Client: office`.
+
+### 15.2 Backend map (`backend/app/`)
+- `pipeline/`: lanes `build` (`intake→verify→scope→build→security→preview→exposure→handoff`) and `validate`. Each stage = work + lead review + deterministic gate; FAIL loops back twice, then parks. Owner gates on verify and handoff. Only `exec` and `engineering` are live (`pipeline.live_departments`); other stages show OWNER.
+- `llm.py` (router client, `RunMeter`, per-lane USD/token caps, model-swap check), `sandbox.py` (container runner), `checks/`, `worker/` (Claude Code default), `connectors/` (Dokploy guard, GitHub read-only, web, notify, promote), `learn.py` + `brain.py` (brain notes), `mcp.py`, `routines.py`, `skills.py`.
+- `activity.py` (new, a445f99): ring buffer of 400 events, `emit(kind, text, agent, connector, job, stage, level)` never raises; the agent is resolved from the stage's lead. `STACK` names the connectors: router, postgres, docker, egress, telegram, dokploy, brain.
+- `main.py`: `GET /api/activity?since=` returns `{seq, events}`. `GET /api/mcp` appends the stack connectors as servers (`source: "stack"`) with live status from `_stack_status()` (cached 15 s: router probe, Postgres ping, Docker ping, brain dir, Telegram enabled, Dokploy env vars set).
+- Event sources: `pipeline/jobs.py` (job-event, stage, notify), `llm.py` (model), `sandbox.py` (container start/exit), `learn.py` (brain-read, brain-write).
+
+### 15.3 Frontend map (`src/` → `node build.mjs` → `dist/command-centre-v2.html`)
+- Vanilla JS, one bundle. `main.js` (office scene, feed, seats, emotes, activity polling), `tasks.js`, `jobs.js` (Jobs overlay, stepper, inbox), `mcp.js` (connector panel), `brain.js`/`braingraph.js`, `api.js`, `calendar.js`, `when.js`, `connectors.js`, `models.js`, `builders.js`, `data.js`/`v1data.js` (seats, roster), `shell.html`.
+- **Two modes**: SERVED (`location.protocol` http) = live, no demo data (no seeded tasks, fake activity, counters, ambient bubbles, history seed). `file://` = the offline demo.
+
+### 15.4 How the pieces work together
+1. A backend action calls `activity.emit(...)` (job event, stage change, model call, container start/exit, brain read/write, Telegram send).
+2. The event lands in the ring buffer. The UI polls `/api/activity?since=<seq>` every 2 s (SERVED only).
+3. `pollActivity()` in `main.js` skips history on the first poll, then plays at most the last 12 events at 350 ms spacing: a feed line, the connector glow on the agent (`mcp.onToolsUsed`), brain read/write animations, and an emote for model/stage/container/notify. Events without an agent play on an exec seat.
+4. Connector tiles come from `/api/mcp` and show real status, so using a connector shows an effect that came from a real call.
+
+### 15.5 Issues found and what was done
+| Issue | Status |
+|---|---|
+| Demo tasks auto-generated in the live UI | Fixed (15a1f95): all demo content gated by SERVED |
+| UI motions not driven by backend calls | Fixed (a445f99): activity stream + stack connectors |
+| Router tile "failed" (hostname) | Fixed: probe maps host.docker.internal to 127.0.0.1 |
+| `npm run verify` used system python 3.9 and a priceless brief | Fixed (a6faec0) |
+| verify left jobs behind | Fixed: cleans up its jobs (re-run to confirm) |
+| Squid logs lost | Fixed: `egresslogs` volume |
+| Image build blocked by VPN fake-IP DNS | Cleared (image builds); see S2 |
+| `stop.sh` / compose failed without `ROUTER_API_KEY` | Workaround: source `.env.local` first |
+
+### 15.6 Open gaps and risks
+- **S2 not complete.** Real builds failed at dependency install (`npm ci` out of sync after the template gained `resend`; slow npm). Job `202e5a079b34` was killed by a stop (exit 137); its workspace and state remain. Unconfirmed whether the pipeline resumes it after an API restart. Fix options: pre-install deps in the image, or drop `resend`. Wall clock vs the 3–6 h target is not yet recorded.
+- **Logging**: the worker's output is not fully captured. Planned: stream-json plus `out/trace.jsonl`, needs a worker image rebuild.
+- Model events carry no agent id (they play on an exec seat).
+- Telegram and Dokploy show "failed" because they are not configured.
+- "UI not well structured" was never clarified by the owner.
+- Not run: S1 `langchain-openai` check and silent-fallback test, S1b, S3–S7, stress test.
+- Everything in §9 still applies.
+
+### 15.7 Operating rules learned
+- Stop everything immediately when asked; boot only on request. Leave the laptop's 9router app alone.
+- Never `pkill -f` or `pgrep -f`; use pid files. Never write secrets to files.
+- GateGuard hooks can block the first Bash/Edit of a session until a short statement is given.
 
 **Time budget (assumption until §11 measures it)**: validate 30–60 min; landing page 30–45 min; scope 10 min; build 60–180 min; checks 15 min; preview 10 min; owner review 15–30 min. That is 3–6 h for a small CRUD/SaaS MVP. Market proof (people paying) cannot happen in hours. The platform produces the memo and the test asset; traffic and outreach are the owner's.
