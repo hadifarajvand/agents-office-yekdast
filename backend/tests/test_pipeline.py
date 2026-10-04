@@ -37,11 +37,13 @@ class Script:
     def __init__(self):
         self.review_verdicts: dict[str, list[str]] = {}   # stage -> queue of verdicts ("PASS"/"FAIL"/"NOCITE")
         self.calls: list[str] = []
+        self.systems: list[str] = []
         self.seat_calls: list[str] = []
         self.mismatch = False
 
     async def chat_json(self, system, user, *, role="drafts"):
         self.calls.append(role)
+        self.systems.append(system)
         if '"finding":"2-4 sentences"' in system:
             self.seat_calls.append(re.search(r"You are ([A-Z &]+)", system).group(1).strip())
             return {"finding": "looks workable", "risks": ["one risk"], "confidence": "medium"}
@@ -116,6 +118,7 @@ class FakeChecks:
 def env(fake_db, tmp_path, monkeypatch):
     cfg = load_config()
     monkeypatch.setitem(cfg.sandbox, "jobs_dir", str(tmp_path / "jobs"))
+    monkeypatch.setitem(cfg.pipeline, "live_departments", list(exp.ALL_DEPTS))  # these tests exercise every lead
     script, worker, dep, checks = Script(), FakeWorker(), FakeDeployer(), FakeChecks()
     set_deps(Deps(chat_json=script.chat_json, worker=worker, deployer=dep, checks=checks, jobs_dir=tmp_path))
     graph = compile_pipeline(InMemorySaver())

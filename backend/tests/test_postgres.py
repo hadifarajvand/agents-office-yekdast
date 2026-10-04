@@ -133,6 +133,8 @@ async def test_pipeline_job_waiting_for_the_owner_survives_a_restart(pool, tmp_p
     from test_pipeline import GOOD_BRIEF, FakeChecks, FakeDeployer, FakeWorker, Script
 
     monkeypatch.setitem(load_config().sandbox, "jobs_dir", str(tmp_path / "jobs"))
+    from app.pipeline import exposure as exp
+    monkeypatch.setitem(load_config().pipeline, "live_departments", list(exp.ALL_DEPTS))
     script, worker, dep = Script(), FakeWorker(), FakeDeployer()
     set_deps(Deps(chat_json=script.chat_json, worker=worker, deployer=dep, checks=FakeChecks(), jobs_dir=tmp_path))
     saver = AsyncPostgresSaver(pool)

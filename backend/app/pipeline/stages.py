@@ -15,6 +15,7 @@ from ..config import load_config
 from ..context import build_pack, fence
 from ..context import seat as seat_of
 from ..policy import redact_secrets
+from . import exposure as exp
 from .ports import get_deps
 
 
@@ -29,9 +30,10 @@ async def _evidence(state: dict, stage: str, kind: str, title: str, ok: bool | N
 
 
 def _seats(stage: str) -> list[str]:
-    for s in load_config().pipeline.get("stages", []):
+    cfg = load_config()
+    for s in cfg.pipeline.get("stages", []):
         if s["name"] == stage:
-            return list(s.get("seats") or [])
+            return list(s.get("seats") or []) if exp.is_live(cfg, s["dept"]) else []
     return []
 
 
@@ -69,10 +71,17 @@ async def run_seats(state: dict, stage: str, tasks: dict[str, str], *, role: str
 
 
 def _lead(state: dict, stage: str) -> str:
-    for s in load_config().pipeline.get("stages", []):
+    """The stage lead's seat id, or "" when its department is offline (no persona is used then)."""
+    cfg = load_config()
+    for s in cfg.pipeline.get("stages", []):
         if s["name"] == stage:
-            return s["lead"]
+            return s["lead"] if exp.is_live(cfg, s["dept"]) else ""
     return ""
+
+
+async def _lead_pack(state: dict, stage: str, query: str) -> str:
+    lead = _lead(state, stage)
+    return (await build_pack(lead, stage=stage, query=query) + "\n\n") if lead else ""
 
 
 def _feedback(state: dict) -> str:
@@ -106,7 +115,7 @@ async def verify(state: dict) -> dict:
         "enzo": "Judge whether the stated price fits the effort and what the margin risk is."})
     user = (f"Brief:\n{fence(json.dumps(b)[:4000])}\nDeadline: {load_config().pipeline.get('deadline_days', 3)} days."
             + (f"\n\nSpecialist findings:\n{found}" if found else "") + _feedback(state))
-    system = await build_pack(_lead(state, "verify"), stage="verify", query=json.dumps(b)[:300]) + "\n\n" + system
+    system = await _lead_pack(state, "verify", json.dumps(b)[:300]) + system
     data = await get_deps().chat_json(system, user, role="research")
     checks = {k: bool(data.get(k)) for k in ("deposit_real", "scope_clear", "price_fits_effort", "deadline_realistic")}
     ok = all(checks.values())
@@ -124,7 +133,7 @@ async def scope(state: dict) -> dict:
     found = await run_seats(state, "scope", {
         "pco": "List the technical risks and unknowns in building this brief as a small JS/TS web app, and what you would do first."}, role="drafts")
     user = f"Brief:\n{fence(json.dumps(b)[:4000])}" + (f"\n\nSpecialist findings:\n{found}" if found else "") + _feedback(state)
-    system = await build_pack(_lead(state, "scope"), stage="scope", query=json.dumps(b)[:300]) + "\n\n" + system
+    system = await _lead_pack(state, "scope", json.dumps(b)[:300]) + system
     data = await get_deps().chat_json(system, user, role="drafts")
     crit = [str(c) for c in data.get("acceptance_criteria", [])][:12]
     ok = len(crit) >= 1
@@ -218,7 +227,7 @@ async def handoff(state: dict) -> dict:
     found = await run_seats(state, "handoff", {
         "piper": "State what the client was promised, the price and terms position, and the next commercial step for the owner.",
         "cmail": "Write 3 plain-language sentences telling a non-technical client what they will receive."}, role="drafts")
-    system = await build_pack(_lead(state, "handoff"), stage="handoff", query=json.dumps(state["brief"])[:300]) + "\n\n" + system
+    system = await _lead_pack(state, "handoff", json.dumps(state["brief"])[:300]) + system
     user = (f"Brief:\n{fence(json.dumps(state['brief'])[:3000])}\nScope:\n{json.dumps(state.get('scope', {}))[:2000]}\n"
             f"Preview tier: {prev.get('tier', 0)}; expires: {prev.get('expiresAt')}." + (f"\n\nSpecialist findings:\n{found}" if found else "")) + _feedback(state)
     data = await get_deps().chat_json(system, user, role="drafts")

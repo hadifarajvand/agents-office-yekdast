@@ -21,6 +21,11 @@ from app.graph import engine  # noqa: E402
 from app.pipeline.ports import Deps  # noqa: E402
 from test_pipeline import FakeChecks, FakeDeployer, FakeWorker, Script  # noqa: E402
 
+from app.config import load_config  # noqa: E402
+from app.pipeline import exposure as _exp  # noqa: E402
+
+load_config().pipeline["live_departments"] = list(_exp.ALL_DEPTS)  # the UI smoke walks a gated job through every lead
+
 script, worker, deployer, checks = Script(), FakeWorker(), FakeDeployer(), FakeChecks()
 
 

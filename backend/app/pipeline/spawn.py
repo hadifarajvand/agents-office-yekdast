@@ -41,6 +41,9 @@ async def spawn(lead_id: str, bench_id: str, task: str, *, job_id: str, stage: s
     seat = next((a for a in defaults() if a.id == lead_id), None)
     if seat is None or not seat.lead:
         raise SpawnRefused(f'"{lead_id}" is not a department lead')
+    from . import exposure as exp
+    if not exp.is_live(load_config(), seat.department):
+        raise SpawnRefused(f"{seat.department} is not live")
     role = next((b for b in bench().get(seat.department, []) if b["citadel_id"] == bench_id), None)
     if role is None:
         raise SpawnRefused(f'"{bench_id}" is not on the {seat.department} bench')
@@ -75,6 +78,10 @@ async def consult(from_lead: str, to_lead: str, question: str, *, job_id: str, s
         raise SpawnRefused("both sides of a consult must be department leads")
     if a.department == b.department:
         raise SpawnRefused("consult another department; use your own seats for your own questions")
+    from . import exposure as exp
+    for who in (a, b):
+        if not exp.is_live(load_config(), who.department):
+            raise SpawnRefused(f"{who.department} is not live")
     if not str(question or "").strip():
         raise SpawnRefused("a question is required")
     used = [e for e in await db.list_evidence(job_id) if e["kind"] == "consult" and e["stage"] == stage]

@@ -109,6 +109,8 @@
   }
   .pill:hover { border-color: var(--ink); box-shadow: 0 8px 22px rgba(21,20,20,.18); }
   .pill .star { color: #C8A438; margin-right: 4px; }
+  .pill.standby { opacity: .55; }
+  .pill.standby::after { content: 'STANDBY'; margin-left: 6px; font-size: 8px; letter-spacing: .08em; color: var(--grey); }
 
   /* MCP logo ring labels + click tooltip */
   .mcpl {

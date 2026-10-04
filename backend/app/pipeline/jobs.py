@@ -13,7 +13,7 @@ TERMINAL = {"done", "killed", "failed"}
 def new_job(kind: str, title: str, brief: dict, requested_tier: int = 0) -> dict:
     cfg = load_config()
     now = db.now_ms()
-    stages = {s["name"]: {"state": "pending", "lead": s["lead"], "dept": s["dept"], "label": s.get("label", s["name"]),
+    stages = {s["name"]: {"state": "pending", "lead": s["lead"], "dept": s["dept"], "live": s["dept"] in (cfg.pipeline.get("live_departments") or [s["dept"]]), "label": s.get("label", s["name"]),
                           "attempts": 0} for s in cfg.pipeline["stages"]}
     return {
         "id": db.nid(), "kind": kind, "title": title[:120], "brief": brief, "stage": "intake", "status": "running",

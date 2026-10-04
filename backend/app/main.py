@@ -249,7 +249,9 @@ async def dark():
 # ---------- read-only info ----------
 
 def pipeline_info() -> dict:
-    return {"stages": cfg.pipeline.get("stages", []), "deadlineDays": cfg.pipeline.get("deadline_days", 3),
+    from .pipeline.exposure import exposure_allowed, live_departments
+    return {"stages": [{**s, "live": s["dept"] in live_departments(cfg)} for s in cfg.pipeline.get("stages", [])],
+            "liveDepartments": live_departments(cfg), "exposureAllowed": exposure_allowed(cfg), "deadlineDays": cfg.pipeline.get("deadline_days", 3),
             "exposure": {"tier1OwnerClicks": cfg.exposure.get("tier1_owner_clicks", 3),
                          "previewTtlDays": cfg.exposure.get("preview_ttl_days", 7),
                          "keys": cfg.exposure.get("keys", {})}}

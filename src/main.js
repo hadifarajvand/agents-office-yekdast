@@ -250,6 +250,16 @@ for (const a of AGENTS) {
   };
 }
 
+/* seats in a department that is not live yet are tagged STANDBY (the owner stands in for their leads) */
+function markStandby(h) {
+  const live = h.pipeline && h.pipeline.liveDepartments;
+  if (!live) return;
+  for (const id of Object.keys(R)) {
+    const r = R[id];
+    r.pill.classList.toggle('standby', !live.includes(r.a.dept));
+  }
+}
+
 /* empty desks: the rest of each department's 10 seats (drawn, unstaffed, not clickable as agents) */
 for (const f of FREE_SEATS) {
   const L = deptRT[f.dept].L;
@@ -1380,7 +1390,7 @@ let jobs = null;
 tasks = initTasks({
   hud, R, deptRT, RAIL_SIDE, spawnEmote, chatPush, chatHist, feedPush, zoomToApproval, enterFocus, openAgent, esc,
   brainWrite: (id, title) => brain.write(id, title), brain,
-  onLive: (h) => { document.querySelector('#topbar .brand .ver').textContent = 'BETA'; document.title = `${h.name} — Agents Office`; brain.setOwner(h.name); brain.setQuiet(true); applyRoster(h.agents); if (jobs) jobs.start(h); },
+  onLive: (h) => { document.querySelector('#topbar .brand .ver').textContent = 'BETA'; document.title = `${h.name} — Agents Office`; brain.setOwner(h.name); brain.setQuiet(true); applyRoster(h.agents); markStandby(h); if (jobs) jobs.start(h); },
   onTools: (agentId, keys) => mcp.onToolsUsed(agentId, keys),
   requestApproval, setStuck: setStuckLive,
   onUsage: (u) => { if (mcp && mcp.setUsage) mcp.setUsage(u); }, // V3.6: the plan's gauge in the top bar

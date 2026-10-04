@@ -84,6 +84,9 @@ async def create_job(req: Request):
     tier = body.get("requestedTier", 0)
     if tier not in (0, 1, 2):
         return JSONResponse({"error": "requestedTier must be 0, 1 or 2"}, status_code=400)
+    if tier > 0 and not exp.exposure_allowed(load_config()):
+        return JSONResponse({"error": "gated and public previews need Strategy & Legal and Security & Privacy live; "
+                                      "only private (Tier 0) previews exist until then"}, status_code=400)
     brief = {k: str(body.get(k) or "").strip()[:8000] for k in ("title", "description", "client", "deposit_ref", "acceptance")}
     brief["title"] = title
     job = jobs.new_job(kind, title, brief, requested_tier=tier)

@@ -12,6 +12,31 @@ BUILDER_DEPTS = {"engineering", "frontend", "devops"}
 TIER_NAMES = {0: "private", 1: "gated", 2: "public"}
 
 
+ALL_DEPTS = ["exec", "revenue", "engineering", "frontend", "devops", "secdata", "fin", "content"]
+
+
+def live_departments(cfg) -> list[str]:
+    return list(cfg.pipeline.get("live_departments") or ALL_DEPTS)
+
+
+def is_live(cfg, dept: str) -> bool:
+    return dept in live_departments(cfg)
+
+
+def stage_dept(cfg, stage: str) -> str:
+    for s in cfg.pipeline.get("stages", []):
+        if s["name"] == stage:
+            return s["dept"]
+    raise KeyError(stage)
+
+
+def exposure_allowed(cfg) -> bool:
+    """A gated or public preview needs both exposure-key departments live; otherwise only Tier 0 exists."""
+    keys = exposure_keys(cfg)
+    needed = {"secdata", "exec"}
+    return needed <= set(live_departments(cfg)) and bool(keys)
+
+
 def stage_lead(cfg, stage: str) -> str:
     for s in cfg.pipeline.get("stages", []):
         if s["name"] == stage:
@@ -37,6 +62,8 @@ def stage_roles(cfg, stage: str, *, tier: int = 0, owner_clicks: int = 0) -> lis
         if tier >= 2 or owner_clicks < int(cfg.exposure.get("tier1_owner_clicks", 3)):
             roles.append(OWNER)
         return roles
+    if not is_live(cfg, stage_dept(cfg, stage)):
+        return [OWNER]  # the owning department is offline: the owner stands in for its lead
     roles = [stage_lead(cfg, stage)]
     if stage in owner_gates(cfg):
         roles.append(OWNER)
@@ -55,6 +82,9 @@ def validate_config(cfg, agents: list) -> list[str]:
     """Problems with the pipeline/exposure config; empty when it is safe to run."""
     problems: list[str] = []
     by_id = {a.id: a for a in agents}
+    for d in cfg.pipeline.get("live_departments") or []:
+        if d not in ALL_DEPTS:
+            problems.append(f'live_departments names "{d}", which is not a department')
     names = [s["name"] for s in cfg.pipeline.get("stages", [])]
     for need in ("intake", "verify", "scope", "build", "security", "preview", "exposure", "handoff"):
         if need not in names:

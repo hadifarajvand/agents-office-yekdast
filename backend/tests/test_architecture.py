@@ -12,7 +12,7 @@ from app.pipeline import exposure as exp
 from app.pipeline import spawn as sp
 from app.roster import defaults
 
-from test_pipeline import GOOD_BRIEF, env, owner, run_to_end, start  # noqa: F401
+from test_pipeline import GOOD_BRIEF, api, env, owner, run_to_end, start  # noqa: F401
 
 
 @pytest.fixture
@@ -142,12 +142,14 @@ async def test_consult_is_lead_to_lead_across_departments_and_read_only(fake_db,
     async def fake_ask(system, user, **kw):
         return "engineering says: two days"
     monkeypatch.setattr(sp, "ask", fake_ask)
-    out = await sp.consult("lexi", "dlead", "how long to build?", job_id="j", stage="handoff")
+    out = await sp.consult("olead", "dlead", "how long to build?", job_id="j", stage="verify")
     assert out["ok"] and (await fake_db.list_evidence("j"))[0]["kind"] == "consult"
     with pytest.raises(sp.SpawnRefused, match="both sides"):
-        await sp.consult("lexi", "pco", "x", job_id="j", stage="handoff")
+        await sp.consult("olead", "pco", "x", job_id="j", stage="verify")
     with pytest.raises(sp.SpawnRefused, match="another department"):
-        await sp.consult("lexi", "lexi", "x", job_id="j", stage="handoff")
+        await sp.consult("olead", "olead", "x", job_id="j", stage="verify")
+    with pytest.raises(sp.SpawnRefused, match="revenue is not live"):
+        await sp.consult("olead", "lexi", "x", job_id="j", stage="verify")
 
 
 # ---------- governed brain writes ----------
@@ -163,3 +165,61 @@ def test_proposals_never_overwrite_and_are_owner_decided(tmp_path):
         proposals.decide(r["id"], "reject", tmp_path)
     with pytest.raises(proposals.ProposalError, match="unknown"):
         proposals.decide("../../etc/passwd", "approve", tmp_path)
+
+
+# ---------- the one-slice go-live: only exec and engineering act as agents ----------
+@pytest.fixture
+def slice_env(env, vault, monkeypatch):
+    monkeypatch.setitem(env.cfg.pipeline, "live_departments", ["exec", "engineering"])
+    return env
+
+
+async def test_slice_job_uses_leads_only_for_live_stages_and_the_owner_for_the_rest(slice_env):
+    jid = await start(slice_env)
+    job = await run_to_end(slice_env, jid)
+    assert job["status"] == "done"
+    roles = {}
+    for a in slice_env.db.approvals.values():
+        roles.setdefault(a["stage"], set()).add(a["role"])
+    assert roles["verify"] == {"olead", "owner"} and roles["scope"] == {"dlead"} and roles["build"] == {"dlead"}
+    assert roles["security"] == roles["preview"] == roles["handoff"] == {"owner"}
+
+
+async def test_slice_job_never_sends_an_offline_departments_persona_or_seats_to_a_model(slice_env):
+    jid = await start(slice_env)
+    await run_to_end(slice_env, jid)
+    systems = "\n".join(slice_env.script.systems)
+    assert "REVENUE LEAD" not in systems and "SECURITY LEAD" not in systems and "DEVOPS LEAD" not in systems
+    assert not {"PROPOSAL WRITER", "STATUS WRITER"} & set(slice_env.script.seat_calls)
+    assert {"COMPETITIVE INTEL", "LEAD QUALIFIER", "PRICING ANALYST", "SERVICE BUILDER"} <= set(slice_env.script.seat_calls)
+    sec = [e for e in await db.list_evidence(jid) if e["stage"] == "security" and e["kind"] == "check"]
+    assert sec and all(e["body"]["seat"] == "" for e in sec)  # offline seats are not credited
+
+
+def test_exposure_needs_both_key_departments_live(env, monkeypatch):
+    cfg = env.cfg
+    monkeypatch.setitem(cfg.pipeline, "live_departments", ["exec", "engineering"])
+    assert exp.exposure_allowed(cfg) is False
+    monkeypatch.setitem(cfg.pipeline, "live_departments", ["exec", "engineering", "secdata"])
+    assert exp.exposure_allowed(cfg) is True
+
+
+def test_stage_roles_fall_back_to_the_owner_for_offline_departments(env, monkeypatch):
+    cfg = env.cfg
+    monkeypatch.setitem(cfg.pipeline, "live_departments", ["exec", "engineering"])
+    assert exp.stage_roles(cfg, "scope") == ["dlead"]
+    assert exp.stage_roles(cfg, "security") == [exp.OWNER]
+    assert exp.stage_roles(cfg, "handoff") == [exp.OWNER]
+    assert exp.stage_roles(cfg, "verify") == ["olead", exp.OWNER]
+    assert exp.validate_config(cfg, defaults()) == []
+    monkeypatch.setitem(cfg.pipeline, "live_departments", ["exec", "nonsense"])
+    assert any("not a department" in p for p in exp.validate_config(cfg, defaults()))
+
+
+def test_http_gated_preview_is_refused_while_security_is_offline(api, env, monkeypatch):
+    monkeypatch.setitem(env.cfg.pipeline, "live_departments", ["exec", "engineering"])
+    r = api.post("/api/jobs", json={**GOOD_BRIEF, "requestedTier": 1})
+    assert r.status_code == 400 and "Security & Privacy live" in r.json()["error"]
+    assert api.post("/api/jobs", json={**GOOD_BRIEF, "requestedTier": 0}).status_code == 200
+    h = api.get("/api/health").json()["pipeline"]
+    assert h["liveDepartments"] == ["exec", "engineering"] and h["exposureAllowed"] is False
