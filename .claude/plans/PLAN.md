@@ -1,6 +1,6 @@
 # PLAN — Workshop platform (single source of truth)
 
-**Updated**: 2026-10-03 (rev 4: platform core implemented offline; laptop runbook added) · **Supersedes and replaces**: `agents-office-implementation.plan.md` (70-seat org redesign + foundation tasks), `workshop-roadmap.plan.md`, `LANGGRAPH-MIGRATION-PLAN.md`. Their useful content is merged here; the rest was dropped on purpose (section 11). Recover any of them from git history if needed.
+**Updated**: 2026-10-04 (rev 5: one-day revision implemented: lanes, template, in-container checks, Promote, inbox; audit in §14) · **Supersedes and replaces**: `agents-office-implementation.plan.md` (70-seat org redesign + foundation tasks), `workshop-roadmap.plan.md`, `LANGGRAPH-MIGRATION-PLAN.md`. Their useful content is merged here; the rest was dropped on purpose (section 11). Recover any of them from git history if needed.
 **Single-plan rule [owner]**: this is the only plan document. Any new decision, spec or roadmap change is edited into this file; no other plan files are created. (The former `GUARDRAILS.md` is folded into section 3a.)
 
 Items marked **[verified]** were checked against a source or by running code. **[unverified]** means a claim from docs or reasoning that has not been tested here. **[decided]** means the owner decided it.
@@ -58,7 +58,7 @@ intake → verify → scope → [GATE: owner approves verdict] → build → pre
 - Deploy (revised): agents deploy a **preview** through the Dokploy MCP (section 5b) under the exposure rules in section 5a. Production and open public exposure are owner-only. No SSH keys reach an agent. (This replaces the earlier "owner runs the deploy config" rule.)
 - Rubric (gates, evidence tiers, verdict rules, budget): section 2a. Its numeric thresholds are proposals until calibrated.
 
-**Run budget [decided target, unmeasured]**: under $1 per validation memo. With 9router the displayed cost is an estimate, so the platform meters tokens itself (section 6).
+**Run budget [decided target, unmeasured]**: under $1 per validation memo. Rev 5: caps are per lane in `budget.lanes`: validate $1 and 800k tokens, build $5 and 8M tokens. These are defaults for the owner to tune after §11 S4. With 9router the displayed cost is an estimate, so the platform meters tokens itself (section 6).
 
 ## 2a. Decision rubric — is this idea worth building? (draft, thresholds uncalibrated)
 
@@ -146,7 +146,7 @@ Host (owner's machine)
 | Tools | langchain-mcp-adapters | 0.3.2 (mcp 1.30) | resolves [verified] |
 | API | FastAPI | 0.142 | resolves [verified] |
 | Docker control | `docker` Python SDK | 7.2 | resolves [verified] |
-| Build worker | **Not yet chosen: bake-off** (Claude Code in container vs OpenHands SDK 1.51.0 vs mini-swe-agent) | see 4 | **runs in its own image, never in the orchestrator's environment**, behind one interface |
+| Build worker | **Claude Code headless in the hardened container** (rev 5; mini-swe-agent only as the fallback if 9router has no Anthropic endpoint; OpenHands dropped from the runbook) | see 4 | **runs in its own image, never in the orchestrator's environment**, behind one interface |
 
 Dropped from the old stack: Redis (existed only for a multi-replica routine lock; routines are out of v1), `langchain-anthropic` (9router is OpenAI-format), Node legacy modules (after test porting), the 35-seat/8-department structure for v1.
 
@@ -170,6 +170,8 @@ Pause-and-resume at approval gates, parallel evidence branches merged into a cri
 6. *Write rule.* Agents never edit notes. `proposals.py`: a seat proposes, the owner approves; an approved note goes to `Agents Office/notes/` and never overwrites a file.
 7. *One context builder.* `context.build_pack(seat, stage, query, evidence)` = persona + playbook + brief/boundaries/skills/lessons + top brain chunks + evidence summary, capped at 7000 characters; the task engine and the pipeline both use it. Client-supplied text is wrapped with `fence()` as untrusted data.
 
+**Rev 5 (2026-10-04): seats and bench spawns are OFF by default** (`pipeline.seats_enabled`, `pipeline.spawn.enabled`). A seat with no tool or check of its own added model calls, not evidence (§14). The machinery stays and is tested; switch a seat on only after it owns a tool or a check, and A/B it on one job.
+
 **Not done yet.** Proposals are made through `POST /api/brain/proposals` and decided by the owner (`POST /api/brain/proposals/{id}`); no agent creates one automatically and the Brain screen has no list for them. Preview seats other than `dash` (report, imail) and the build-stage seats have no checks to own until the laptop runbook produces real ones. Seat quality versus a single prompt per stage is untested.
 
 ## 4. Build worker — chosen by bake-off
@@ -185,7 +187,9 @@ Pause-and-resume at approval gates, parallel evidence branches merged into a cri
 | **mini-swe-agent** | ~100-line core, bash-only, Docker/Podman, LiteLLM, self-reported >74% SWE-bench Verified. No file-editor tools or MCP. Cheap and controllable fallback. |
 | Rejected | Dagger container-use (experimental, no egress/secrets docs), Managed Agents (hosted; client code leaves the machine), Aider/Goose/OpenCode/Codex CLI/Cline (not researched in depth; revisit only if all three fail). |
 
-**Bake-off (spike S2)**: one small JS/TS web-app task with a written acceptance test (e.g. a form + API route + persisted list, with a Playwright check), same hardened container, same Haiku model, same egress policy, same 3-hour cap. Score each on: acceptance test passes (primary), unit-test pass rate, tokens and estimated cost, wall time, number of human fix-ups needed, and whether it respected the sandbox (writes outside the job dir, blocked network attempts). Also run the winner once with a stronger model on the same task to quantify what fixing the builder to Haiku costs.
+**Rev 5 (2026-10-04)**: the three-way bake-off is replaced by one real run (§11 S2): Claude Code on Haiku, extending the golden template, judged by the in-container checks and the wall clock. OpenHands is out of the runbook; mini-swe-agent stays behind the interface as the fallback. The text below is kept for the record.
+
+**Bake-off (spike S2, superseded)**: one small JS/TS web-app task with a written acceptance test (e.g. a form + API route + persisted list, with a Playwright check), same hardened container, same Haiku model, same egress policy, same 3-hour cap. Score each on: acceptance test passes (primary), unit-test pass rate, tokens and estimated cost, wall time, number of human fix-ups needed, and whether it respected the sandbox (writes outside the job dir, blocked network attempts). Also run the winner once with a stronger model on the same task to quantify what fixing the builder to Haiku costs.
 
 **Interface (swap point)**: `run_build_job(job_dir, brief, limits) -> {patch, log, tokens, model_seen, exit_state}`. Nothing else in the platform knows which harness is behind it.
 
@@ -277,10 +281,21 @@ Verified here: 198 backend tests, real-Postgres tests (incl. restart/resume of a
 | UI: Jobs overlay (J), stage stepper, tier pills, evidence, owner approve/reject/retry/kill, lead approval card; live-mode purge of demo tasks | `src/{jobs,api,main,tasks,brain,mcp}.js`, `shell.html` |
 | Agent architecture (§4a): context pack, brain search, seat fan-out, bench spawn, consult, proposals | `context.py`, `brain.py`, `proposals.py`, `pipeline/{stages,leads,spawn}.py`, `migrations/002_brain.sql`, `brain-yekdast/Playbooks/` |
 | Tooling | `check.mjs`, `setup`, `backend/tests/` (`ui_server.py` = real app + Postgres + scripted models) |
+| Rev 5 · budget per lane (USD and token caps, price table, worker priced from its tokens, router outage parks) | `config.py` `budget`, `llm.price`, `pipeline/{graph,jobs,stages}.py` |
+| Rev 5 · in-container checks (install, build, test, start + /healthz, home page, browser tests); build gate needs them green | `infra/sandbox/run-checks.mjs`, `run-job.sh`, `checks/run.py` |
+| Rev 5 · golden template, copied into every new workspace | `templates/webapp/`, `worker/base.py` `seed_workspace` |
+| Rev 5 · validate lane: WebTool (keyless MCP or built-in fetch, SSRF-guarded), quotes verified against fetched pages, rubric verdict in code | `connectors/web.py`, `pipeline/research.py` |
+| Rev 5 · owner Promote (repo per product, production app, deploy after env confirmation, /healthz probe) | `connectors/promote.py`, `pipeline/api.py` |
+| Rev 5 · inbox + Telegram | `pipeline/api.py` `inbox`, `connectors/notify.py`, `src/jobs.js` |
 
 Exposure flow (as built): gate on "auth configured" evidence → apply route with basic auth → probe without credentials → if not refused, stop the app and park at `preview`. A PASS must cite real evidence ids; a failed deterministic check fails without a model call; a verdict from the wrong model is void.
 
 ## 9. Known gaps in the implementation
+- Rev 5: Dokploy tool names/arguments for `application-saveEnvironment`, Dockerfile build type and production apps; how Dokploy authenticates to a private GitHub repo; GitHub repo creation; Telegram; the owner's keyless search tool. None of these has been run.
+- Rev 5: the worker image (Playwright browsers inside it) has not been built; Docker has no daemon in the authoring container.
+- Rev 5: kill reasons (§2a Critic) are not assessed by the validate lane; the memo says "gate X UNKNOWN" instead. The A2 gate (route to first customers) is the owner's judgment and is not computed.
+- Rev 5: a landing-page test needs a gated (Tier 1) preview, which stays locked until secdata and exec are both live. Until then the test page is private, and the owner shares it by hand after Promote.
+- Rev 5: Stripe is documented in the template's CLAUDE.md but not installed; the builder adds it when a brief needs payments.
 - Worker CLI flags/output keys (Claude Code `--max-turns`, `modelUsage`; mini-swe trajectory fields; OpenHands env/schema) and Dokploy tool names/args are from docs, **unverified**.
 - 3D scene not visually verified (tests run with `?norender=1`; software GL starves headless pages).
 - Seat personas/briefs are empty by design (laptop task). Own-product (rubric) path is specified but not built.
@@ -290,21 +305,68 @@ Exposure flow (as built): gate on "auth configured" evidence → apply route wit
 1. First client job: what is asked, deposit status, what the client expects in 3 days.
 2. Rubric inputs: three known-answer ideas, ad budget cap, excluded categories.
 3. 9router: confirm Anthropic endpoint path and a fallback provider key (S1).
-4. Builder fixed to Haiku while priority is output quality: revisit with bake-off numbers.
+4. Builder fixed to Haiku while priority is output quality: revisit with the S2 wall clock and check results (rev 5: owner kept Haiku).
+5. The landing-page test's flip condition (default proposal: GO at 20 sign-ups or 5 pre-orders from 300 visitors, NO-GO under 5 sign-ups) and per-lane budget caps.
+6. Which keyless search/fetch tool the owner means (S1b): not in this repository.
 
-## 11. Laptop runbook (do in order; write the result under each line)
+## 11. Laptop runbook (do in order; write the result and the minutes under each line)
 Preflight: `./setup`; `cp .env.example .env.local` and fill values; `npm run check` green with `AO_TEST_DATABASE_URL` set.
 
-- **S1 · 9router.** Pass: `langchain-openai` call to `kr/glm-5` returns the same model name and `usage_metadata`; Anthropic endpoint answers (else set `ROUTER_FORMAT=openai` and record it); pinned model does not silently fall back; keyless request fails with `REQUIRE_API_KEY=true`; `kr/glm-5` supports tool-calling. Result: ____
-- **S2 · Worker bake-off** (Haiku fixed). Run `claude_code`, `mini_swe`, `openhands` on one small JS/TS task with an acceptance test, inside the hardened container. Pass: ≥1 completes and exports a patch; write outside job dir fails; non-allow-listed domain refused+logged; no docker.sock. Fix the unverified flags; pick `worker.kind`. Result: ____
-- **S3 · Restart/resume on real Postgres.** `AO_TEST_DATABASE_URL=… pytest backend/tests/test_postgres.py` passes; then kill the API mid-gate and confirm exactly one resume after approval. Result: ____
-- **S4 · Cost metering.** Run one stub job; tokens per step logged in `run_costs`, stops at the cap. Result: ____
-- **S5 · Dokploy on AlmaLinux 9.7.** Run `infra/dokploy/harden-almalinux.sh` (dry-run first); port 3000 unreachable from the internet; scoped API key; MCP allow-list creates+deploys in the preview project and refuses delete/settings; preview reachable only with credentials; Security check fails an app without auth and passes one with it. Confirm real Dokploy tool names against `connectors/dokploy.py` `TOOLS`. Result: ____
-- **Boot.** `./setup`, fill `.env.local` (`ROUTER_API_KEY` at least), then `npm run boot` (Postgres, egress proxy, router gateway, API on 127.0.0.1:4520; pid in `data/api.pid`; `scripts/boot.sh --dry-run` shows what it would do). Stop with `npm run stop`. Pass: `/api/health` answers and the page loads. Result: ____
-- **Stress.** Parallel jobs, kill/restart mid-stage, budget-cap hit, router outage, lead-FAIL loops to park, double-click approvals.
-- **Personas.** Write briefs/skills per seat in `office.agents.local.json` and `<brain>/Agents Office/skills/`; leads first (olead, dlead, comply, qa, lexi, mlead).
-- **Go-live slice.** Only exec + engineering are live (`pipeline.live_departments`). After S1 and S2 (and with the real worker selected), run `npm run verify` (= `scripts/verify_slice.py --with-restart` then `scripts/verify_ui.mjs`; `BASE_URL`, `AO_API_TOKEN` optional). It drives the bakery ordering job as the owner and checks: only exec+engineering live; Tier 1 refused; verify approved by olead+owner, scope/build by dlead, security/preview/handoff by owner only; no offline lead approval; every lead PASS cites real evidence; findings only from scout/ilm/enzo/pco; live lead can spawn from its bench, offline lead refused, consult rules; kill; costs under the cap; API kill mid-gate resumes exactly once; UI shows STANDBY on the 21 other seats and OWNER on their stages. Report: `data/verify-report.json`, screenshots in `data/verify-shots/`. Result: ____ Then widen one department at a time (devops, secdata, revenue).
-- **Stop and rethink** if S1, S2 or S5 fails before building further.
+- **S1 · 9router.** Pass:
+  - a `langchain-openai` call to `kr/glm-5` returns the same model name and `usage_metadata`;
+  - the Anthropic endpoint answers (else set `ROUTER_FORMAT=openai` and record it);
+  - the pinned model does not silently fall back;
+  - a keyless request fails with `REQUIRE_API_KEY=true`;
+  - `kr/glm-5` supports tool-calling.
+
+  Result: ____
+- **S1b · Web tool.** Find the owner's keyless search/fetch tool (an MCP server on the laptop or a 9router feature) and bind it in `office.config.local.json` under `web.search` / `web.fetch` (`command`, `tool`, `arg`; see `connectors/web.py`). Pass:
+  - a validate job on a real idea runs at least 6 searches and fetches at least 3 pages;
+  - the memo's claims all link fetched pages;
+  - `GET http://127.0.0.1:…` through the tool is refused.
+
+  Result: ____
+- **S2 · Build, real.** Build the worker image (`docker build -f infra/sandbox/worker-node.Dockerfile -t agents-office/worker-node:latest infra/sandbox`) and set `AO_WORKER=claude_code`. Run the bakery client job.
+  - Pass: the build stage's checks are all green; there is no write outside the job dir; a non-allow-listed domain is refused and logged; there is no docker.sock.
+  - Confirm the unverified Claude Code flags (`--max-turns`, `modelUsage`, usage fields).
+  - **Record the minutes per stage** against the 3–6 h target. If Claude Code cannot use 9router's Anthropic endpoint, try `mini_swe` and record it.
+
+  Result: ____
+- **S3 · Restart/resume on real Postgres.** `AO_TEST_DATABASE_URL=… pytest backend/tests/test_postgres.py` passes; `npm run verify` includes a real API kill mid-gate with exactly one resume. Result: ____
+- **S4 · Budget.** Set the real prices in `budget.usd_per_mtok` (what 9router charges, or list prices). Run a job and confirm:
+  - `run_costs` and the job's `costs` match the router's token counts;
+  - a deliberately low `budget.lanes.build.usd` parks the job with a budget reason.
+
+  Result: ____
+- **S5 · Dokploy on AlmaLinux 9.7.**
+  - Run `infra/dokploy/harden-almalinux.sh` (dry-run first). Port 3000 must be unreachable from the internet, and the API key must be scoped.
+  - The MCP allow-list must create and deploy in `previews` and refuse delete/settings.
+  - The preview must build from the template's Dockerfile with `EPHEMERAL_DB=1` set, and be reachable only with credentials.
+  - Confirm the real tool names and arguments against `connectors/dokploy.py` `TOOLS`, including `application-saveEnvironment` and the Dockerfile build type.
+
+  Result: ____
+- **S6 · Promote.**
+  - Create the Dokploy project `production` once by hand. Set `PRODUCT_GITHUB_OWNER` and `PRODUCT_REPO_TOKEN`.
+  - On a done bakery job, open Jobs → Production and press Prepare with a real domain. That should create a private repo and a production app that is not deployed.
+  - Set `DATABASE_URL`, `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` in Dokploy, tick the box, and press Deploy.
+  - Pass: `https://<domain>/healthz` is 200, sign-up works, data survives a redeploy.
+
+  Result: ____
+- **S7 · Telegram.** Set `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`; a gate, a park and a finished job each send one message and nothing else. Result: ____
+- **Boot.** `npm run boot` (Postgres, egress proxy, router gateway, API on 127.0.0.1:4520; pid in `data/api.pid`; `scripts/boot.sh --dry-run` shows what it would do). Stop with `npm run stop`. Pass: `/api/health` answers and the page loads. Result: ____
+- **Verify.** `npm run verify` (= `scripts/verify_slice.py --with-restart` then `scripts/verify_ui.mjs`) checks the following and reports to `data/verify-report.json` and `data/verify-shots/`:
+  - the slice rules;
+  - both lanes;
+  - every lead PASS cites real evidence;
+  - the promote refusals (prepare and deploy are skipped unless `--scripted`);
+  - the inbox;
+  - kill, costs within the lane cap, and an API kill mid-gate resuming exactly once;
+  - STANDBY/OWNER in the UI.
+
+  Result: ____
+- **Stress.** Parallel jobs, kill/restart mid-stage, budget-cap hit, router outage (must park with the 9router reason), lead-FAIL loops to park, double-click approvals.
+- **Then.** Widen `live_departments` one department at a time (devops, secdata, revenue), each with a pass/fail line here. Gated previews (and so landing-page tests on a public link) unlock when secdata and exec are both live.
+- **Stop and rethink** if S1, S2 or S5 fails, or if S2's wall clock is beyond 7 h for the bakery job.
 
 ## 12. Dropped on purpose
 70-seat redesign, `success`/`product` departments, Citadel persona mapping, 3-column UI, the 20-agent arena, Redis locking, the Node runtime and its modules, GUARDRAILS.md and all other plan files (folded here; recover from git history).
@@ -319,6 +381,7 @@ Preflight: `./setup`; `cp .env.example .env.local` and fill values; `npm run che
 - 2026-10-04 · Bench (`backend/app/seed/bench.json`, 226 Citadel roles, no hr-people) is not seats. A lead may spawn a role from its own department's bench through `app/pipeline/spawn.py` / `POST /api/jobs/{id}/spawn`: depth 1, max 3 per job stage, audited before the model call, information only (evidence kind `spawn`, never a verdict). **Not yet wired** into the automatic lead review; today it is an API/tool the laptop session can attach (§11 personas).
 - 2026-10-04 · Agent architecture §4a adopted: seats run inside stages as information-only workers, leads may spawn bench roles and consult other leads, brain search is Postgres full text, agents propose notes and the owner approves, one context builder for both execution paths. Playbooks live in `brain-yekdast/Playbooks/` (tracked), not under the git-ignored `Agents Office/`.
 - 2026-10-04 · **One-slice go-live.** Only `exec` (intake, verify) and `engineering` (scope, build) act as agents: config `pipeline.live_departments` (default `["exec","engineering"]`). Every stage owned by another department needs the owner instead of its lead (`exposure.stage_roles`), no persona or seat of an offline department is sent to a model, and bench spawns and consults are refused for offline leads. Gated and public previews are refused (HTTP 400) until `secdata` and `exec` are both live, so separation of duties is never weakened. Widen one department at a time in the order devops, secdata, revenue (then frontend, fin, content) with a pass/fail line each in §11. Offline seats show STANDBY in the UI and the Jobs stepper shows OWNER on their stages.
+- 2026-10-04 · **Rev 5, the one-day revision (§14).** Owner answers: Haiku stays the fixed builder; 9router only; use the owner's existing keyless web fetcher; production through an owner Promote button. Implemented: per-lane budget with a price table; seats and spawns off by default; the golden template and in-container checks (the build gate needs them green); the validate lane with the rubric computed in code; owner Promote; the inbox and Telegram; a sticky kill (a race found by verify_slice). One worker on the default path (Claude Code); OpenHands left the runbook.
 - 2026-10-04 · Boot and verification prepared for the laptop (`scripts/boot.sh`, `stop.sh`, `restart_api.sh`, `verify_slice.py`, `verify_ui.mjs`; `npm run boot|stop|verify`). Proven here against the scripted stack on real Postgres (32 API checks incl. a real process kill and resume, 11 UI checks); that run found and fixed a real bug (spawn/consult evidence was written as a bare string into a JSONB column; the fakes hid it, now covered by a Postgres test). Not run here: real 9router, workers, Docker, Dokploy.
 
 ## 14. Revision for the one-day goal (audit 2026-10-04)
@@ -349,5 +412,13 @@ Preflight: `./setup`; `cp .env.example .env.local` and fill values; `npm run che
 - C5 · Owner Promote: owner-only endpoint and button with a checklist (checks green, preview healthy, security PASS), creating a per-product repo and a production Dokploy app. Agents never call it.
 - C6 · CEO inbox: one "Needs you" list (gates, parked jobs, promote-ready) and a `Notifier` port (Telegram or email; env-var names only).
 - C7 · One worker on the default path (Claude Code); OpenHands and mini-swe stay behind the interface but leave the defaults and the runbook.
+
+**Status (2026-10-04)**: C1–C7 are implemented and tested here.
+- Backend: 254 tests (real Postgres included).
+- `npm run check`: 24/24.
+- Scripted stack: `verify_slice.py` 42/42, including a real API kill and resume, and `verify_ui.mjs` 14/14.
+- Template: `run-checks.mjs` 6/6 green, run for real outside Docker. It first caught two real auth bugs in the template: Better Auth's origin check, and a per-bundle secret.
+
+Not run: everything in §9's rev-5 lines and §11.
 
 **Time budget (assumption until §11 measures it)**: validate 30–60 min; landing page 30–45 min; scope 10 min; build 60–180 min; checks 15 min; preview 10 min; owner review 15–30 min. That is 3–6 h for a small CRUD/SaaS MVP. Market proof (people paying) cannot happen in hours. The platform produces the memo and the test asset; traffic and outreach are the owner's.
