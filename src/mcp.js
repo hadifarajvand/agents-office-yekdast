@@ -380,6 +380,7 @@ export function initMcp({ scene, hud, LAYOUT, DEPTS, FR, R, connectors = null })
     }
     if (wireA < 0.02) { svg.style.display = 'none'; return; }
     svg.style.display = 'block';
+    const finite = (...n) => n.every(Number.isFinite);
     const hideWire = (w) => { w.path.setAttribute('d', ''); w.branch && w.branch.setAttribute('d', ''); w.jdot && w.jdot.setAttribute('opacity', 0); w.dot.setAttribute('opacity', 0); };
     for (const [dept, w] of Object.entries(wires)) {
       if (f && dept !== f) { hideWire(w); continue; } // focus: only this department's loom
@@ -397,11 +398,13 @@ export function initMcp({ scene, hud, LAYOUT, DEPTS, FR, R, connectors = null })
       }
       const jx = xs.reduce((a, b) => a + b, 0) / xs.length;
       const jy = f ? 100 : 104 + w.ji * 12, sy = 50;
+      if (!finite(jx, jy)) { hideWire(w); continue; } // layout not ready yet: draw nothing rather than NaN
       w.branch.setAttribute('d', xs.map(x =>
         `M ${x} ${sy} C ${x} ${sy + (jy - sy) * 0.5}, ${jx} ${jy - (jy - sy) * 0.4}, ${jx} ${jy}`).join(' '));
       const pt = f ? w.fport : w.port;
       v3.set(pt[0], pt[1], pt[2]).project(cam);
       const ex = (v3.x * 0.5 + 0.5) * innerWidth, ey = (-v3.y * 0.5 + 0.5) * innerHeight;
+      if (!finite(ex, ey)) { hideWire(w); continue; }
       const side = ex < innerWidth * 0.5 ? -1 : 1;
       const bow = f ? 30 : Math.min(170, 40 + Math.abs(ex - jx) * 0.25);
       w.path.setAttribute('d', `M ${jx} ${jy} C ${jx + side * bow * 0.35} ${jy + (ey - jy) * 0.4}, ` +
@@ -424,6 +427,7 @@ export function initMcp({ scene, hud, LAYOUT, DEPTS, FR, R, connectors = null })
       if (!topImgs[key]) continue;
       const gr = topImgs[key].getBoundingClientRect();
       const gx = (gr.left + gr.right) / 2, gsy = 50, gjy = sh.jy;
+      if (!finite(gx)) continue;
       sh.drop.setAttribute('d', `M ${gx} ${gsy} L ${gx} ${gjy}`);
       sh.offset -= dt * (f ? 13 : 6);
       sh.drop.setAttribute('stroke-dashoffset', sh.offset);
@@ -435,6 +439,7 @@ export function initMcp({ scene, hud, LAYOUT, DEPTS, FR, R, connectors = null })
         const gp = f ? g.fport : g.port;
         v3.set(gp[0], gp[1], gp[2]).project(cam);
         const ex = (v3.x * 0.5 + 0.5) * innerWidth, ey = (-v3.y * 0.5 + 0.5) * innerHeight;
+        if (!finite(ex, ey, gx)) { hideWire(g); continue; }
         const side = ex < innerWidth * 0.5 ? -1 : 1;
         const bow = Math.min(170, 40 + Math.abs(ex - gx) * 0.25);
         g.path.setAttribute('d', `M ${gx} ${gjy} C ${gx + side * bow * 0.35} ${gjy + (ey - gjy) * 0.4}, ` +
@@ -453,6 +458,7 @@ export function initMcp({ scene, hud, LAYOUT, DEPTS, FR, R, connectors = null })
       const mx = (r.left + r.right) / 2, msy = 50;
       v3.set(m.port[0], m.port[1], m.port[2]).project(cam);
       const ex = (v3.x * 0.5 + 0.5) * innerWidth, ey = (-v3.y * 0.5 + 0.5) * innerHeight;
+      if (!finite(ex, ey, mx)) { hideWire(m); continue; }
       m.path.setAttribute('d', `M ${mx} ${msy} C ${mx} ${msy + (ey - msy) * 0.45}, ${ex + 40} ${ey - (ey - msy) * 0.35}, ${ex} ${ey}`);
       m.offset = (m.offset || 0) - dt * (f ? 13 : 6);
       m.path.setAttribute('stroke-dashoffset', m.offset);

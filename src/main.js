@@ -1405,7 +1405,7 @@ tasks = initTasks({
   getFocused: () => focused, getZoom: () => view.zoom, getFocusDim: () => focusDim,
   toScreen: (p) => toScreen(p), reframe,
 });
-jobs = initJobs({ DEPTS, R, esc, chatPush, feedPush, setStuck: setStuckLive, clearStuck: clearStuckLive, isLive: () => tasks.isLive() });
+jobs = initJobs({ DEPTS, R, esc, chatPush, feedPush, setStuck: setStuckLive, clearStuck: clearStuckLive, isLive: () => tasks.isLive(), syncJobs: l => tasks.syncJobs(l) });
 // LIVE: every effect below is played from a real backend event (GET /api/activity). Nothing
 // moves unless the office actually did something: a stage moved, a model answered, a container
 // ran, a message went out, a note was read or written.

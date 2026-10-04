@@ -75,7 +75,7 @@ body.dark #jobsOv { --jb-line: rgba(236,234,227,.12); --jb-card: #1E1F24; --jb-s
 `;
 
 export function initJobs(ctx) {
-  const { DEPTS, R, esc, chatPush, feedPush, setStuck, clearStuck, isLive } = ctx;
+  const { DEPTS, R, esc, chatPush, feedPush, setStuck, clearStuck, isLive, syncJobs } = ctx;
   const API = '/api/jobs';
   let jobs = [], inbox = [], sel = null, open = false, timer = null, pipe = null, showForm = false, detail = null, promo = null;
   const announced = new Set();   // "job|stage|attempt" gates already announced to a lead
@@ -116,6 +116,7 @@ export function initJobs(ctx) {
       // banner could show a gate the lead has not been asked to wave at yet
       if (detail) { const k = jobs.findIndex(x => x.id === detail.id); if (k >= 0) jobs[k] = { ...jobs[k], ...detail, approvals: undefined, evidence: undefined }; }
     }
+    if (syncJobs) syncJobs(jobs);
     announceGates(); render();
   }
   function announceGates() {

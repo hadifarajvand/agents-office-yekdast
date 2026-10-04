@@ -635,6 +635,30 @@ export function initTasks(ctx) {
     for (const k of DEPT_KEYS) doneCount[k] = 0;
     dirty = true;
   }
+  // The pipeline's jobs (GET /api/jobs) shown as cards on the same board, panel and counters.
+  // The desk is the lead of the job's current stage; state follows the job's real status.
+  const JOB_STATE = { running: 'doing', waiting: 'waiting', parked: 'next', done: 'done' };
+  function syncJobs(list) {
+    if (!live || !Array.isArray(list)) return;
+    const seen = new Set();
+    for (const j of list) {
+      const st = (j.stages || []).find(x => x.name === j.stage); const lead = st && st.lead;
+      const state = JOB_STATE[j.status]; const sid = 'job:' + j.id;
+      let t = tasks.find(x => x.sid === sid);
+      if (!state || !agentOf(lead)) { if (t) { tasks.splice(tasks.indexOf(t), 1); dirty = true; } continue; }
+      seen.add(sid);
+      const title = j.title + (j.status === 'parked' ? ' — parked' : ' — ' + j.stage);
+      if (!t) { t = mk({ agent: lead, title, by: 'you', job: true, sid, state, addedAt: j.createdAt || Date.now(), startedAt: performance.now() }); if (state === 'done') { t.doneAt = j.updatedAt || Date.now(); t.progress = 1; doneCount[t.dept]++; } touch(t, 'added'); continue; }
+      if (t.agent !== lead) { t.agent = lead; t.dept = agentOf(lead).dept; dirty = true; }
+      if (t.title !== title) { t.title = title; dirty = true; }
+      if (t.state !== state) {
+        if (state === 'done') { t.doneAt = j.updatedAt || Date.now(); t.progress = 1; doneCount[t.dept]++; }
+        t.state = state; t.startedAt = performance.now(); touch(t, state === 'doing' ? 'started' : state);
+      }
+      if (state === 'doing') { const n = j.stages.filter(x => x.state === 'done').length; t.progress = Math.min(0.95, n / Math.max(1, j.stages.length)); dirty = true; }
+    }
+    for (let i = tasks.length - 1; i >= 0; i--) if (tasks[i].job && !seen.has(tasks[i].sid)) { tasks.splice(i, 1); dirty = true; }
+  }
   async function connect() {
     if (!location.protocol.startsWith('http')) return;
     try {
@@ -906,7 +930,7 @@ export function initTasks(ctx) {
     for (const id in R) {
       const r = R[id];
       if (r.state === 'stuck') continue;
-      const d = agentTasks(id, 'doing')[0];
+      const d = agentTasks(id, 'doing').find(t => !t.job); // pipeline job cards are driven by the server, never by this tick
       if (d && live && !d.live && agentTasks(id, 'next').some(t => t.live)) { d.progress = 1; complete(d); continue; } // live: real work never waits behind theatre
       if (d) {
         if (d.live) {
@@ -918,7 +942,7 @@ export function initTasks(ctx) {
           if (d.progress >= 1) complete(d);
         }
       } else {
-        const nx = agentTasks(id, 'next').sort((a, b) => a.addedAt - b.addedAt)[0];
+        const nx = agentTasks(id, 'next').filter(t => !t.job).sort((a, b) => a.addedAt - b.addedAt)[0];
         if (nx) { start(nx, now); r.nextBrainAt = null; }
         else if (!r.nextBrainAt) r.nextBrainAt = now + 6000 + Math.random() * 16000;
         else if (now > r.nextBrainAt) { r.nextBrainAt = null; brainSend(id); }
@@ -935,5 +959,5 @@ export function initTasks(ctx) {
   return { tick, toggle, open, close, openFor, isOpen, boardWidth, onFocusChange, onStuck, onResolve,
            handleChat, addTask, revise, rowHTML, setDept, tasks, panelWidth: () => panel.offsetWidth, isLive: () => live,
            routines, addRoutine, rtAct, railFor, syncPills, refresh: poll, resolveLive, pendingReject, rejectLive, officeModel: () => officeModel, chosenModel, chosenEffort,
-           create, createRoutine, cancelTask, agentOf, MODEL_KEYS, modelName, currentDept: () => dept, RT_DEPTS, rtRefuse };
+           create, createRoutine, cancelTask, agentOf, syncJobs, MODEL_KEYS, modelName, currentDept: () => dept, RT_DEPTS, rtRefuse };
 }

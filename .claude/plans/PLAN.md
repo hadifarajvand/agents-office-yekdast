@@ -488,3 +488,10 @@ Not run: everything in §9's rev-5 lines and §11.
 - GateGuard hooks can block the first Bash/Edit of a session until a short statement is given.
 
 **Time budget (assumption until §11 measures it)**: validate 30–60 min; landing page 30–45 min; scope 10 min; build 60–180 min; checks 15 min; preview 10 min; owner review 15–30 min. That is 3–6 h for a small CRUD/SaaS MVP. Market proof (people paying) cannot happen in hours. The platform produces the memo and the test asset; traffic and outreach are the owner's.
+
+## 16. Session log — UI/backend connection (2026-10-04)
+- Resume fix: restart parks `running` jobs; Retry continues from the checkpoint (`park_interrupted`, `retry_parked`). Leftover `ao-job-<id>` containers are removed before a retry.
+- Worker log: Claude Code runs `stream-json --verbose`; `out/trace.jsonl` digests say/tool/result (flags still UNVERIFIED until an S2 run completes).
+- Image: template deps and npm cache baked in; build with `docker build --pull=false --build-context template=templates/webapp -f infra/sandbox/worker-node.Dockerfile -t agents-office/worker-node:latest infra/sandbox`. This replaces the older command in §11.
+- UI: wiring loom guards against NaN coordinates (`src/mcp.js`). Pipeline jobs now appear on the main board, Task Status panel and DOING/NEXT/DONE counters via `syncJobs` (tasks.js, fed by the jobs poll): running→doing, waiting→waiting, parked→backlog, done→done, desk = the lead of the current stage. The local tick never starts or runs these cards.
+- Still open: S2 green run and wall clock, S1b, S3–S7, stress test, agent id on model events, Telegram/Dokploy config.
