@@ -50,6 +50,7 @@ class Deps:
     worker: BuildWorker | None = None
     deployer: Deployer | None = None
     checks: Checks | None = None
+    web: object | None = None      # connectors.web.WebTool (research stage only)
     jobs_dir: Path = field(default_factory=lambda: Path("data/jobs"))
 
 

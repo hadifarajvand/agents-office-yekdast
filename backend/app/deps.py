@@ -34,5 +34,7 @@ def build_deps() -> Deps:
     except Exception as e:
         log.warning("Dokploy deployer unavailable: %s", e)
         deployer = Unconfigured("the Dokploy deployer", str(e))
+    from .connectors.web import from_config as web_from_config
     return Deps(chat_json=llm.ask_json, worker=make_worker(), deployer=deployer, checks=PatchChecks(),
+                web=web_from_config(cfg),
                 jobs_dir=Path(cfg.sandbox["jobs_dir"]))

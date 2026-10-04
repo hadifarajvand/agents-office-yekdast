@@ -1,6 +1,7 @@
 """The pipeline graph.
 
-    intake -> [verify -> scope -> build -> security -> preview -> exposure] -> apply_exposure -> handoff -> finish
+    build lane:    intake -> [verify -> scope -> build -> security -> preview -> exposure] -> apply_exposure -> handoff -> finish
+    validate lane: intake -> research -> finish
 
 Every stage S after intake is three nodes:
     S         work: agents produce evidence (metered, budget-capped)
@@ -260,7 +261,7 @@ def _intake_node():
 def build_graph() -> StateGraph:
     g = StateGraph(JobState)
     g.add_node("intake", _intake_node())
-    for s in ORDER + ["handoff"]:
+    for s in ORDER + ["handoff", "research"]:  # research: the validate lane's only stage after intake
         g.add_node(s, _work_node(s))
         g.add_node(f"{s}_review", _review_node(s))
         g.add_node(f"{s}_gate", _gate_node(s))
@@ -275,11 +276,13 @@ def build_graph() -> StateGraph:
         return "park" if state.get("route") == "park" else ("finish" if state.get("route") == "kill" else "ok")
 
     def after_intake(state: JobState) -> str:
-        return {"park": "park", "kill": "finish"}.get(state.get("route", ""), "verify")
+        first = "research" if state.get("lane") == "validate" else "verify"
+        return {"park": "park", "kill": "finish"}.get(state.get("route", ""), first)
 
-    g.add_conditional_edges("intake", after_intake, {"park": "park", "finish": "finish", "verify": "verify"})
-    for s in ORDER + ["handoff"]:
-        nxt = NEXT.get(s, "finish") if s != "handoff" else "finish"
+    g.add_conditional_edges("intake", after_intake,
+                            {"park": "park", "finish": "finish", "verify": "verify", "research": "research"})
+    for s in ORDER + ["handoff", "research"]:
+        nxt = NEXT.get(s, "finish")
 
         def router(state: JobState, s=s, nxt=nxt) -> str:
             r = state.get("route", "")
@@ -295,7 +298,7 @@ def build_graph() -> StateGraph:
                             {"resume": "resume_router", "finish": "finish"})
     g.add_node("resume_router", lambda st: {"route": ""})
     g.add_conditional_edges("resume_router", lambda st: st.get("park_stage") or "verify",
-                            {s: s for s in ["intake"] + ORDER + ["handoff"]})
+                            {s: s for s in ["intake"] + ORDER + ["handoff", "research"]})
     g.add_edge("finish", END)
     return g
 

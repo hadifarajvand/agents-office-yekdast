@@ -142,6 +142,30 @@ def main() -> int:
     check("evidence: security checks ran and are not credited to an offline seat", bool(sec) and all((e["body"].get("seat") or "") == "" for e in sec), f"{len(sec)} checks")
     check("evidence: the build produced a patch", any(e["stage"] == "build" and e["kind"] == "patch" and e["ok"] for e in ev))
 
+    # 4b. validate lane: own idea -> web research -> computed verdict -> owner
+    r = c.post("/api/jobs", json={"kind": "own", "title": "Bakery order inbox",
+                                  "description": "One list of phone, Instagram and walk-in orders for small bakeries, with pickup times."})
+    check("validate: an own idea is accepted into the validate lane", r.status_code == 200 and r.json().get("lane") == "validate", r.text[:120])
+    if r.status_code == 200:
+        vid = r.json()["id"]
+        vj, vclicked = drive_as_owner(vid, timeout=300)
+        check("validate: the job runs intake -> research and the owner closes it",
+              vj["status"] == "done" and [s["name"] for s in vj["stages"]] == ["intake", "research"] and vclicked == ["research"],
+              f'{vj["status"]} {vclicked}')
+        memo = next((e for e in vj.get("evidence", []) if e["stage"] == "research" and e["kind"] == "memo"), None)
+        body = (memo or {}).get("body") or {}
+        check("validate: the memo carries a computed verdict and gate table",
+              body.get("verdict") in ("GO", "TEST", "NO-GO") and set(body.get("gates", {})) == {"D1", "D2", "A"}, str(body.get("verdict")))
+        pages = set((body.get("run_log") or {}).get("pages") or [])
+        check("validate: every kept claim cites a page that was actually fetched",
+              all(cl.get("url") in pages for cl in body.get("claims", [])), f'{len(body.get("claims", []))} claims, {len(pages)} pages')
+        if not (body.get("run_log") or {}).get("search_available"):
+            check("validate: without a search tool the verdict cannot be GO", body.get("verdict") != "GO", str(body.get("verdict")))
+        r = c.post("/api/jobs", json={**BRIEF, "kind": "own", "lane": "build", "fromJob": vid, "title": "Bakery order inbox MVP"})
+        check("validate: a finished validate job can seed an own-idea build job", r.status_code == 200, r.text[:120])
+        if r.status_code == 200:
+            c.post(f'/api/jobs/{r.json()["id"]}/kill')
+
     # 5. sub-agents and consults
     j2 = c.post("/api/jobs", json={**BRIEF, "title": "Bakery spawn test", "requestedTier": 0}).json()["id"]
     wait_for(j2, lambda j: j["status"] in ("waiting", "running"))
@@ -161,7 +185,8 @@ def main() -> int:
 
     # 7. cost metering
     check("costs: the job carries a cost record", set(job.get("costs", {})) >= {"tokens", "usd"}, str(job.get("costs")))
-    check("costs: the job stayed under its cap", float(job.get("costs", {}).get("usd", 0)) <= 1.0, str(job.get("costs")))
+    cap = float(((p.get("budget") or {}).get("build") or {}).get("usd", 5.0))
+    check("costs: the job stayed under its lane cap", float(job.get("costs", {}).get("usd", 0)) <= cap, f'{job.get("costs")} cap ${cap}')
     check("costs: /api/usage answers", c.get("/api/usage").status_code == 200)
 
     # 8. restart / resume

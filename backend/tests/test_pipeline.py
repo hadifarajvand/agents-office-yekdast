@@ -62,6 +62,10 @@ class Script:
                     "repeatable": True, "risks": [], "summary": "ok"}
         if "scope a small" in system:
             return {"acceptance_criteria": ["order form submits"], "tasks": ["build form"], "stack": "next", "estimate_hours": 6}
+        if "Propose web search queries" in system:
+            return {"queries": ["bakery order software", "bakery phone orders pain"]}
+        if "extract market evidence" in system:
+            return {"claims": [{"gate": "D1", "subject": "Acme Bakeries Pro", "tier": "T2", "quote": "costs $49 per month"}]}
         if "client handoff memo" in system:
             return {"summary": "done", "how_to_open": "open the link", "what_was_built": ["site"], "known_limits": [], "next_steps": []}
         raise AssertionError("unscripted prompt: " + system[:60])
@@ -462,7 +466,8 @@ def test_http_flow_owner_gates_counter_and_kill(api, env):
 
 
 def test_http_create_validation(api):
-    assert api.post("/api/jobs", json={"kind": "own", "title": "x"}).status_code == 400
+    assert api.post("/api/jobs", json={"kind": "own", "lane": "build", "title": "x"}).status_code == 400  # needs fromJob
+    assert api.post("/api/jobs", json={"title": "x", "lane": "ship-it"}).status_code == 400
     assert api.post("/api/jobs", json={"description": "no title"}).status_code == 400
     assert api.post("/api/jobs", json={"title": "x", "requestedTier": 7}).status_code == 400
     assert api.get("/api/jobs/missing").status_code == 404

@@ -47,6 +47,17 @@ try {
   for (const k of ['security review', 'preview deploy', 'exposure', 'handoff']) check(`jobs: ${k} shows OWNER`, by[k] === 'OWNER', by[k]);
   for (const k of ['verify', 'scope', 'build']) check(`jobs: ${k} shows its lead, not OWNER`, !!by[k] && by[k] !== 'OWNER', by[k]);
   await page.screenshot({ path: path.join(SHOTS, 'jobs.png') });
+  // the validate lane's memo (verify_slice.py creates "Bakery order inbox")
+  const idea = await page.$('#jobsOv .jb-card:has(h4:text-is("Bakery order inbox"))');
+  if (idea) {
+    await idea.click();
+    await page.waitForSelector('#jobsOv .jb-verdict', { timeout: 15000 });
+    const v = await page.evaluate(() => ({ verdict: document.querySelector('#jobsOv .jb-verdict .big').textContent.trim(),
+      steps: document.querySelectorAll('#jobsOv .jb-stage').length, build: document.querySelectorAll('#jobsOv [data-build]').length }));
+    check('jobs: the idea shows a computed verdict and two stages', ['GO', 'TEST', 'NO-GO'].includes(v.verdict) && v.steps === 2, `${v.verdict}, ${v.steps} stages`);
+    check('jobs: a finished idea offers a landing-page test and an MVP build', v.build === 2, String(v.build));
+    await page.screenshot({ path: path.join(SHOTS, 'validate.png') });
+  } else check('jobs: the validate job is listed', false, 'run scripts/verify_slice.py first');
   check('page: no script errors', errors.length === 0, errors[0] || '');
 } catch (e) {
   check('ui: the checks ran', false, String(e.message || e).split('\n')[0]);

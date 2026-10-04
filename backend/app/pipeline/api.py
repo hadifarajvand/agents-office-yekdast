@@ -61,7 +61,8 @@ async def body_of(req: Request) -> dict:
 
 @router.get("")
 async def list_jobs():
-    return [jobs.public(j) for j in await db.list_jobs()]
+    # rows that are not complete job records (e.g. written by a test) are skipped, not fatal
+    return [jobs.public(j) for j in await db.list_jobs() if j.get("stages") and j.get("status")]
 
 
 @router.get("/{job_id}")
@@ -76,8 +77,13 @@ async def create_job(req: Request):
     kind = body.get("kind", "client")
     if kind not in ("client", "own"):
         return JSONResponse({"error": 'kind must be "client" or "own"'}, status_code=400)
-    if kind == "own":
-        return JSONResponse({"error": "the own-product validation path needs the web evidence tools, which are not connected yet"}, status_code=400)
+    lane = body.get("lane") or ("validate" if kind == "own" else "build")
+    if lane not in jobs.LANES:
+        return JSONResponse({"error": 'lane must be "validate" or "build"'}, status_code=400)
+    if kind == "own" and lane == "build":
+        src = await db.get_job(str(body.get("fromJob") or ""))
+        if not src or src.get("lane") != "validate" or src.get("status") != "done":
+            return JSONResponse({"error": "an own idea is built only from a finished validate job (fromJob)"}, status_code=400)
     title = str(body.get("title") or "").strip()
     if not title:
         return JSONResponse({"error": "title is required"}, status_code=400)
@@ -87,9 +93,9 @@ async def create_job(req: Request):
     if tier > 0 and not exp.exposure_allowed(load_config()):
         return JSONResponse({"error": "gated and public previews need Strategy & Legal and Security & Privacy live; "
                                       "only private (Tier 0) previews exist until then"}, status_code=400)
-    brief = {k: str(body.get(k) or "").strip()[:8000] for k in ("title", "description", "client", "deposit_ref", "acceptance")}
+    brief = {k: str(body.get(k) or "").strip()[:8000]
+             for k in ("title", "description", "client", "deposit_ref", "acceptance", "audience", "price", "links", "fromJob")}
     brief["title"] = title
-    lane = "build"
     job = jobs.new_job(kind, title, brief, requested_tier=tier, lane=lane)
     await db.save_job(job)
     cfgd = {"job_id": job["id"], "kind": kind, "lane": lane, "brief": brief, "requested_tier": tier, "loops": {}, "feedback": "", "route": ""}

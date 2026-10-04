@@ -254,6 +254,7 @@ def pipeline_info() -> dict:
             "liveDepartments": live_departments(cfg), "exposureAllowed": exposure_allowed(cfg),
             "lanes": {k: {"stages": v.get("stages", []), "hours": v.get("hours")} for k, v in (cfg.pipeline.get("lanes") or {}).items()},
             "seatsEnabled": bool(cfg.pipeline.get("seats_enabled")),
+            "budget": cfg.budget.get("lanes", {}),
             "exposure": {"tier1OwnerClicks": cfg.exposure.get("tier1_owner_clicks", 3),
                          "previewTtlDays": cfg.exposure.get("preview_ttl_days", 7),
                          "keys": cfg.exposure.get("keys", {})}}

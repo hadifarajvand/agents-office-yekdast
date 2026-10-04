@@ -95,8 +95,9 @@ def public(job: dict, approvals: list[dict] | None = None, evidence: list[dict] 
                                "tier", "costs", "events", "createdAt", "deadlineAt") if k in job}
     # JSONB does not keep key order, so the order comes from the pipeline config.
     order = [st["name"] for st in cfg.pipeline.get("stages", [])]
-    names = [n for n in order if n in job["stages"]] + [n for n in job["stages"] if n not in order]
-    out["stages"] = [{"name": n, **job["stages"][n]} for n in names]
+    st = job.get("stages") or {}  # a malformed row must not break the whole list
+    names = [n for n in order if n in st] + [n for n in st if n not in order]
+    out["stages"] = [{"name": n, **st[n]} for n in names]
     out["brief"] = job.get("brief", {})
     out["parkReason"] = job.get("parkReason")
     out["lane"] = job.get("lane", "build")

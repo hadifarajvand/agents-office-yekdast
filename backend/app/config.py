@@ -37,6 +37,12 @@ DEFAULTS: dict = {
     "model": "haiku",
     "mcp": {"allow": [], "deny": [], "departments": {}},
     "tools": {"web": False},
+    # Web access for the research stage (validate lane). Empty = built-in fetch only, no search.
+    # Bind the owner's keyless MCP server here (see app/connectors/web.py for the shape).
+    "web": {"search": {}, "fetch": {}, "max_searches": 12, "max_fetches": 20},
+    # Decision rubric thresholds (PLAN.md section 2a); proposals until calibrated.
+    "rubric": {"d1_competitors": 3, "d1_with_revenue": 2, "d2_posts": 8, "d2_communities": 3, "d2_specific": 5,
+               "fail_min_queries": 6, "fail_min_fetches": 3},
     # Model access through the local 9router proxy. base_url has no trailing /v1;
     # the client adds the path its format needs.
     "router": {
@@ -173,6 +179,8 @@ class Config:
     dokploy: dict = field(default_factory=dict)
     github: dict = field(default_factory=dict)
     api: dict = field(default_factory=dict)
+    web: dict = field(default_factory=dict)
+    rubric: dict = field(default_factory=dict)
     problems: list = field(default_factory=list)
 
     def secret(self, section: str, key: str = "api_key_env") -> str:
@@ -248,7 +256,7 @@ def _load() -> Config:
         router=merged["router"], roles=merged["roles"], budget=merged["budget"],
         pipeline=merged["pipeline"], exposure=merged["exposure"], worker=merged["worker"],
         sandbox=merged["sandbox"], dokploy=merged["dokploy"], github=merged["github"],
-        api=merged["api"], problems=problems,
+        api=merged["api"], web=merged["web"], rubric=merged["rubric"], problems=problems,
     )
 
 

@@ -260,5 +260,10 @@ async def handoff(state: dict) -> dict:
     return {}
 
 
+async def research(state: dict) -> dict:
+    from .research import research as run
+    return await run(state)
+
+
 WORK = {"intake": intake, "verify": verify, "scope": scope, "build": build, "security": security,
-        "preview": preview, "exposure": exposure, "handoff": handoff}
+        "preview": preview, "exposure": exposure, "handoff": handoff, "research": research}
