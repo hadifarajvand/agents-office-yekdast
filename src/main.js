@@ -19,7 +19,7 @@ let tasks = null; // V3 task boards — initialised after the rail constants exi
 /* ---------- renderer / scene / camera ---------- */
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); // 2x costs ~1.8x the fill for little visible gain
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.VSMShadowMap;
 
@@ -101,7 +101,7 @@ scene.add(hemi);
 const key = new THREE.DirectionalLight(0xfff1dd, 2.2);
 key.position.set(-60, 90, 20);
 key.castShadow = true;
-key.shadow.mapSize.set(2048, 2048);
+key.shadow.mapSize.set(1024, 1024);
 key.shadow.camera.left = -95; key.shadow.camera.right = 95;
 key.shadow.camera.top = 95; key.shadow.camera.bottom = -95;
 key.shadow.camera.far = 400;
@@ -1473,7 +1473,9 @@ window.CC = { flyTo, zoomToDept, zoomOut, zoomToApproval, requestApproval, openA
 // runs on machines with only software GL, where one frame can take seconds and starve the page.
 const NO_RENDER = new URLSearchParams(location.search).has('norender');
 let last = performance.now();
+const FRAME_MS = 1000 / 30; // the office does not need display rate: 30 fps halves GPU and CPU load
 function loop(now) {
+  if (document.hidden || now - last < FRAME_MS - 1) { requestAnimationFrame(loop); return; }
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   tickTween(now);
   applyCamera();
