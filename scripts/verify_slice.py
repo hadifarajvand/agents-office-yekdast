@@ -25,7 +25,8 @@ WITH_RESTART = "--with-restart" in sys.argv
 LIVE = {"exec", "engineering"}
 OFFLINE_LEADS = {"comply", "qa", "lexi", "alead", "elead", "mlead"}
 OFFLINE_SEATS = {"piper", "cmail", "recon", "kmail", "vmail", "dash", "newt", "report", "imail", "riley", "gfx"}
-BRIEF = {"title": "Bakery ordering site", "client": "Acme Bakery", "deposit_ref": "INV-001 paid",
+BRIEF = {"title": "Bakery ordering site", "client": "Acme Bakery", "deposit_ref": "INV-001: 50% deposit (USD 600) received 2026-10-01, signed contract C-17",
+         "price": "USD 1,200 fixed price; 50% deposit paid, 50% on delivery", "audience": "local customers ordering pickup, about 30 orders a week",
          "description": "A small ordering site for a bakery: a menu page and an order form that emails the bakery.",
          "acceptance": "A customer can pick items from the menu and submit an order; the bakery receives it."}
 

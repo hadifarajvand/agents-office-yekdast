@@ -319,7 +319,12 @@ Preflight: `./setup`; `cp .env.example .env.local` and fill values; `npm run che
   - a keyless request fails with `REQUIRE_API_KEY=true`;
   - `kr/glm-5` supports tool-calling.
 
-  Result: ____
+  Result (2026-10-04, curl only; the `langchain-openai` check is still open until the venv is rebuilt): **partial pass**.
+  - Keyless `POST /v1/chat/completions` and `/v1/messages` → 401 "Missing API key" (note `GET /v1/models` is open without a key).
+  - With the key, `kr/glm-5` and `cc/claude-haiku-4-5-20251001` both answer; the response `model` field comes back **without the router prefix** (`glm-5`, `claude-haiku-4-5-20251001`), so the model-swap check must compare the bare name.
+  - `POST /v1/messages` (Anthropic format) works with `x-api-key`, so `ROUTER_FORMAT=openai` and Claude Code both have an endpoint.
+  - `kr/glm-5` returns a correct `tool_calls` for a trivial tool. A 1-line prompt reported `prompt_tokens: 6283`: the router seems to add a large preamble to Kiro models, so budget the token caps for it (to confirm in S4).
+  - Not tested: silent fallback.
 - **S1b · Web tool.** Find the owner's keyless search/fetch tool (an MCP server on the laptop or a 9router feature) and bind it in `office.config.local.json` under `web.search` / `web.fetch` (`command`, `tool`, `arg`; see `connectors/web.py`). Pass:
   - a validate job on a real idea runs at least 6 searches and fetches at least 3 pages;
   - the memo's claims all link fetched pages;
@@ -331,7 +336,7 @@ Preflight: `./setup`; `cp .env.example .env.local` and fill values; `npm run che
   - Confirm the unverified Claude Code flags (`--max-turns`, `modelUsage`, usage fields).
   - **Record the minutes per stage** against the 3–6 h target. If Claude Code cannot use 9router's Anthropic endpoint, try `mini_swe` and record it.
 
-  Result: ____
+  Result (2026-10-04): **blocked at the image build, not run**. `node:22-bookworm-slim` pulls, but `apt-get` inside the build fails: inside Docker `deb.debian.org` resolves to `198.20.0.26` (the 198.18.0.0/15 fake-IP range of a TUN/fake-IP VPN or proxy), which the Docker VM cannot reach, while the host reaches the same site fine. Fix on the machine, not in the repo: turn the VPN's TUN/enhanced mode on for Docker, or set Docker Desktop → Settings → Resources → Proxies to the VPN's local HTTP proxy, or pause the VPN for the build. Then rerun the `docker build` line above.
 - **S3 · Restart/resume on real Postgres.** `AO_TEST_DATABASE_URL=… pytest backend/tests/test_postgres.py` passes; `npm run verify` includes a real API kill mid-gate with exactly one resume. Result: ____
 - **S4 · Budget.** Set the real prices in `budget.usd_per_mtok` (what 9router charges, or list prices). Run a job and confirm:
   - `run_costs` and the job's `costs` match the router's token counts;
@@ -353,7 +358,7 @@ Preflight: `./setup`; `cp .env.example .env.local` and fill values; `npm run che
 
   Result: ____
 - **S7 · Telegram.** Set `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`; a gate, a park and a finished job each send one message and nothing else. Result: ____
-- **Boot.** `npm run boot` (Postgres, egress proxy, router gateway, API on 127.0.0.1:4520; pid in `data/api.pid`; `scripts/boot.sh --dry-run` shows what it would do). Stop with `npm run stop`. Pass: `/api/health` answers and the page loads. Result: ____
+- **Boot.** `npm run boot` (Postgres, egress proxy, router gateway, API on 127.0.0.1:4520; pid in `data/api.pid`; `scripts/boot.sh --dry-run` shows what it would do). Stop with `npm run stop`. Pass: `/api/health` answers and the page loads. Result: **pass, 2026-10-04**. Docker part (postgres, egress, router-gateway) and the API on 127.0.0.1:4520 are up; the page returns 200. First attempt failed because `backend/.venv` was Python 3.9 with langgraph 0.2.68 against the pinned 1.2.12; rebuilt on Python 3.12 (old one in `data/venv-py39-old`). The old-design `.env.local` is saved in `data/env.local.old-design`; the old `agents-office-yekdast-app-1` container was stopped to free port 4520.
 - **Verify.** `npm run verify` (= `scripts/verify_slice.py --with-restart` then `scripts/verify_ui.mjs`) checks the following and reports to `data/verify-report.json` and `data/verify-shots/`:
   - the slice rules;
   - both lanes;
@@ -363,7 +368,10 @@ Preflight: `./setup`; `cp .env.example .env.local` and fill values; `npm run che
   - kill, costs within the lane cap, and an API kill mid-gate resuming exactly once;
   - STANDBY/OWNER in the UI.
 
-  Result: ____
+  Result (2026-10-04, live `kr/glm-5`, `AO_WORKER=fake`): **partial, 31/40 slice checks + 10/11 UI checks**.
+  - Passing: gates, lead/owner approval rules, bench and consult rules, kill, costs within the lane cap, inbox, and an API kill mid-gate resuming exactly once; STANDBY/OWNER pills in the UI.
+  - Fixed: `npm run verify` used the system `python3` (3.9, no httpx), now the venv's; the script's bakery brief had no price, so the real model correctly refused it at verify (deposit unverifiable, price missing) and the job parked after 2 retries. The brief now carries price, deposit and audience.
+  - Still failing, expected until S2/S1b: the `build` gate refuses the fake worker ("nothing was built or tested"), so security, preview, handoff and the UI "checks ran" check never run; the validate lane parks because no web tool is bound (S1b). Playwright's chromium was downloaded for the UI part.
 - **Stress.** Parallel jobs, kill/restart mid-stage, budget-cap hit, router outage (must park with the 9router reason), lead-FAIL loops to park, double-click approvals.
 - **Then.** Widen `live_departments` one department at a time (devops, secdata, revenue), each with a pass/fail line here. Gated previews (and so landing-page tests on a public link) unlock when secdata and exec are both live.
 - **Stop and rethink** if S1, S2 or S5 fails, or if S2's wall clock is beyond 7 h for the bakery job.
