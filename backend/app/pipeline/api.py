@@ -173,8 +173,25 @@ async def retry_parked(job_id: str, req: Request):
         return JSONResponse({"error": "not found"}, status_code=404)
     if job.get("status") != "parked":
         return JSONResponse({"error": "the job is not parked"}, status_code=409)
-    _spawn(_drive(job_id, Command(resume={"action": "retry", "note": str(body.get("note") or "")[:1000]})))
+    snap = await compiled().aget_state(thread(job_id))
+    if snap.interrupts:
+        payload = Command(resume={"action": "retry", "note": str(body.get("note") or "")[:1000]})
+    else:
+        payload = None  # parked by a restart, not by the graph: continue from the last checkpoint
+    _spawn(_drive(job_id, payload))
     return {"ok": True}
+
+
+async def park_interrupted() -> int:
+    """On startup, a job still 'running' lost its driver in the restart (nothing re-drives it).
+    Park it with a reason so the owner can press Retry; nothing restarts by itself."""
+    n = 0
+    for j in await db.list_jobs():
+        if j.get("status") == "running" and j.get("id"):
+            await jobs.touch(j["id"], status="parked", parkReason="interrupted by a restart — press Retry to continue from the last checkpoint")
+            await jobs.event(j["id"], "interrupted by a restart; parked")
+            n += 1
+    return n
 
 
 @router.post("/{job_id}/kill")

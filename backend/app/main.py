@@ -86,6 +86,10 @@ async def lifespan(_app: FastAPI):
     n = await db.fail_interrupted_tasks()
     if n:
         log.warning("marked %d task(s) interrupted by the last restart as failed", n)
+    from .pipeline import api as pipeline_api
+    pn = await pipeline_api.park_interrupted()
+    if pn:
+        log.warning("parked %d job(s) interrupted by the last restart", pn)
     ticker = spawn(_tick_routines())
     try:
         yield
