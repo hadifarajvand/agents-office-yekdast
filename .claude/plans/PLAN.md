@@ -498,3 +498,52 @@ Not run: everything in §9's rev-5 lines and §11.
 - Model events already carry the stage lead as agent id (pinned by `tests/test_activity_agent.py`).
 - UI load: render loop capped at 30 fps, pixel ratio 1.5, 1024 shadow map. Department focus draws only that department (meshes with `userData.dept` are hidden until exit; `?cull=0` disables). Savings not yet measured. The in-app browser pane reports `document.hidden` true, so there is no hidden-tab gate.
 - Next: boot headless and run S2 with `python -u scripts/verify_slice.py` for visible progress.
+
+## 17. Full re-audit with graphify and stack redesign (2026-10-05)
+
+### 17.1 Method
+graphify over the whole repo (`graphify-out/`, git-ignored; rebuild with `/graphify .`): 232 files, AST for 141 code files, three doc agents for the markdown. The 28 connector logo PNGs were skipped. The graph has 2,061 nodes, 4,670 edges and 109 communities. Doc extraction was partial: the PLAN.md agent read lines 1–400 only, and the platform-skill agent read the first 2.5 KB of each file. Treat the doc edges as indicative; the code edges are exact.
+
+### 17.2 What the graph shows
+- **Hubs** (most connected): `load_config` (111), `initTasks` (90), `get_job` (49), `MCPRegistry` (33), `get_deps` (33), `get_pool` (27), `initBrain` (25). Config is read everywhere; the frontend is one large hub, `tasks.js`.
+- **Backend communities**: MCP policy; checklist and promote; pipeline graph and ports; DB and pool; sandbox and checks; llm and budget; patch checks; web fetch; policy and redaction; Dokploy; brain; stages; engine; activity. The backend is already modular.
+- **Frontend**: `api.js`/`main.js`, `tasks.js`, `calendar.js` (routines). Brain vault (`brain/`) is business content that the departments read, not code.
+- Code size: about 7.1k lines of backend, 6.2k of frontend.
+
+### 17.3 Inventory: built vs. proven vs. live
+| Area | State |
+|---|---|
+| Sandbox (`sandbox.py`, worker image, `run-checks.mjs`) | Spec hardened and unit-tested; never run to a green build. Worker flags and stream-json shapes UNVERIFIED. |
+| MCP policy layer (`mcp.py`) | Pure policy (allow/deny/department wiring, audit, refusal) is tested. `discover()` is a stub. `mcp.allow` is empty, so **no connector is live**. The 26 logo tiles in the UI show connectors that are not connected. |
+| MCP client (`connectors/mcp_client.py`) | Real, via `langchain-mcp-adapters`, used only by Dokploy and GitHub. UNVERIFIED (S5, S7). |
+| Personas | 226 Citadel bench roles in `seed/bench.json` (exec 14, revenue 37, engineering 23, frontend 35, devops 46, secdata 36, fin 13, content 22). Offered to leads in `pipeline/leads.py` only when `pipeline.spawn.enabled`; off by default; never exercised. 27 seats from `roster_seed.json`. |
+| Skills | Three owner skills (`client-reply`, `house-style`, `proposal`) plus the loader (`skills.py`). No separate "plugin" concept exists in the code. |
+| Departments | Eight plus the brain are drawn and listed. `live_departments` is `exec`, `engineering`. |
+| Notify / deploy | Telegram and Dokploy unconfigured, so they show failed. |
+
+### 17.4 Findings
+1. **Stage ownership does not match the live set.** The build lane runs stages owned by `secdata` (security, exposure), `devops` (preview) and `revenue` (handoff), but only exec and engineering are live. The separation-of-duties rule (§5a) needs the exposure approver outside engineering, so either those stages are stuck on non-live leads or the owner clicks for them. This must be resolved before a build can complete honestly.
+2. **The UI shows more than the backend runs.** Eight departments, 27 seats and 26 connector tiles are drawn, while two departments and zero connectors work. This is the main source of render load and of confusion.
+3. **MCPs, personas and skills are present but inert.** None is exercised by a real job yet, so none should be presented as a capability.
+4. **No component has an end-to-end proof.** The first real sandbox build (S2) remains the gate for everything downstream.
+
+### 17.5 Redesigned stack (proposal; apply in this order)
+**Core, live now** (smallest set that keeps separation of duties):
+- `exec`: intake, verify, research, handoff (absorbs the `revenue` handoff stage until revenue goes live).
+- `engineering`: scope, build.
+- `secdata`: security, exposure (the independent approver; replaces nothing, becomes live).
+- `devops`: preview deploy.
+Everything else (`revenue`, `frontend`, `fin`, `content`) stays defined but **dormant**: not drawn in the overview, no seats listed as workers, no connectors, bench spawning off.
+
+**One source of truth.** `pipeline.live_departments` already exists; make it drive (a) which stages are `live`, (b) which departments and seats the UI draws and lists, (c) which connectors are shown (only those with an allow entry and a verified connection), (d) which bench roles are offered. Dormant means absent, not greyed out.
+
+**Capabilities activate by evidence, not by presence.** A connector, bench role or skill becomes visible only after one real call is recorded in `/api/activity`. Until then it is listed in a "not connected" page, not on the board.
+
+**Order of work**
+1. Decide the live set (default above) and set it in `config.py`; reassign `handoff` to the exec lead if revenue stays dormant; update `tests` for stage ownership.
+2. Make the UI read `liveDepartments` from `/api/pipeline` and draw only those (overview and panels); show connectors only if connected.
+3. Boot headless and run S2 to green; record the wall clock.
+4. Then S3, S4, S5 (needs Dokploy URL and token variable name), S1b (needs the keyless search/fetch choice), S7 (needs the bot token variable name and chat id), S6 (owner triggers), stress test.
+5. Re-run graphify after step 2 and compare node counts and the hub list.
+
+**Open owner decisions**: confirm the live set above (in particular that `devops` and `secdata` go live and `revenue` handoff folds into exec); the keyless web tool; Dokploy and Telegram variable names.
