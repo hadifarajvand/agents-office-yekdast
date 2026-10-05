@@ -99,6 +99,7 @@ export function initCalendar(ctx) {
       : `<div class="cv-empty">No routines yet.<br>Click a day, write what should happen, switch on REPEAT.</div>`;
   }
   function renderChips() {
+    deptOn = new Set([...deptOn].filter(k => DEPT_KEYS.includes(k))); if (!deptOn.size) deptOn = new Set(DEPT_KEYS); // departments can leave the list when the backend is live
     E.chips.innerHTML = DEPT_KEYS.map(k => `<button class="cv-chip${deptOn.has(k) ? ' on' : ''}" data-dept="${k}"><i style="background:${DEPTS[k].chip}"></i>${DEPTS[k].short}</button>`).join('') +
       `<span class="cv-sep"></span><button class="cv-chip${showRoutines ? ' on' : ''}" data-tog="routines"><i class="rt">⏱</i>ROUTINES</button><button class="cv-chip${showDone ? ' on' : ''}" data-tog="done"><i class="tick">✓</i>DONE</button>` +
       (onlyRoutine ? `<button class="cv-chip only on" data-tog="only">ONLY THIS ROUTINE ✕</button>` : '');

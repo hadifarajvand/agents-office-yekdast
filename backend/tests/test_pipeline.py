@@ -217,7 +217,7 @@ async def test_every_stage_records_a_lead_approval_with_evidence(env):
     await run_to_end(env, jid)
     approvals = {(a["stage"], a["role"]) for a in await db.list_approvals(jid)}
     for stage, lead in (("verify", "olead"), ("scope", "dlead"), ("build", "dlead"), ("security", "comply"),
-                        ("preview", "qa"), ("handoff", "lexi")):
+                        ("preview", "qa"), ("handoff", "olead")):
         assert (stage, lead) in approvals
     assert ("exposure", "comply") not in approvals  # Tier 0: no exposure decision at all
 

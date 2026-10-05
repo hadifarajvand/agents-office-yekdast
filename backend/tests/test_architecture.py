@@ -65,7 +65,7 @@ async def test_verify_and_scope_and_handoff_run_their_seats_and_record_findings_
     ev = await db.list_evidence(jid)
     findings = [e for e in ev if e["kind"] == "finding"]
     by_stage = {s: {e["body"]["seat"] for e in findings if e["stage"] == s} for s in ("verify", "scope", "handoff")}
-    assert by_stage == {"verify": {"scout", "ilm", "enzo"}, "scope": {"pco"}, "handoff": {"piper", "cmail"}}
+    assert by_stage == {"verify": {"scout", "ilm", "enzo"}, "scope": {"pco"}, "handoff": set()}
     assert all(e["ok"] is None for e in findings)  # information only
     assert not any(a["role"] in {"scout", "ilm", "enzo", "pco", "piper", "cmail"} for a in env.db.approvals.values())
 
@@ -182,7 +182,7 @@ async def test_slice_job_uses_leads_only_for_live_stages_and_the_owner_for_the_r
     for a in slice_env.db.approvals.values():
         roles.setdefault(a["stage"], set()).add(a["role"])
     assert roles["verify"] == {"olead", "owner"} and roles["scope"] == {"dlead"} and roles["build"] == {"dlead"}
-    assert roles["security"] == roles["preview"] == roles["handoff"] == {"owner"}
+    assert roles["security"] == roles["preview"] == {"owner"} and roles["handoff"] == {"olead", "owner"}
 
 
 async def test_slice_job_never_sends_an_offline_departments_persona_or_seats_to_a_model(slice_env):
@@ -209,7 +209,7 @@ def test_stage_roles_fall_back_to_the_owner_for_offline_departments(env, monkeyp
     monkeypatch.setitem(cfg.pipeline, "live_departments", ["exec", "engineering"])
     assert exp.stage_roles(cfg, "scope") == ["dlead"]
     assert exp.stage_roles(cfg, "security") == [exp.OWNER]
-    assert exp.stage_roles(cfg, "handoff") == [exp.OWNER]
+    assert exp.stage_roles(cfg, "handoff") == ["olead", exp.OWNER]
     assert exp.stage_roles(cfg, "verify") == ["olead", exp.OWNER]
     assert exp.validate_config(cfg, defaults()) == []
     monkeypatch.setitem(cfg.pipeline, "live_departments", ["exec", "nonsense"])
@@ -217,7 +217,9 @@ def test_stage_roles_fall_back_to_the_owner_for_offline_departments(env, monkeyp
 
 
 def test_http_gated_preview_is_refused_while_security_is_offline(api, env, monkeypatch):
-    monkeypatch.setitem(env.cfg.pipeline, "live_departments", ["exec", "engineering"])
+    from app import main as app_main  # the API reads main's own cfg object, which can differ from env.cfg
+    for c in (env.cfg, app_main.cfg):
+        monkeypatch.setitem(c.pipeline, "live_departments", ["exec", "engineering"])
     r = api.post("/api/jobs", json={**GOOD_BRIEF, "requestedTier": 1})
     assert r.status_code == 400 and "Security & Privacy live" in r.json()["error"]
     assert api.post("/api/jobs", json={**GOOD_BRIEF, "requestedTier": 0}).status_code == 200

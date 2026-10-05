@@ -60,5 +60,5 @@ async def test_at_most_three_per_stage_and_no_nesting(fake_db, asked, monkeypatc
 
 
 async def test_an_offline_departments_lead_cannot_spawn(fake_db, asked):
-    with pytest.raises(sp.SpawnRefused, match="secdata is not live"):
-        await sp.spawn("comply", "sec-container", "x", job_id="j", stage="security")
+    with pytest.raises(sp.SpawnRefused, match="fin is not live"):
+        await sp.spawn("alead", "fin-billing", "x", job_id="j", stage="security")

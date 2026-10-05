@@ -25,7 +25,7 @@ DEFAULT_STAGES = [
     {"name": "security", "dept": "secdata", "lead": "comply", "label": "Security review", "seats": ["recon", "kmail", "vmail"]},
     {"name": "preview", "dept": "devops", "lead": "qa", "label": "Preview deploy", "seats": ["dash"]},
     {"name": "exposure", "dept": "secdata", "lead": "comply", "label": "Exposure", "seats": []},
-    {"name": "handoff", "dept": "revenue", "lead": "lexi", "label": "Handoff", "seats": ["piper", "cmail"]},
+    {"name": "handoff", "dept": "exec", "lead": "olead", "label": "Handoff", "seats": []},
     # Validate lane only: web research and a memo whose verdict is computed from the evidence.
     {"name": "research", "dept": "exec", "lead": "olead", "label": "Market research", "seats": []},
 ]
@@ -92,7 +92,7 @@ DEFAULTS: dict = {
                  "spawn": {"enabled": False, "max_per_stage": 3},
                  # Departments whose leads and seats act in a job. Every other stage waits for the
                  # owner instead of a lead. Widen one department at a time (see PLAN.md section 11).
-                 "live_departments": ["exec", "engineering"]},  # stages that also need the owner's click
+                 "live_departments": ["exec", "engineering", "secdata", "devops"]},  # stages that also need the owner's click
     # Two keys for a gated (Tier 1) preview: an independent security verdict and
     # commercial consent. Neither may be the building department's lead.
     "exposure": {"tier1_owner_clicks": 3, "preview_ttl_days": 7,

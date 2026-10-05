@@ -547,3 +547,10 @@ Everything else (`revenue`, `frontend`, `fin`, `content`) stays defined but **do
 5. Re-run graphify after step 2 and compare node counts and the hub list.
 
 **Open owner decisions**: confirm the live set above (in particular that `devops` and `secdata` go live and `revenue` handoff folds into exec); the keyless web tool; Dokploy and Telegram variable names.
+
+### 17.6 Applied (2026-10-05)
+- `live_departments` is now exec, engineering, secdata, devops. The `handoff` stage moved to the exec lead (`olead`) with no seats; revenue's seats stay dormant. Exposure can now be approved by `comply` (secdata) without the owner when the rest of the gate holds.
+- UI: `applyLive` in `src/main.js` removes dormant departments when the backend reports `liveDepartments`: not drawn, not clickable, no badge or seat pills, off the hotkeys, the task panel and the calendar chips. Offline (file://) all eight stay.
+- Tests updated for the new default (248 pass, 12 skipped). One test now patches the config object the API actually reads; it had been passing by accident while the default matched the patch.
+- Not yet verified in a browser against a live backend (needs a boot). Connector tiles for unconnected MCPs are still drawn inside the live departments.
+

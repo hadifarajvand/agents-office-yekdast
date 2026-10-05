@@ -260,6 +260,22 @@ function markStandby(h) {
   }
 }
 
+/* Only the departments the backend runs (health.pipeline.liveDepartments) exist in the office.
+   Dormant ones are not drawn, not clickable, not listed and not on the hotkeys. They come back when
+   the backend turns them on and the page reloads. Offline (file://) every department stays. */
+function applyLive(h) {
+  const live = h.pipeline && h.pipeline.liveDepartments;
+  if (!live) return;
+  const gone = new Set(DEPT_KEYS.filter(k => !live.includes(k)));
+  if (!gone.size) return;
+  for (let i = DEPT_KEYS.length - 1; i >= 0; i--) if (gone.has(DEPT_KEYS[i])) DEPT_KEYS.splice(i, 1);
+  scene.traverse(o => { if (gone.has(o.userData.dept)) o.visible = false; });
+  for (const arr of [clickTargets, personTargets])
+    for (let i = arr.length - 1; i >= 0; i--) if (gone.has(arr[i].userData.dept)) arr.splice(i, 1);
+  for (const k of gone) if (deptRT[k].badge) deptRT[k].badge.style.display = 'none';
+  for (const id of Object.keys(R)) if (gone.has(R[id].a.dept)) R[id].pill.style.display = 'none';
+}
+
 /* empty desks: the rest of each department's 10 seats (drawn, unstaffed, not clickable as agents) */
 for (const f of FREE_SEATS) {
   const L = deptRT[f.dept].L;
@@ -1413,7 +1429,7 @@ let jobs = null;
 tasks = initTasks({
   hud, R, deptRT, RAIL_SIDE, spawnEmote, chatPush, chatHist, feedPush, zoomToApproval, enterFocus, openAgent, esc,
   brainWrite: (id, title) => brain.write(id, title), brain,
-  onLive: (h) => { document.querySelector('#topbar .brand .ver').textContent = 'BETA'; document.title = `${h.name} — Agents Office`; brain.setOwner(h.name); brain.setQuiet(true); applyRoster(h.agents); markStandby(h); if (jobs) jobs.start(h); },
+  onLive: (h) => { document.querySelector('#topbar .brand .ver').textContent = 'BETA'; document.title = `${h.name} — Agents Office`; brain.setOwner(h.name); brain.setQuiet(true); applyRoster(h.agents); markStandby(h); applyLive(h); if (jobs) jobs.start(h); },
   onTools: (agentId, keys) => mcp.onToolsUsed(agentId, keys),
   requestApproval, setStuck: setStuckLive,
   onUsage: (u) => { if (mcp && mcp.setUsage) mcp.setUsage(u); }, // V3.6: the plan's gauge in the top bar
