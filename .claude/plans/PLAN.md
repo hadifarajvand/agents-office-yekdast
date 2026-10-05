@@ -332,7 +332,7 @@ Preflight: `./setup`; `cp .env.example .env.local` and fill values; `npm run che
   - `GET http://127.0.0.1:…` through the tool is refused.
 
   Result: ____
-- **S2 · Build, real.** Build the worker image (`docker build -f infra/sandbox/worker-node.Dockerfile -t agents-office/worker-node:latest infra/sandbox`) and set `AO_WORKER=claude_code`. Run the bakery client job.
+- **S2 · Build, real.** Build the worker image (`docker build --pull=false --build-context template=templates/webapp -f infra/sandbox/worker-node.Dockerfile -t agents-office/worker-node:latest infra/sandbox`) and set `AO_WORKER=claude_code`. Run the bakery client job.
   - Pass: the build stage's checks are all green; there is no write outside the job dir; a non-allow-listed domain is refused and logged; there is no docker.sock.
   - Confirm the unverified Claude Code flags (`--max-turns`, `modelUsage`, usage fields).
   - **Record the minutes per stage** against the 3–6 h target. If Claude Code cannot use 9router's Anthropic endpoint, try `mini_swe` and record it.
@@ -495,3 +495,6 @@ Not run: everything in §9's rev-5 lines and §11.
 - Image: template deps and npm cache baked in; build with `docker build --pull=false --build-context template=templates/webapp -f infra/sandbox/worker-node.Dockerfile -t agents-office/worker-node:latest infra/sandbox`. This replaces the older command in §11.
 - UI: wiring loom guards against NaN coordinates (`src/mcp.js`). Pipeline jobs now appear on the main board, Task Status panel and DOING/NEXT/DONE counters via `syncJobs` (tasks.js, fed by the jobs poll): running→doing, waiting→waiting, parked→backlog, done→done, desk = the lead of the current stage. The local tick never starts or runs these cards.
 - Still open: S2 green run and wall clock, S1b, S3–S7, stress test, agent id on model events, Telegram/Dokploy config.
+- Model events already carry the stage lead as agent id (pinned by `tests/test_activity_agent.py`).
+- UI load: render loop capped at 30 fps, pixel ratio 1.5, 1024 shadow map. Department focus draws only that department (meshes with `userData.dept` are hidden until exit; `?cull=0` disables). Savings not yet measured. The in-app browser pane reports `document.hidden` true, so there is no hidden-tab gate.
+- Next: boot headless and run S2 with `python -u scripts/verify_slice.py` for visible progress.
