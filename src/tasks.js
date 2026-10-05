@@ -327,8 +327,13 @@ export function initTasks(ctx) {
   [P_.cad, P_.at, P_.okc].forEach(el => el.addEventListener('keydown', e => e.stopPropagation()));
   const routineIntent = text => repeat ? { when: fromPicker(P_.cad.value, P_.at.value), text, picker: true } : parseWhen(text);
   let dept = 'revenue', filter = 'all';
-  P_.menu.innerHTML = DEPT_KEYS.map(k => `<button data-k="${k}"><span class="dot" style="background:${DEPTS[k].chip}"></span>${DEPTS[k].name}</button>`).join('');
-  P_.menu.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { setDept(b.dataset.k); P_.menu.classList.remove('on'); P_.input.focus(); }));
+  function buildMenu() {
+    P_.menu.innerHTML = DEPT_KEYS.map(k => `<button data-k="${k}"><span class="dot" style="background:${DEPTS[k].chip}"></span>${DEPTS[k].name}</button>`).join('');
+    P_.menu.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { setDept(b.dataset.k); P_.menu.classList.remove('on'); P_.input.focus(); }));
+  }
+  buildMenu();
+  // the live departments arrived: list only those, and move the task bar off a department that left
+  function refreshDepts() { buildMenu(); if (!DEPT_KEYS.includes(dept)) setDept(DEPT_KEYS[0]); }
   P_.dd.addEventListener('click', (e) => { e.stopPropagation(); P_.menu.classList.toggle('on'); });
   document.addEventListener('click', () => P_.menu.classList.remove('on'));
   function setDept(k) {
@@ -959,5 +964,5 @@ export function initTasks(ctx) {
   return { tick, toggle, open, close, openFor, isOpen, boardWidth, onFocusChange, onStuck, onResolve,
            handleChat, addTask, revise, rowHTML, setDept, tasks, panelWidth: () => panel.offsetWidth, isLive: () => live,
            routines, addRoutine, rtAct, railFor, syncPills, refresh: poll, resolveLive, pendingReject, rejectLive, officeModel: () => officeModel, chosenModel, chosenEffort,
-           create, createRoutine, cancelTask, agentOf, syncJobs, MODEL_KEYS, modelName, currentDept: () => dept, RT_DEPTS, rtRefuse };
+           create, createRoutine, cancelTask, agentOf, syncJobs, refreshDepts, MODEL_KEYS, modelName, currentDept: () => dept, RT_DEPTS, rtRefuse };
 }

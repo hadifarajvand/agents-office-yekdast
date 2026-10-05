@@ -273,7 +273,8 @@ function applyLive(h) {
   for (const arr of [clickTargets, personTargets])
     for (let i = arr.length - 1; i >= 0; i--) if (gone.has(arr[i].userData.dept)) arr.splice(i, 1);
   for (const k of gone) if (deptRT[k].badge) deptRT[k].badge.style.display = 'none';
-  for (const id of Object.keys(R)) if (gone.has(R[id].a.dept)) R[id].pill.style.display = 'none';
+  for (const id of Object.keys(R)) if (gone.has(R[id].a.dept)) { R[id].dormant = true; R[id].pill.style.display = 'none'; }
+  if (tasks && tasks.refreshDepts) tasks.refreshDepts();
 }
 
 /* empty desks: the rest of each department's 10 seats (drawn, unstaffed, not clickable as agents) */
@@ -1375,7 +1376,7 @@ function tickLOD() {
   for (const r of Object.values(R)) {
     const p = r.person.position;
     const [sx, sy] = toScreen(v3.set(p.x, p.y + 5.9 * (r.a.lead ? 1.12 : 1), p.z).clone());
-    r.pill.style.display = 'block';
+    r.pill.style.display = r.dormant ? 'none' : 'block';
     r.pill.style.transform = `translate(${sx}px,${sy}px) translate(-50%,-100%) scale(${pillScale})`;
     const dimmed = focused && focused !== 'brain' && r.a.dept !== focused;
     r.pill.style.opacity = dimmed ? 1 - 0.85 * focusDim : 1;
