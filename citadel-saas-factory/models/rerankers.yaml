@@ -1,0 +1,13 @@
+# Reranker Model Configuration
+
+models:
+  primary:
+    provider: anthropic
+    litellm_id: anthropic/voyage-rerank-2
+    max_documents: 100
+    top_k: 10
+
+  local:
+    provider: none
+    strategy: reciprocal_rank_fusion
+    top_k: 10

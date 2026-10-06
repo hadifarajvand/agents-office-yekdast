@@ -1,0 +1,16 @@
+# Embedding Model Configuration
+
+models:
+  primary:
+    provider: anthropic
+    litellm_id: anthropic/voyage-3
+    dimensions: 1024
+    max_tokens: 32000
+    batch_size: 128
+
+  local:
+    provider: ollama
+    litellm_id: ollama/nomic-embed-text
+    dimensions: 768
+    max_tokens: 8192
+    batch_size: 64

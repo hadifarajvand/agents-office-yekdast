@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Security by Design - Citadel SaaS Factory</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&amp;family=DM+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#060810; --panel:#0e1220; --panel2:#151a2e; --fg:#e6e9f5; --muted:#8b92ab; --accent:#5b8dff; --accent2:#b5e0ae; --border:#1f2540; --warn:#f0b866; --err:#e06070; --crit:#ff4d6a; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--bg); color:var(--fg); font-family:Sora,Calibri,Helvetica,sans-serif; font-weight:300; line-height:1.55; }
+  code,pre,.mono { font-family:'DM Mono',Menlo,Consolas,monospace; }
+  .wrap { max-width:1240px; margin:0 auto; padding:56px 32px 96px; }
+  header { border-bottom:1px solid var(--border); padding-bottom:32px; margin-bottom:48px; }
+  h1 { font-size:44px; font-weight:700; letter-spacing:-0.02em; margin:0 0 12px; }
+  h1 .v { color:var(--muted); font-weight:300; font-size:0.6em; margin-left:12px; }
+  .tagline { color:var(--muted); font-size:18px; max-width:780px; }
+  nav.toc { position:sticky; top:0; background:var(--bg); border-bottom:1px solid var(--border); padding:12px 0; margin-bottom:32px; z-index:100; }
+  nav.toc ol { list-style:none; display:flex; flex-wrap:wrap; gap:8px 20px; margin:0; padding:0; }
+  nav.toc a { color:var(--muted); font-size:13px; text-decoration:none; }
+  nav.toc a:hover { color:var(--accent); }
+  h2 { font-size:28px; font-weight:600; margin:56px 0 20px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+  h3 { font-size:20px; font-weight:600; margin:32px 0 12px; }
+  .stats { display:flex; flex-wrap:wrap; gap:16px; margin:32px 0; }
+  .pill { background:var(--panel); border:1px solid var(--border); border-radius:999px; padding:8px 24px; display:flex; align-items:center; gap:10px; }
+  .pill-num { font-size:24px; font-weight:700; color:var(--accent2); }
+  .pill-lbl { color:var(--muted); font-size:12px; }
+  .pill-crit .pill-num { color:var(--crit); }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:24px; margin:20px 0; }
+  .panel h4 { margin:0 0 12px; font-size:16px; font-weight:600; }
+  .panel ul { padding-left:18px; margin:8px 0; }
+  .panel li { margin:6px 0; color:#bfc5d9; }
+  pre { background:var(--panel2); border:1px solid var(--border); border-radius:8px; padding:16px 20px; overflow-x:auto; font-size:13px; line-height:1.6; }
+  code { color:var(--accent); font-size:13px; }
+  table { width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--border); border-radius:8px; overflow:hidden; font-size:13px; margin:16px 0; }
+  th { text-align:left; padding:12px 16px; background:var(--panel2); color:var(--muted); font-weight:600; border-bottom:1px solid var(--border); text-transform:uppercase; font-size:11px; letter-spacing:0.05em; }
+  td { padding:10px 16px; border-bottom:1px solid var(--border); vertical-align:top; }
+  tr:last-child td { border-bottom:none; }
+  .note { background:var(--panel2); border-left:3px solid var(--accent); padding:16px 20px; margin:24px 0; color:#bfc5d9; border-radius:0 6px 6px 0; }
+  .warn { border-left-color:var(--warn); }
+  .crit { border-left-color:var(--crit); }
+  .sev-crit { color:var(--crit); font-weight:600; }
+  .sev-high { color:var(--warn); font-weight:600; }
+  .sev-med { color:var(--accent); }
+  a { color:var(--accent); text-decoration:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>AI Security by Design<span class="v">v1.0</span></h1>
+  <p class="tagline">Security architecture for the Citadel agent fleet, RAG pipeline, and browser-agent surfaces. Mapped to OWASP LLM Top 10 (2025).</p>
+</header>
+
+<nav class="toc">
+  <ol>
+    <li><a href="#surfaces">1. Attack Surfaces</a></li>
+    <li><a href="#owasp">2. OWASP LLM Mapping</a></li>
+    <li><a href="#guardrails">3. Triple-Layer Guardrails</a></li>
+    <li><a href="#rag-security">4. RAG Security</a></li>
+    <li><a href="#browse-security">5. Browse Agent Security</a></li>
+    <li><a href="#policies">6. Policies</a></li>
+    <li><a href="#sigma">7. Detection Rules</a></li>
+    <li><a href="#hardening">8. Hardening Checklist</a></li>
+  </ol>
+</nav>
+
+<div class="stats">
+  <div class="pill pill-crit"><span class="pill-num">4</span><span class="pill-lbl">Critical surfaces</span></div>
+  <div class="pill"><span class="pill-num">16</span><span class="pill-lbl">Injection patterns blocked</span></div>
+  <div class="pill"><span class="pill-num">3</span><span class="pill-lbl">Guardrail layers</span></div>
+  <div class="pill"><span class="pill-num">10</span><span class="pill-lbl">Allowed agent actions</span></div>
+</div>
+
+<!-- 1. Attack Surfaces -->
+<h2 id="surfaces">1. Attack Surfaces</h2>
+
+<table>
+  <tr><th>Surface</th><th>Input Source</th><th>Trust Level</th><th>Primary Risk</th></tr>
+  <tr><td>User prompt (API)</td><td>HTTP request body</td><td>Untrusted</td><td>Prompt injection, jailbreak</td></tr>
+  <tr><td>RAG document content</td><td>Ingested files via chunker</td><td>Untrusted</td><td>Indirect prompt injection</td></tr>
+  <tr><td>Browser tab content</td><td>Chrome extension capture</td><td>Untrusted</td><td>Indirect prompt injection, data exfiltration</td></tr>
+  <tr><td>Agent-to-agent messages</td><td>Sub-agent spawning</td><td>Semi-trusted</td><td>Excessive agency, privilege escalation</td></tr>
+</table>
+
+<!-- 2. OWASP LLM Mapping -->
+<h2 id="owasp">2. OWASP LLM Top 10 Mapping</h2>
+
+<table>
+  <tr><th>ID</th><th>Vulnerability</th><th>Affected Surfaces</th><th>Mitigation</th><th>Severity</th></tr>
+  <tr>
+    <td>LLM01</td><td>Prompt Injection</td>
+    <td>RAG docs, browser tab, user prompt</td>
+    <td>16-pattern regex sanitization on all untrusted input; guardrails output validation; action allowlist enforcement</td>
+    <td class="sev-crit">Critical</td>
+  </tr>
+  <tr>
+    <td>LLM02</td><td>Insecure Output Handling</td>
+    <td>All model outputs</td>
+    <td>Triple-layer guardrails (Guardrails AI hallucination check, toxicity filter, PII masking); structured response schemas</td>
+    <td class="sev-high">High</td>
+  </tr>
+  <tr>
+    <td>LLM03</td><td>Training Data Poisoning</td>
+    <td>RAG vector store</td>
+    <td>Ingestion pipeline sanitization; metadata provenance tracking; source verification</td>
+    <td class="sev-med">Medium</td>
+  </tr>
+  <tr>
+    <td>LLM04</td><td>Model Denial of Service</td>
+    <td>All tiers</td>
+    <td>Daily budget cap ($50 default); rate limiting per endpoint; max_tokens enforcement per tier</td>
+    <td class="sev-med">Medium</td>
+  </tr>
+  <tr>
+    <td>LLM05</td><td>Supply Chain Vulnerabilities</td>
+    <td>LiteLLM, guardrails-ai deps</td>
+    <td>Pinned versions in pyproject.toml; Trivy SCA scanning in CI; license auditing</td>
+    <td class="sev-med">Medium</td>
+  </tr>
+  <tr>
+    <td>LLM06</td><td>Sensitive Information Disclosure</td>
+    <td>RAG retrieval, browse responses</td>
+    <td>PII detection validator (DetectPII); metadata-scoped retrieval; response sanitization</td>
+    <td class="sev-high">High</td>
+  </tr>
+  <tr>
+    <td>LLM07</td><td>Insecure Plugin Design</td>
+    <td>MCP servers, agent tools</td>
+    <td>Action allowlist (10 permitted actions); depth cap on sub-agents; fan-out limit</td>
+    <td class="sev-high">High</td>
+  </tr>
+  <tr>
+    <td>LLM08</td><td>Excessive Agency</td>
+    <td>Agent-to-agent, planner loop</td>
+    <td>MAX_SPAWN_DEPTH=3; MAX_FAN_OUT=5; MAX_REPLANS=3; action allowlist; stop-gate in critic</td>
+    <td class="sev-crit">Critical</td>
+  </tr>
+  <tr>
+    <td>LLM09</td><td>Overreliance</td>
+    <td>All agent outputs</td>
+    <td>Confidence reporting (high/medium/low); citation requirements; self-check loop in RAG</td>
+    <td class="sev-med">Medium</td>
+  </tr>
+  <tr>
+    <td>LLM10</td><td>Model Theft</td>
+    <td>API keys in env</td>
+    <td>Vault for production secrets; env-only for dev; pre-commit secret scanning; key rotation policy</td>
+    <td class="sev-med">Medium</td>
+  </tr>
+</table>
+
+<!-- 3. Triple-Layer Guardrails -->
+<h2 id="guardrails">3. Triple-Layer Guardrails</h2>
+
+<div class="panel">
+  <h4>Layer 1: Guardrails AI (output validation)</h4>
+  <ul>
+    <li><code>hub://guardrails/hallucination_free</code> - fabricated fact detection</li>
+    <li><code>hub://guardrails/provenance_llm</code> - RAG grounding verification</li>
+    <li><code>hub://guardrails/toxic_language</code> - toxic content filter (threshold 0.5)</li>
+    <li><code>hub://guardrails/detect_pii</code> - PII masking (email, phone, SSN)</li>
+  </ul>
+</div>
+
+<div class="panel">
+  <h4>Layer 2: Input Sanitization (pre-model)</h4>
+  <ul>
+    <li>16 regex patterns blocking instruction hijacking, tool triggers, and secrets leakage</li>
+    <li>Applied to: RAG document content, browser tab content, external API responses</li>
+    <li>Truncation: 16KB for RAG docs, 8KB for browser content</li>
+    <li>Redaction: patterns replaced with [FILTERED] or [REDACTED]</li>
+  </ul>
+</div>
+
+<div class="panel">
+  <h4>Layer 3: Output Action Enforcement (post-model)</h4>
+  <ul>
+    <li>Allowlist: search, retrieve, summarize, analyze, compare, explain, recommend, list, draft, review</li>
+    <li>Any output attempting to trigger actions outside this list is blocked</li>
+    <li>Hallucination threshold: 0.85 (outputs below trigger retry, max 3 attempts, then reject)</li>
+    <li>Fail-closed: if guardrails library is unavailable, outputs are rejected by default</li>
+  </ul>
+</div>
+
+<!-- 4. RAG Security -->
+<h2 id="rag-security">4. RAG Security</h2>
+
+<div class="note crit">RAG documents are the primary indirect prompt injection vector. Every document ingested into the vector store passes through <code>sanitize_rag_context()</code> before being used as generation context.</div>
+
+<h3>Ingestion Security</h3>
+<div class="panel">
+  <ul>
+    <li>All document content treated as untrusted regardless of source</li>
+    <li>Chunker strips tool-trigger patterns before embedding</li>
+    <li>Metadata provenance: every chunk records its source, ingest timestamp, and version</li>
+    <li>GIN index on metadata enables rapid audit queries by source or time range</li>
+  </ul>
+</div>
+
+<h3>Retrieval Security</h3>
+<div class="panel">
+  <ul>
+    <li>Domain-scoped retrieval: agents only retrieve chunks tagged with their domain</li>
+    <li>Relevance grading prevents low-quality (potentially adversarial) chunks from reaching generation</li>
+    <li>Citation requirement: answer must cite chunk IDs, enabling post-hoc verification</li>
+    <li>Self-check loop verifies all claims map to retrieved spans</li>
+  </ul>
+</div>
+
+<!-- 5. Browse Agent Security -->
+<h2 id="browse-security">5. Browse Agent Security</h2>
+
+<div class="note warn">The Chrome extension captures active tab content on explicit user action only. No background surveillance, no cross-tab access, no automatic transmission.</div>
+
+<h3>Content Processing Pipeline</h3>
+<table>
+  <tr><th>Step</th><th>Action</th><th>Purpose</th></tr>
+  <tr><td>1</td><td>User clicks extension icon</td><td>Explicit consent gate</td></tr>
+  <tr><td>2</td><td>Capture <code>document.body.innerText</code> (max 10KB)</td><td>Text only, no DOM/scripts</td></tr>
+  <tr><td>3</td><td><code>sanitize_tab_content()</code></td><td>Strip 16 injection patterns</td></tr>
+  <tr><td>4</td><td>Truncate to 8KB</td><td>Limit blast radius</td></tr>
+  <tr><td>5</td><td>Model generation</td><td>Constrained to summarize/explain actions</td></tr>
+  <tr><td>6</td><td>Guardrails validation</td><td>Output safety check</td></tr>
+</table>
+
+<h3>Permissions Model</h3>
+<div class="panel">
+  <ul>
+    <li><code>activeTab</code> - only the tab the user explicitly activated</li>
+    <li><code>sidePanel</code> - UI surface for interaction</li>
+    <li><code>storage</code> - local preference storage only</li>
+    <li>No <code>tabs</code>, no <code>history</code>, no <code>webRequest</code>, no <code>cookies</code></li>
+    <li>Host permission limited to <code>http://localhost:8000/*</code> (backend only)</li>
+  </ul>
+</div>
+
+<!-- 6. Policies -->
+<h2 id="policies">6. Policies</h2>
+
+<h3>OPA Policy: Browse Endpoint Rate Limiting</h3>
+<pre><code>package citadel.browse
+
+default allow = false
+
+allow {
+    input.method == "POST"
+    input.path == "/agent/browse"
+    count(input.requests_last_minute) < 10
+    input.content_length < 20000
+}
+
+deny[msg] {
+    input.content_length >= 20000
+    msg := "Tab content exceeds maximum size (20KB)"
+}
+
+deny[msg] {
+    count(input.requests_last_minute) >= 10
+    msg := "Rate limit exceeded: max 10 browse requests per minute"
+}</code></pre>
+
+<h3>Kyverno Policy: Agent Container Restrictions</h3>
+<pre><code>apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: citadel-agent-restrictions
+spec:
+  rules:
+  - name: limit-agent-resources
+    match:
+      resources:
+        kinds: [Pod]
+        namespaceSelector:
+          matchLabels:
+            app.kubernetes.io/part-of: citadel
+    validate:
+      message: "Agent pods must have resource limits"
+      pattern:
+        spec:
+          containers:
+          - resources:
+              limits:
+                memory: "?*"
+                cpu: "?*"
+  - name: deny-privileged
+    match:
+      resources:
+        kinds: [Pod]
+    validate:
+      message: "Agent pods must not run privileged"
+      pattern:
+        spec:
+          containers:
+          - securityContext:
+              privileged: false</code></pre>
+
+<!-- 7. Detection Rules -->
+<h2 id="sigma">7. Detection Rules (Sigma)</h2>
+
+<pre><code>title: Citadel Browse Agent - Injection Attempt Detected
+id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+status: experimental
+description: Detects when the browse agent sanitizer redacts injection patterns from tab content
+logsource:
+  product: citadel
+  service: runtime.browse
+detection:
+  selection:
+    event_type: "browse_request"
+  filter_sanitized:
+    sanitized_length|lt: content_length
+  condition: selection and filter_sanitized
+level: medium
+tags:
+  - attack.initial_access
+  - attack.t1190
+
+---
+title: Citadel Guardrails - Repeated Rejection
+id: b2c3d4e5-f6a7-8901-bcde-f12345678901
+status: experimental
+description: Detects when guardrails reject output after max retries (possible adversarial probing)
+logsource:
+  product: citadel
+  service: runtime.guarded_client
+detection:
+  selection:
+    event_type: "guardrails_rejected"
+    retries: 3
+  condition: selection
+  timeframe: 5m
+  count:
+    field: correlation_id
+    gte: 3
+level: high
+tags:
+  - attack.execution
+  - attack.t1059</code></pre>
+
+<!-- 8. Hardening Checklist -->
+<h2 id="hardening">8. Hardening Checklist</h2>
+
+<table>
+  <tr><th>Item</th><th>Status</th><th>Owner</th></tr>
+  <tr><td>Input sanitization on all untrusted content (RAG, browser, API)</td><td>Done</td><td>backbone/runtime/</td></tr>
+  <tr><td>Output guardrails on every ModelRouter.complete() call</td><td>Done</td><td>guarded_client.py</td></tr>
+  <tr><td>Action allowlist enforcement</td><td>Done</td><td>guarded_client.py</td></tr>
+  <tr><td>Agent spawn depth cap (MAX_SPAWN_DEPTH=3)</td><td>Done</td><td>agent_sdk.py</td></tr>
+  <tr><td>Daily budget enforcement with local fallback</td><td>Done</td><td>model_client.py</td></tr>
+  <tr><td>Chrome extension: explicit user action only, minimal permissions</td><td>Done</td><td>manifest.json</td></tr>
+  <tr><td>CI secret scanning (TruffleHog pinned)</td><td>Done</td><td>ci-cd.yml</td></tr>
+  <tr><td>CI dependency scanning (Trivy pinned)</td><td>Done</td><td>ci-cd.yml</td></tr>
+  <tr><td>SAST (Semgrep, correct org)</td><td>Done</td><td>ci-cd.yml</td></tr>
+  <tr><td>Rate limiting on /agent/browse endpoint</td><td>Policy defined</td><td>OPA</td></tr>
+  <tr><td>Sigma detection rules for injection and rejection</td><td>Defined</td><td>security/</td></tr>
+  <tr><td>NeMo Guardrails (third layer)</td><td>Deferred</td><td>-</td></tr>
+</table>
+
+</div>
+</body>
+</html>

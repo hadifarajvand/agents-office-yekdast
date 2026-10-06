@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agentic RAG Pattern - Citadel SaaS Factory</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&amp;family=DM+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#060810; --panel:#0e1220; --panel2:#151a2e; --fg:#e6e9f5; --muted:#8b92ab; --accent:#5b8dff; --accent2:#b5e0ae; --border:#1f2540; --warn:#f0b866; --err:#e06070; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--bg); color:var(--fg); font-family:Sora,Calibri,Helvetica,sans-serif; font-weight:300; line-height:1.55; }
+  code,pre,.mono { font-family:'DM Mono',Menlo,Consolas,monospace; }
+  .wrap { max-width:1240px; margin:0 auto; padding:56px 32px 96px; }
+  header { border-bottom:1px solid var(--border); padding-bottom:32px; margin-bottom:48px; }
+  h1 { font-size:44px; font-weight:700; letter-spacing:-0.02em; margin:0 0 12px; }
+  h1 .v { color:var(--muted); font-weight:300; font-size:0.6em; margin-left:12px; }
+  .tagline { color:var(--muted); font-size:18px; max-width:780px; }
+  nav.toc { position:sticky; top:0; background:var(--bg); border-bottom:1px solid var(--border); padding:12px 0; margin-bottom:32px; z-index:100; }
+  nav.toc ol { list-style:none; display:flex; flex-wrap:wrap; gap:8px 20px; margin:0; padding:0; }
+  nav.toc a { color:var(--muted); font-size:13px; text-decoration:none; }
+  nav.toc a:hover { color:var(--accent); }
+  h2 { font-size:28px; font-weight:600; margin:56px 0 20px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+  h3 { font-size:20px; font-weight:600; margin:32px 0 12px; }
+  .stats { display:flex; flex-wrap:wrap; gap:16px; margin:32px 0; }
+  .pill { background:var(--panel); border:1px solid var(--border); border-radius:999px; padding:8px 24px; display:flex; align-items:center; gap:10px; }
+  .pill-num { font-size:24px; font-weight:700; color:var(--accent2); }
+  .pill-lbl { color:var(--muted); font-size:12px; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:24px; margin:20px 0; }
+  .panel h4 { margin:0 0 12px; font-size:16px; font-weight:600; }
+  .panel ul { padding-left:18px; margin:8px 0; }
+  .panel li { margin:4px 0; color:#bfc5d9; }
+  pre { background:var(--panel2); border:1px solid var(--border); border-radius:8px; padding:16px 20px; overflow-x:auto; font-size:13px; line-height:1.6; }
+  code { color:var(--accent); font-size:13px; }
+  table { width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--border); border-radius:8px; overflow:hidden; font-size:13px; margin:16px 0; }
+  th { text-align:left; padding:12px 16px; background:var(--panel2); color:var(--muted); font-weight:600; border-bottom:1px solid var(--border); text-transform:uppercase; font-size:11px; letter-spacing:0.05em; }
+  td { padding:10px 16px; border-bottom:1px solid var(--border); vertical-align:top; }
+  tr:last-child td { border-bottom:none; }
+  .note { background:var(--panel2); border-left:3px solid var(--accent); padding:16px 20px; margin:24px 0; color:#bfc5d9; border-radius:0 6px 6px 0; }
+  .warn { border-left-color:var(--warn); }
+  .diagram { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:32px; margin:24px 0; font-family:'DM Mono',monospace; font-size:14px; white-space:pre; overflow-x:auto; line-height:2; }
+  a { color:var(--accent); text-decoration:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Agentic RAG Pattern<span class="v">v1.0</span></h1>
+  <p class="tagline">Retrieval-augmented generation with an iterative agent loop: plan, retrieve, grade, rewrite, generate, self-check. Built for the 265-agent Citadel fleet.</p>
+</header>
+
+<nav class="toc">
+  <ol>
+    <li><a href="#architecture">1. Architecture</a></li>
+    <li><a href="#chunk-schema">2. Chunk Schema</a></li>
+    <li><a href="#hybrid-retrieval">3. Hybrid Retrieval</a></li>
+    <li><a href="#agentic-loop">4. Agentic Loop</a></li>
+    <li><a href="#reranking">5. Reranking</a></li>
+    <li><a href="#states">6. States</a></li>
+    <li><a href="#eval-hooks">7. Eval Hooks</a></li>
+    <li><a href="#failure-modes">8. Failure Modes</a></li>
+  </ol>
+</nav>
+
+<div class="stats">
+  <div class="pill"><span class="pill-num">265</span><span class="pill-lbl">Agents RAG-enabled</span></div>
+  <div class="pill"><span class="pill-num">31</span><span class="pill-lbl">Chunk schema fields</span></div>
+  <div class="pill"><span class="pill-num">3</span><span class="pill-lbl">Max loop iterations</span></div>
+  <div class="pill"><span class="pill-num">2</span><span class="pill-lbl">Retrieval modes (vector and keyword)</span></div>
+</div>
+
+<h2 id="architecture">1. Architecture</h2>
+<h3>Dual-Tier Design</h3>
+<div class="panel">
+  <h4>Local MVP (development and testing)</h4>
+  <ul>
+    <li>Embedding: Ollama nomic-embed-text (768 dims)</li>
+    <li>Store: PostgreSQL 16 with pgvector (from docker-compose)</li>
+    <li>Reranking: Reciprocal Rank Fusion (no external model)</li>
+    <li>Generation: Ollama llama3.1 via local_only tier</li>
+  </ul>
+</div>
+<div class="panel">
+  <h4>Production (API-backed)</h4>
+  <ul>
+    <li>Embedding: Voyage 3 (1024 dims, 32K token window)</li>
+    <li>Store: PostgreSQL 16 with pgvector (HNSW, m=16, ef_construction=200)</li>
+    <li>Reranking: Voyage Rerank 2 (100 docs, top-10)</li>
+    <li>Generation: Claude Sonnet 4 via rag_specialist tier</li>
+  </ul>
+</div>
+
+<h2 id="chunk-schema">2. Chunk Schema</h2>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Purpose</th></tr>
+  <tr><td>id</td><td>TEXT PK</td><td>Unique chunk identifier (source:chunk-NNNN)</td></tr>
+  <tr><td>content</td><td>TEXT</td><td>Raw chunk text</td></tr>
+  <tr><td>embedding</td><td>vector(N)</td><td>Dense embedding (768 or 1024 dims)</td></tr>
+  <tr><td>metadata</td><td>JSONB</td><td>Source, domain, agent_id, page, heading</td></tr>
+  <tr><td>token_count</td><td>INTEGER</td><td>Estimated token count</td></tr>
+  <tr><td>created_at</td><td>TIMESTAMPTZ</td><td>Ingestion timestamp</td></tr>
+</table>
+<p>Metadata JSONB fields: source, domain, agent_id, page, heading, doc_type, language, chunk_index, version, tags.</p>
+
+<h2 id="hybrid-retrieval">3. Hybrid Retrieval</h2>
+<div class="panel">
+  <h4>Vector Search</h4>
+  <ul><li>Embed query, search HNSW index with cosine distance, return top 2K candidates</li></ul>
+</div>
+<div class="panel">
+  <h4>Keyword Search</h4>
+  <ul><li>PostgreSQL full-text search with plainto_tsquery and pg_trgm trigram index</li></ul>
+</div>
+<div class="panel">
+  <h4>Reciprocal Rank Fusion</h4>
+  <ul><li>Merge both lists: score = sum of 1/(k + rank) across lists, k=60</li></ul>
+</div>
+
+<h2 id="agentic-loop">4. Agentic Loop</h2>
+<div class="diagram">Query --&gt; Retrieve (hybrid) --&gt; Grade (LLM-as-judge, 0-1)
+                                        |
+                              relevance &lt; 0.5?
+                               /            \
+                             yes              no
+                              |                |
+                           Rewrite          Generate (with [chunk-id] citations)
+                              |                |
+                        (loop, max 3)      Self-Check (verify grounding)
+                                               |
+                                            Result</div>
+
+<h2 id="reranking">5. Reranking</h2>
+<table>
+  <tr><th>Strategy</th><th>When Used</th><th>Cost</th></tr>
+  <tr><td>Reciprocal Rank Fusion</td><td>Local dev, no reranker configured</td><td>Free</td></tr>
+  <tr><td>Voyage Rerank 2</td><td>Production, API key set</td><td>Per-document API call</td></tr>
+</table>
+
+<h2 id="states">6. Grade, Rewrite, and Self-Check States</h2>
+<table>
+  <tr><th>State</th><th>Input</th><th>Output</th><th>Transition</th></tr>
+  <tr><td>Grade</td><td>Query + chunks</td><td>Relevance 0-1</td><td>If &gt;= threshold: Generate. Else: Rewrite.</td></tr>
+  <tr><td>Rewrite</td><td>Original + current query</td><td>Rewritten query</td><td>Back to Retrieve</td></tr>
+  <tr><td>Generate</td><td>Query + chunks</td><td>Answer with citations</td><td>Self-Check</td></tr>
+  <tr><td>Self-Check</td><td>Answer + chunks</td><td>Grounding validation</td><td>Return result</td></tr>
+</table>
+
+<h2 id="eval-hooks">7. Eval Hooks</h2>
+<div class="panel">
+  <h4>Metrics</h4>
+  <ul>
+    <li><strong>Retrieval Recall@K</strong>: Fraction of relevant chunks in top-K</li>
+    <li><strong>Relevance Score Distribution</strong>: Mean and std of LLM-graded relevance</li>
+    <li><strong>Rewrite Rate</strong>: Percentage of queries requiring rewrite</li>
+    <li><strong>Citation Coverage</strong>: Percentage of answer sentences with a citation</li>
+    <li><strong>Grounding Score</strong>: Fraction of claims verifiable against retrieved spans</li>
+    <li><strong>Loop Depth</strong>: Average iterations per query</li>
+  </ul>
+</div>
+
+<h2 id="failure-modes">8. Failure Modes</h2>
+<table>
+  <tr><th>Failure</th><th>Symptom</th><th>Mitigation</th></tr>
+  <tr><td>Stale index</td><td>Relevant docs not retrieved</td><td>Re-run make rag-ingest. Add freshness checks.</td></tr>
+  <tr><td>Retrieval miss</td><td>No chunks match query</td><td>Rewrite loop tries alternatives. Returns low_relevance after 3 tries.</td></tr>
+  <tr><td>Prompt injection via docs</td><td>Ingested doc hijacks instructions</td><td>Chunker sanitizes tool-trigger patterns. Guardrails validate output.</td></tr>
+  <tr><td>Embedding model down</td><td>API errors on embed</td><td>Fallback to local Ollama. Zero vectors as last resort.</td></tr>
+  <tr><td>Budget exhaustion</td><td>Generation routed to local_only</td><td>ModelRouter budget check. Quality degrades but service continues.</td></tr>
+  <tr><td>Hallucinated citations</td><td>Answer cites non-existent chunks</td><td>Citation extractor cross-checks against retrieved IDs.</td></tr>
+</table>
+
+<div class="note warn">Prompt injection via ingested documents is the highest-risk failure mode. Treat all document content as untrusted.</div>
+
+</div>
+</body>
+</html>

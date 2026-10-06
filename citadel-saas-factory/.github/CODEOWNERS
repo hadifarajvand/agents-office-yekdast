@@ -1,0 +1,16 @@
+# Default owner
+* @Citadel-Cloud-Management
+
+# Backend
+/backend/ @Citadel-Cloud-Management
+
+# Frontend
+/frontend/ @Citadel-Cloud-Management
+
+# Security
+/security/ @Citadel-Cloud-Management
+/.github/workflows/ @Citadel-Cloud-Management
+
+# Infrastructure
+/infrastructure/ @Citadel-Cloud-Management
+/gitops/ @Citadel-Cloud-Management
