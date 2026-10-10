@@ -27,7 +27,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
-from . import activity, db, jobqueue, learn, llm, routines as routines_mod, when as whenmod
+from . import activity, db, jobqueue, learn, llm, logsetup, routines as routines_mod, taskcheck, when as whenmod
 from .brain import brain_graph, brain_summary
 from .config import ROOT, load_config
 from .graph import engine
@@ -37,6 +37,7 @@ from .onboard import active as onboard_active, setup_map
 from .roster import DEPTS, load_roster
 from .skills import load_skills
 
+logsetup.configure()  # the ao.* loggers (context, brain, activity, boot checks) were being dropped below WARNING
 log = logging.getLogger("agents_office")
 
 HTML = ROOT / "dist" / "command-centre-v2.html"
@@ -101,6 +102,11 @@ async def lifespan(_app: FastAPI):
     pn = 0 if jobqueue.enabled() else await pipeline_api.park_interrupted()
     if pn:
         log.warning("parked %d job(s) interrupted by the last restart", pn)
+    try:  # report-only; a bad row is for the owner to see, never a reason to refuse to boot
+        report = await taskcheck.run({a.id for a in agents_list()})
+        (log.info if report["ok"] else log.warning)("task integrity: %s", taskcheck.summary(report))
+    except Exception:
+        log.exception("task integrity check failed to run")
     ticker = spawn(_tick_routines())
     try:
         yield
@@ -285,6 +291,16 @@ def pipeline_info() -> dict:
                          "keys": cfg.exposure.get("keys", {})}}
 
 
+def deps_readiness() -> dict:
+    """{} before the pipeline's dependencies are built (health must answer during boot)."""
+    from .deps import readiness
+    from .pipeline.ports import get_deps
+    try:
+        return readiness(get_deps())
+    except RuntimeError:
+        return {}
+
+
 @app.get("/api/health")
 async def health():
     rl = routines_mod.load(cfg.brain_path, agents_list())
@@ -305,6 +321,9 @@ async def health():
         "tools": {"web": bool(cfg.tools.get("web")) and mcp_registry.web_bound},
         "mcp": mcp_registry.summary(),
         "pipeline": pipeline_info(),
+        "deps": deps_readiness(),
+        "queue": jobqueue.status(),
+        "database": {"name": db.database_name()},  # name only: scripts that create real jobs refuse a live database by it
         "worker": cfg.worker.get("kind"),
         "config": {"problems": cfg.problems},
     }
@@ -449,6 +468,12 @@ async def get_usage(refresh: int = 0):
 @app.get("/api/tasks")
 async def list_tasks():
     return await db.list_tasks()
+
+
+@app.get("/api/tasks/integrity")
+async def tasks_integrity():
+    """Read-only: which stored task rows disagree with the jobs and the seat roster (never edits any)."""
+    return await taskcheck.run({a.id for a in agents_list()})
 
 
 @app.post("/api/tasks")

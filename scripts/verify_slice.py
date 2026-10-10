@@ -1,11 +1,23 @@
 #!/usr/bin/env python3
-"""Behaviour checklist for the go-live slice (only exec + engineering act as agents).
+"""Behaviour checklist for the go-live slice (exec, engineering, security and devops act as agents).
 
-    BASE_URL=http://127.0.0.1:4520 [AO_API_TOKEN=...] python3 scripts/verify_slice.py [--scripted] [--with-restart]
+    BASE_URL=http://127.0.0.1:4597 [AO_API_TOKEN=...] python3 scripts/verify_slice.py --allow-test-database [--scripted] [--with-restart]
 
-Drives the real HTTP API only. Every line prints PASS / FAIL / SKIP with its evidence; the exit code is 1
-on any FAIL. `--scripted` marks the lines that only mean something against real models as SKIP-able
+THIS SCRIPT CREATES AND ADVANCES REAL JOBS (it submits briefs, clicks the owner's gates and kills what is left).
+It therefore refuses to run unless all of these hold, and it checks them before it creates anything:
+  - `--allow-test-database` is given;
+  - BASE_URL is a loopback address;
+  - the server itself reports (GET /api/health -> database.name) a database whose name ends in _ui, _test or _verify;
+  - with `--with-restart`, AO_RESTART_CMD names the command that restarts THIS stack (scripts/restart_api.sh restarts
+    the live API, so it is never the default).
+Point it at `python -m tests.ui_server <port>` (see backend/tests/ui_server.py) on a throwaway database, not at the office.
+
+Drives the real HTTP API only. Every line prints PASS / FAIL / SKIP with its evidence; the exit code is 1 on any FAIL
+and 2 when it refused to start. `--scripted` marks the lines that only mean something against real models as SKIP-able
 (it is for proving this script against tests/ui_server.py). Writes data/verify-report.json.
+
+What it expects is derived from /api/health (live departments, stage leads, the roster), not typed in, except the few
+pinned numbers below; backend/tests/test_verify_slice_guard.py fails when a pinned number drifts from the app.
 """
 from __future__ import annotations
 
@@ -15,44 +27,120 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import httpx
 
 ROOT = Path(__file__).resolve().parent.parent
-BASE = os.environ.get("BASE_URL", "http://127.0.0.1:4520").rstrip("/")
-SCRIPTED = "--scripted" in sys.argv
-WITH_RESTART = "--with-restart" in sys.argv
-LIVE = {"exec", "engineering"}
-OFFLINE_LEADS = {"sec-compliance", "devops-cd", "lexi", "alead", "elead", "mlead"}
-OFFLINE_SEATS = {"piper", "cmail", "recon", "kmail", "vmail", "dash", "newt", "report", "imail", "riley", "gfx"}
+FLAG = "--allow-test-database"
+TEST_DB_SUFFIXES = ("_ui", "_test", "_verify")
+DEFAULT_BASE = "http://127.0.0.1:4520"
+# Build-lane stages whose lead is not enough: the owner must also click (pipeline.owner_gates minus the validate
+# lane's "research").
+OWNER_GATES = {"verify", "handoff"}
+SEATS, DEPARTMENTS = 17, 8  # the seeded roster (backend/app/seed/roster_seed.json)
+CHECKLIST_ITEMS = 5         # connectors/promote.py checklist()
 BRIEF = {"title": "Bakery ordering site", "client": "Acme Bakery", "deposit_ref": "INV-001: 50% deposit (USD 600) received 2026-10-01, signed contract C-17",
          "price": "USD 1,200 fixed price; 50% deposit paid, 50% on delivery", "audience": "local customers ordering pickup, about 30 orders a week",
          "description": "A small ordering site for a bakery: a menu page and an order form that emails the bakery.",
          "acceptance": "A customer can pick items from the menu and submit an order; the bakery receives it."}
 
-headers = {"X-AO-Client": "office"}
-if os.environ.get("AO_API_TOKEN"):
-    headers["X-AO-Token"] = os.environ["AO_API_TOKEN"]
-else:  # the server makes its own token per boot and hands it to the page, like the browser gets it
-    import re as _re
-    import urllib.request as _ur
-    _m = _re.search(r'name="ao-token" content="([^"]+)"', _ur.urlopen(os.environ.get("BASE_URL", "http://127.0.0.1:4520") + "/").read().decode())
-    if _m:
-        headers["X-AO-Token"] = _m.group(1)
-c = httpx.Client(base_url=BASE, headers=headers, timeout=60)
+BASE = DEFAULT_BASE
+SCRIPTED = False
+WITH_RESTART = False
+DB_NAME = ""
+c: httpx.Client | None = None  # built by connect(), only after the guard has passed
 created: list[str] = []  # every job this run submits; finish() kills the ones still open so they do not pile up in the owner's inbox
+results: list[dict] = []
 
 
+# ---------- the guard ----------
+def is_loopback(base: str) -> bool:
+    try:
+        u = urlsplit(base)
+        return u.scheme in ("http", "https") and u.hostname in ("127.0.0.1", "localhost", "::1")
+    except ValueError:
+        return False
+
+
+def preflight(base: str, allowed: bool, with_restart: bool = False, restart_cmd: str = "") -> str | None:
+    """Why this run must not start, from what is known before any HTTP call; None when it may go on."""
+    if not allowed:
+        return (f"refusing to run: this script creates and advances real jobs. Pass {FLAG} only against a throwaway "
+                "stack (python -m tests.ui_server on an *_ui database), never the live office.")
+    if not is_loopback(base):
+        return f"refusing to run: BASE_URL {base!r} is not a loopback address (http://127.0.0.1:<port> or http://localhost:<port>)"
+    if with_restart and not restart_cmd:
+        return ("refusing --with-restart: set AO_RESTART_CMD to the command that restarts THIS stack. "
+                "scripts/restart_api.sh restarts the live API, so it is not used by default.")
+    return None
+
+
+def check_database(health) -> str | None:
+    """Why this server must not be driven, from what it says about itself; None when it names a throwaway database."""
+    info = health.get("database") if isinstance(health, dict) else None
+    name = info.get("name") if isinstance(info, dict) else None
+    if not isinstance(name, str) or not name:
+        return ("refusing to run: the server does not report which database it uses (restart it with the current code), "
+                "so it cannot be shown to be a test database")
+    if not name.endswith(TEST_DB_SUFFIXES):
+        return (f"refusing to run: the server uses database {name!r}, which is not a throwaway database "
+                f"(its name must end in {', '.join(TEST_DB_SUFFIXES)})")
+    return None
+
+
+def fetch_health(base: str) -> dict:
+    r = httpx.get(base + "/api/health", timeout=15)  # token-exempt, read-only
+    r.raise_for_status()
+    return r.json()
+
+
+def connect(base: str) -> None:
+    """Build the HTTP client. Called once, after the guard; this is the first place that is allowed to write."""
+    global c
+    headers = {"X-AO-Client": "office"}
+    token = os.environ.get("AO_API_TOKEN", "")
+    if not token:  # the server makes its own token per boot and hands it to the page, like the browser gets it
+        import re
+        import urllib.request
+        m = re.search(r'name="ao-token" content="([^"]+)"', urllib.request.urlopen(base + "/", timeout=15).read().decode())
+        token = m.group(1) if m else ""
+    if token:
+        headers["X-AO-Token"] = token
+    c = httpx.Client(base_url=base, headers=headers, timeout=60)
+    c.event_hooks["response"] = [_track]
+
+
+# ---------- expectations derived from /api/health ----------
+def expected_roles(stage: dict, live: set) -> set:
+    """Roles whose PASS a Tier 0 job records at `stage` (mirrors pipeline/exposure.stage_roles)."""
+    if stage["name"] == "exposure":
+        return set()  # nothing to approve below Tier 1
+    if stage["dept"] not in live:
+        return {"owner"}  # an offline department's stage waits for the owner
+    return {stage["lead"]} | ({"owner"} if stage["name"] in OWNER_GATES else set())
+
+
+def expected_owner_clicks(pipeline: dict) -> list[str]:
+    """Build-lane stages where the owner has to click (after the lead has passed, if there is one), in lane order."""
+    live = set(pipeline.get("liveDepartments", []))
+    by_name = {s["name"]: s for s in pipeline.get("stages", [])}
+    return [n for n in pipeline["lanes"]["build"]["stages"] if "owner" in expected_roles(by_name[n], live)]
+
+
+def offline_ids(agents: list, live: set) -> tuple[set, set]:
+    """(lead ids, seat ids) of the departments that are not live."""
+    off = [a for a in agents if a.get("department") not in live]
+    return {a["id"] for a in off if a.get("lead")}, {a["id"] for a in off if not a.get("lead")}
+
+
+# ---------- helpers ----------
 def _track(resp):
     if resp.request.method == "POST" and resp.request.url.path == "/api/jobs" and resp.status_code == 200:
         try:
             created.append(resp.json()["id"])
         except Exception:
             pass
-
-
-c.event_hooks["response"] = [_track]
-results: list[dict] = []
 
 
 def check(name: str, ok: bool, detail: str = "", skip: bool = False) -> bool:
@@ -97,19 +185,31 @@ def drive_as_owner(jid, stop=lambda j: False, timeout=600.0):
     return get_job(jid), clicked
 
 
-def main() -> int:
+# ---------- the checks ----------
+def run() -> int:
     # 1. health
     h = c.get("/api/health").json()
     p = h.get("pipeline", {})
-    check("health: the API answers", c.get("/api/health").status_code == 200)
-    check("health: only exec and engineering are live", sorted(p.get("liveDepartments", [])) == sorted(LIVE), str(p.get("liveDepartments")))
-    check("health: exposure is locked", p.get("exposureAllowed") is False)
+    live = set(p.get("liveDepartments", []))
+    stages = {s["name"]: s for s in p.get("stages", [])}
+    build_lane = p.get("lanes", {}).get("build", {}).get("stages", [])
     agents = h.get("agents", [])
-    check("health: 27 seats in 8 departments", len(agents) == 27 and len({a.get("department") or a.get("dept") for a in agents}) == 8, f"{len(agents)} seats")
+    departments = {a.get("department") for a in agents}
+    off_leads, off_seats = offline_ids(agents, live)
+    check("health: the API answers", c.get("/api/health").status_code == 200)
+    check("health: the live departments are real departments and include exec", bool(live) and live <= departments and "exec" in live, str(sorted(live)))
+    keys = (p.get("exposure") or {}).get("keys") or {}
+    check("health: exposure is open exactly when Strategy and Security are live and the keys are set",
+          p.get("exposureAllowed") is ({"secdata", "exec"} <= live and bool(keys)), f'allowed={p.get("exposureAllowed")} live={sorted(live)}')
+    check(f"health: {SEATS} seats in {DEPARTMENTS} departments", len(agents) == SEATS and len(departments) == DEPARTMENTS, f"{len(agents)} seats, {len(departments)} departments")
 
-    # 2. tier 1 refused while security is offline
-    r = c.post("/api/jobs", json={**BRIEF, "requestedTier": 1})
-    check("gate: a gated (Tier 1) preview is refused while security is offline", r.status_code == 400, r.text[:120])
+    # 2. tier 1 while exposure is closed
+    if p.get("exposureAllowed"):
+        check("gate: a gated (Tier 1) preview is refused while security is offline", False,
+              "exposure is open here, so Tier 1 is accepted; not tried, to avoid creating a gated job", skip=True)
+    else:
+        r = c.post("/api/jobs", json={**BRIEF, "requestedTier": 1})
+        check("gate: a gated (Tier 1) preview is refused while security is offline", r.status_code == 400, r.text[:120])
 
     # 3. the bakery job
     r = c.post("/api/jobs", json={**BRIEF, "requestedTier": 0})
@@ -123,21 +223,20 @@ def main() -> int:
     check("gate: a decision for a stage the job is not waiting at is refused", bad.status_code == 409, str(bad.status_code))
 
     job, clicked = drive_as_owner(jid, timeout=900)
+    want_clicks = expected_owner_clicks(p)
     check("job: reaches done", job["status"] == "done", f'{job["status"]} {job.get("parkReason") or ""}')
-    check("job: the owner was asked only for verify, security, preview and handoff",
-          clicked == ["verify", "security", "preview", "handoff"] or sorted(set(clicked)) == ["handoff", "preview", "security", "verify"], str(clicked))
+    check(f"job: the owner was asked only for {', '.join(want_clicks)}", clicked == want_clicks, str(clicked))
 
     appr: dict[str, set] = {}
     for a in job.get("approvals", []):
         appr.setdefault(a["stage"], set()).add(a["role"])
-    expect = {"intake": None, "verify": {"exec-ceo-strategist", "owner"}, "scope": {"exec-vp-engineering"}, "build": {"exec-vp-engineering"},
-              "security": {"owner"}, "preview": {"owner"}, "handoff": {"owner"}}
-    for stage, want in expect.items():
-        if want is None:
+    for stage in build_lane:
+        want = expected_roles(stages[stage], live)
+        if stage == "intake" or not want:
             continue
         check(f"approvals: {stage} is approved by {sorted(want)}", appr.get(stage) == want, str(sorted(appr.get(stage, []))))
     given = {r for rs in appr.values() for r in rs}
-    check("approvals: no offline lead approved anything", not (given & OFFLINE_LEADS), str(sorted(given & OFFLINE_LEADS)))
+    check("approvals: no offline lead approved anything", not (given & off_leads), str(sorted(given & off_leads)))
     ev = job.get("evidence", [])
     ids = {e["id"] for e in ev}
     leads_pass = [a for a in job.get("approvals", []) if a["role"] != "owner" and a["verdict"] == "PASS"]
@@ -156,7 +255,7 @@ def main() -> int:
     else:
         check("evidence: seats are off, so no seat findings were made", not any(seats.values()), str(seats))
     allseats = {s for v in seats.values() for s in v} | {(e.get("body") or {}).get("seat") for e in ev if (e.get("body") or {}).get("seat")}
-    check("evidence: no offline department's seat contributed", not (allseats & OFFLINE_SEATS), str(sorted(allseats & OFFLINE_SEATS)))
+    check("evidence: no offline department's seat contributed", not (allseats & off_seats), str(sorted(allseats & off_seats)))
     sec = [e for e in ev if e["stage"] == "security" and e["kind"] == "check"]
     check("evidence: security checks ran and are not credited to an offline seat", bool(sec) and all((e["body"].get("seat") or "") == "" for e in sec), f"{len(sec)} checks")
     check("evidence: the build produced a patch", any(e["stage"] == "build" and e["kind"] == "patch" and e["ok"] for e in ev))
@@ -164,8 +263,7 @@ def main() -> int:
     # 4a. production: the owner's Promote button
     pr = c.get(f"/api/jobs/{jid}/promote")
     st = pr.json() if pr.status_code == 200 else {}
-    real_build = all(not ck["name"].startswith("the app was built") or ck["ok"] for ck in st.get("checklist", []))
-    check("promote: the finished job has a computed production checklist", pr.status_code == 200 and len(st.get("checklist", [])) == 4,
+    check("promote: the finished job has a computed production checklist", pr.status_code == 200 and len(st.get("checklist", [])) == CHECKLIST_ITEMS,
           "; ".join(f'{"ok" if ck["ok"] else "NO"} {ck["name"]}' for ck in st.get("checklist", [])))
     r = c.post(f"/api/jobs/{jid}/promote", json={"step": "deploy", "envConfirmed": True})
     check("promote: deploying before prepare is refused", r.status_code == 409, f"{r.status_code}")
@@ -211,12 +309,19 @@ def main() -> int:
     # 5. sub-agents and consults
     j2 = c.post("/api/jobs", json={**BRIEF, "title": "Bakery spawn test", "requestedTier": 0}).json()["id"]
     wait_for(j2, lambda j: j["status"] in ("waiting", "running"))
-    r = c.post(f"/api/jobs/{j2}/spawn", json={"lead": "sec-compliance", "bench": "sec-container", "task": "x", "stage": "security"})
-    check("bench: an offline lead cannot spawn", r.status_code == 403 and "not live" in r.text, f"{r.status_code} {r.text[:80]}")
+    offline_lead = sorted(off_leads)[0] if off_leads else ""
+    if offline_lead:
+        r = c.post(f"/api/jobs/{j2}/spawn", json={"lead": offline_lead, "bench": "x", "task": "x", "stage": "security"})
+        check("bench: an offline lead cannot spawn", r.status_code == 403 and "not live" in r.text, f"{offline_lead}: {r.status_code} {r.text[:80]}")
+    else:
+        check("bench: an offline lead cannot spawn", False, "every department is live", skip=True)
     r = c.post(f"/api/jobs/{j2}/spawn", json={"lead": "exec-vp-engineering", "bench": "eng-api-designer", "task": "Name the main API endpoints for an ordering site.", "stage": "scope"})
     check("bench: a live lead can spawn from its own bench", r.status_code == 200 and r.json().get("ok"), f"{r.status_code} {r.text[:80]}", skip=SCRIPTED and r.status_code != 200)
-    r = c.post(f"/api/jobs/{j2}/consult", json={"from": "exec-ceo-strategist", "to": "lexi", "question": "x", "stage": "verify"})
-    check("consult: asking an offline department's lead is refused", r.status_code == 403, str(r.status_code))
+    if offline_lead:
+        r = c.post(f"/api/jobs/{j2}/consult", json={"from": "exec-ceo-strategist", "to": offline_lead, "question": "x", "stage": "verify"})
+        check("consult: asking an offline department's lead is refused", r.status_code == 403, f"{offline_lead}: {r.status_code}")
+    else:
+        check("consult: asking an offline department's lead is refused", False, "every department is live", skip=True)
     r = c.post(f"/api/jobs/{j2}/consult", json={"from": "exec-ceo-strategist", "to": "exec-vp-engineering", "question": "How long would this take to build?", "stage": "verify"})
     check("consult: exec lead can ask the engineering lead", r.status_code == 200 and r.json().get("ok"), f"{r.status_code}", skip=SCRIPTED and r.status_code != 200)
 
@@ -231,12 +336,12 @@ def main() -> int:
     check("costs: the job stayed under its lane cap", float(job.get("costs", {}).get("usd", 0)) <= cap, f'{job.get("costs")} cap ${cap}')
     check("costs: /api/usage answers", c.get("/api/usage").status_code == 200)
 
-    # 8. restart / resume
+    # 8. restart / resume (AO_RESTART_CMD is required by the guard: it must restart this stack, not the live API)
     if WITH_RESTART:
         j3 = c.post("/api/jobs", json={**BRIEF, "title": "Bakery restart test", "requestedTier": 0}).json()["id"]
         wait_for(j3, lambda j: j["status"] == "waiting" and j["pending"] and j["pending"][0]["stage"] == "verify")
         before = len([e for e in get_job(j3)["evidence"] if e["stage"] == "verify"])
-        subprocess.run(os.environ.get("AO_RESTART_CMD") or str(ROOT / "scripts" / "restart_api.sh"), shell=True, check=True)
+        subprocess.run(os.environ["AO_RESTART_CMD"], shell=True, check=True)
         end = time.time() + 90
         while time.time() < end:
             try:
@@ -254,7 +359,7 @@ def main() -> int:
         check("restart: resumed exactly once (no duplicated verify evidence)", r.status_code == 200 and len(after) == before, f"{before} -> {len(after)}")
         c.post(f"/api/jobs/{j3}/kill")
     else:
-        check("restart: kill the API while a job waits, then approve", False, "run with --with-restart on the laptop", skip=True)
+        check("restart: kill the API while a job waits, then approve", False, "run with --with-restart and AO_RESTART_CMD on the laptop", skip=True)
     return finish()
 
 
@@ -271,13 +376,39 @@ def finish() -> int:
     cleanup_jobs()
     out = ROOT / "data"
     out.mkdir(exist_ok=True)
-    (out / "verify-report.json").write_text(json.dumps({"at": time.time(), "base": BASE, "scripted": SCRIPTED, "results": results}, indent=1))
+    (out / "verify-report.json").write_text(json.dumps({"at": time.time(), "base": BASE, "database": DB_NAME, "scripted": SCRIPTED, "results": results}, indent=1))
     bad = [r for r in results if r["status"] == "FAIL"]
     n = {s: sum(1 for r in results if r["status"] == s) for s in ("PASS", "FAIL", "SKIP")}
     print(f"\n{n['PASS']} passed, {n['FAIL']} failed, {n['SKIP']} skipped  ->  data/verify-report.json")
     if SCRIPTED:
         print("SCRIPTED run: this proves the wiring and the slice rules, not model quality, the real worker or Docker.")
     return 1 if bad else 0
+
+
+def refuse(why: str) -> int:
+    print(why, file=sys.stderr)
+    return 2
+
+
+def main(argv: list[str] | None = None) -> int:
+    global BASE, SCRIPTED, WITH_RESTART, DB_NAME
+    argv = sys.argv[1:] if argv is None else argv
+    BASE = os.environ.get("BASE_URL", DEFAULT_BASE).rstrip("/")
+    SCRIPTED, WITH_RESTART = "--scripted" in argv, "--with-restart" in argv
+    why = preflight(BASE, FLAG in argv, WITH_RESTART, os.environ.get("AO_RESTART_CMD", ""))
+    if why:
+        return refuse(why)
+    try:
+        health = fetch_health(BASE)
+    except Exception as e:
+        return refuse(f"refusing to run: cannot read {BASE}/api/health ({type(e).__name__}), so the database cannot be checked")
+    why = check_database(health)
+    if why:
+        return refuse(why)
+    DB_NAME = health["database"]["name"]
+    print(f"target {BASE}, database {DB_NAME!r}")
+    connect(BASE)
+    return run()
 
 
 if __name__ == "__main__":

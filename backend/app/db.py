@@ -29,6 +29,17 @@ MIGRATIONS = Path(__file__).resolve().parent / "migrations"
 _pool: AsyncConnectionPool | None = None
 
 
+def database_name(url: str | None = None) -> str:
+    """The database the office is connected to, by name only. /api/health shows it so scripts that create real
+    jobs can refuse a live database; the DSN's user, password and host never leave this function."""
+    from urllib.parse import urlsplit
+    try:
+        parts = urlsplit(DATABASE_URL if url is None else url)
+    except ValueError:
+        return ""
+    return parts.path.strip("/") if parts.scheme and parts.netloc else ""
+
+
 def pool_kwargs() -> dict:
     # autocommit + prepare_threshold=0 + dict_row are what AsyncPostgresSaver expects.
     return {"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row}
