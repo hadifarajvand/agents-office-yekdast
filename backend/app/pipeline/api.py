@@ -35,16 +35,31 @@ def thread(job_id: str) -> dict:
     return {"configurable": {"thread_id": f"job-{job_id}"}, "recursion_limit": 200}
 
 
+RESTART_REASON = "interrupted by a restart — press Retry to continue from the last checkpoint"
+
+
 async def _drive(job_id: str, payload) -> None:
     """Run (or resume) the graph until it finishes or pauses at the next interrupt."""
     try:
+        job = await db.get_job(job_id)
+        if job and job.get("status") == "parked" and job.get("parkReason") == RESTART_REASON:
+            await jobs.touch(job_id, status="running", parkReason=None)  # Retry after a restart: it is running again
         await compiled().ainvoke(payload, config=thread(job_id))
-    except Exception:
+    except asyncio.CancelledError:
+        await _park_after_crash(job_id, "the driver was cancelled")
+        raise
+    except Exception as e:
         log.exception("job %s crashed", job_id)
-        try:
-            await jobs.touch(job_id, status="failed", parkReason="the pipeline crashed — see the server log")
-        except KeyError:
-            pass
+        await _park_after_crash(job_id, f"the pipeline crashed ({type(e).__name__}) — press Retry; see the server log")
+
+
+async def _park_after_crash(job_id: str, reason: str) -> None:
+    """A crash parks the job so it shows in the inbox and Retry works; it never ends as terminal `failed`."""
+    try:
+        await jobs.touch(job_id, status="parked", parkReason=reason)
+        await jobs.event(job_id, f"parked: {reason}")
+    except KeyError:
+        pass
 
 
 async def dispatch(job_id: str, payload) -> None:
@@ -228,7 +243,7 @@ async def park_interrupted() -> int:
     n = 0
     for j in await db.list_jobs():
         if j.get("status") == "running" and j.get("id"):
-            await jobs.touch(j["id"], status="parked", parkReason="interrupted by a restart — press Retry to continue from the last checkpoint")
+            await jobs.touch(j["id"], status="parked", parkReason=RESTART_REASON)
             await jobs.event(j["id"], "interrupted by a restart; parked")
             n += 1
     return n
