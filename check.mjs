@@ -211,8 +211,8 @@ else {
   const brain = fs.mkdtempSync(path.join(fs.realpathSync('/tmp'), 'ao-check-brain-'));
   let server = null, browser = null;
   try {
-    await sh('python3', ['-c', "import os, psycopg; c = psycopg.connect(os.environ['AO_TEST_DATABASE_URL'], autocommit=True); c.execute('DROP SCHEMA public CASCADE; CREATE SCHEMA public;')"], { env: { ...process.env } });
-    server = spawn('python3', ['-m', 'tests.ui_server', String(port)], { cwd: path.join(ROOT, 'backend'), env: { ...process.env, DATABASE_URL: DB, AO_BRAIN: brain }, stdio: ['ignore', 'pipe', 'pipe'] });
+    await sh(PY, ['-c', "import os, psycopg; c = psycopg.connect(os.environ['AO_TEST_DATABASE_URL'], autocommit=True); c.execute('DROP SCHEMA public CASCADE; CREATE SCHEMA public;')"], { env: { ...process.env } });
+    server = spawn(PY, ['-m', 'tests.ui_server', String(port)], { cwd: path.join(ROOT, 'backend'), env: { ...process.env, DATABASE_URL: DB, AO_BRAIN: brain }, stdio: ['ignore', 'pipe', 'pipe'] });
     let serverLog = ''; server.stdout.on('data', d => { serverLog += d; }); server.stderr.on('data', d => { serverLog += d; });
     const base = `http://127.0.0.1:${port}`;
     let up = false;

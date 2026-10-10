@@ -7,6 +7,7 @@
   "scripts": {
     "start": "docker compose up -d postgres egress router-gateway && backend/.venv/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port 4520",
     "boot": "scripts/boot.sh",
+    "image": "scripts/build-worker-image.sh",
     "stop": "scripts/stop.sh",
     "verify": "backend/.venv/bin/python scripts/verify_slice.py --with-restart && node scripts/verify_ui.mjs",
     "build": "node build.mjs",

@@ -1,5 +1,7 @@
 # Build-job image: Node toolchain, git, and the coding-agent CLIs under test.
-# Build:  docker build -f infra/sandbox/worker-node.Dockerfile -t agents-office/worker-node:latest infra/sandbox
+# Build:  npm run image   (scripts/build-worker-image.sh: --pull=false, template as a named context,
+#         reports how many layers were reused). Editing run-job.sh or run-checks.mjs rebuilds in
+#         about a second; only a template package.json / package-lock.json change re-runs npm.
 # Pin CLAUDE_CODE_VERSION and MINI_SWE_VERSION to the versions the bake-off used.
 FROM node:22-bookworm-slim
 
