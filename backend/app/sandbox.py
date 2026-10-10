@@ -118,6 +118,10 @@ def _docker():
     return docker.from_env()
 
 
+def _is_timeout(e: BaseException) -> bool:
+    return any("Timeout" in k.__name__ for k in type(e).__mro__) or "timed out" in str(e).lower()
+
+
 def _run_blocking(spec: dict, timeout_s: int, client=None) -> RunResult:
     client = client or _docker()
     spec = {k: v for k, v in spec.items() if v is not None}
@@ -134,7 +138,13 @@ def _run_blocking(spec: dict, timeout_s: int, client=None) -> RunResult:
         try:
             res = c.wait(timeout=timeout_s)
             code = int(res.get("StatusCode", 1))
-        except Exception:  # timeout or connection error: stop the container
+        except Exception as e:  # only a read timeout means "ran too long"; a Docker error is an error
+            if not _is_timeout(e):
+                try:
+                    c.kill()
+                except Exception:
+                    pass
+                raise
             timed_out = True
             code = 124
             try:
@@ -165,7 +175,12 @@ async def run_container(spec: dict, timeout_s: int, client=None) -> RunResult:
     name = str(spec.get("name", ""))
     jid = name[len("ao-job-"):] if name.startswith("ao-job-") else None
     activity.emit("container", f"container {name or spec.get('image')} started", job=jid, stage="build", connector="docker")
-    res = await asyncio.to_thread(_run_blocking, spec, timeout_s, client)
+    try:
+        res = await asyncio.to_thread(_run_blocking, spec, timeout_s, client)
+    except asyncio.CancelledError:
+        if jid:
+            await asyncio.to_thread(stop_job_container, jid, client)  # a cancelled driver must not leave the agent running
+        raise
     activity.emit("container", f"container {name or spec.get('image')} exit {res.exit_code}", job=jid, stage="build",
                   connector="docker", level="info" if res.exit_code == 0 else "warn")
     return res
