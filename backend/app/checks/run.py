@@ -10,7 +10,9 @@ import json
 from pathlib import Path
 
 MAX_BYTES = 400_000
-REQUIRED = ("dependencies install", "unit tests pass (npm test)", "the app starts and /healthz answers 200")
+REQUIRED = ("dependencies install", "the app builds (npm run build)", "unit tests pass (npm test)",
+            "the app starts and /healthz answers 200", "the home page answers without a server error",
+            "browser tests pass (npm run test:e2e)")
 
 
 def read_checks(out_dir: str | Path) -> list[dict]:

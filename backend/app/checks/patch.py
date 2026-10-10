@@ -18,7 +18,8 @@ from ..policy import _SECRET_PATTERNS
 
 MAX_FILE = 1_000_000
 MAX_TOTAL = 50_000_000
-SKIP_DIRS = ("node_modules/", ".git/", "dist/", "build/", ".next/", "coverage/")
+SKIP_DIRS = ("node_modules/", ".git/", ".next/")
+ROOT_ONLY_SKIP = ("dist/", "build/", "coverage/")  # only at the tree root: a nested build/ may hold a secret
 SKIP_NAMES = ("package-lock.json", "yarn.lock", "pnpm-lock.yaml")
 CREDENTIAL_FILES = re.compile(r"(^|/)(\.env(\.[\w.-]+)?|id_rsa|id_ed25519|.*\.pem|.*\.key|.*\.p12|\.npmrc|\.netrc|credentials\.json)$")
 ALLOWED_ENV = re.compile(r"\.env\.(example|sample|template)$")
@@ -50,7 +51,7 @@ def scan_tree(tar_path: Path) -> list[dict]:
             if not m.isfile():
                 continue
             n = _norm(m.name)
-            if any(n.startswith(d) or f"/{d}" in f"/{n}" for d in SKIP_DIRS):
+            if any(n.startswith(d) for d in ROOT_ONLY_SKIP) or any(n.startswith(d) or f"/{d}" in f"/{n}" for d in SKIP_DIRS):
                 continue
             names.append(n)
             total += m.size
@@ -98,6 +99,8 @@ def audit_result(path: Path) -> dict:
     v = ((d.get("metadata") or {}).get("vulnerabilities")) or {}
     if not v and d.get("error"):
         return {"name": "dependency audit", "ok": False, "detail": f'npm audit failed: {str(d["error"])[:200]}'}
+    if not all(k in v for k in ("high", "critical")):
+        return {"name": "dependency audit", "ok": False, "detail": "npm audit output has no vulnerability counts"}
     bad = int(v.get("high", 0)) + int(v.get("critical", 0))
     return {"name": "dependency audit", "ok": bad == 0,
             "detail": f'{v.get("critical", 0)} critical, {v.get("high", 0)} high, {v.get("moderate", 0)} moderate, {v.get("low", 0)} low'}

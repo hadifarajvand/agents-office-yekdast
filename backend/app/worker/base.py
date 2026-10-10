@@ -59,7 +59,7 @@ def seed_workspace(ws: Path) -> bool:
     src = Path(load_config().worker.get("template") or "")
     src = src if src.is_absolute() else ROOT / src
     if not (src / "package.json").exists():
-        return False
+        raise FileNotFoundError(f"the app template is missing ({src}); refusing to build from an empty workspace")
 
     def ignore(d, names):
         return [n for n in names if n in TEMPLATE_SKIP or n in TEMPLATE_SKIP_FILES]

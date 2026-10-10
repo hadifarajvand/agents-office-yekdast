@@ -128,10 +128,10 @@ async def verify(state: dict) -> dict:
             + (f"\n\nSpecialist findings:\n{found}" if found else "") + _feedback(state))
     system = await _lead_pack(state, "verify", json.dumps(b)[:300]) + system
     data = await get_deps().chat_json(system, user, role="research")
-    checks = {k: bool(data.get(k)) for k in ("deposit_real", "scope_clear", "price_fits_effort", "deadline_realistic")}
+    checks = {k: data.get(k) is True for k in ("deposit_real", "scope_clear", "price_fits_effort", "deadline_realistic")}
     ok = all(checks.values())
     await _evidence(state, "verify", "memo", "client job verification", ok,
-                    {**checks, "repeatable": bool(data.get("repeatable")), "risks": data.get("risks", []),
+                    {**checks, "repeatable": data.get("repeatable") is True, "risks": data.get("risks", []),
                      "summary": str(data.get("summary", ""))[:1500]}, "memo")
     return {}
 
@@ -168,11 +168,15 @@ async def build(state: dict) -> dict:
     pinned = cfg.roles.get("builder", "")
     from ..llm import same_model
     swapped = [m for m in res.get("models_seen", []) if not same_model(pinned, m)]
-    ok = res.get("exit_state") == "ok" and bool(res.get("patch_path")) and not swapped
+    unreported = not res.get("models_seen")  # a model that was never seen cannot be shown to be the pinned one
+    ok = res.get("exit_state") == "ok" and bool(res.get("patch_path")) and not swapped and not unreported
     checks = res.get("checks")
     if checks is None:  # a worker that cannot prove the app runs does not pass the build
         checks = [{"name": "the app was installed, built, tested and started", "ok": False,
                    "detail": "this worker reports no check results"}]
+    if unreported:
+        checks = list(checks) + [{"name": "the worker reported which model it used", "ok": False,
+                                  "detail": "models_seen is empty, so the model-swap check cannot pass"}]
     for i, c in enumerate(checks[:12]):
         await _evidence(state, "build", "check", c["name"], bool(c.get("ok")),
                         {"detail": redact_secrets(str(c.get("detail", "")))[-2500:], "ms": int(c.get("ms") or 0)}, f"run{i}")

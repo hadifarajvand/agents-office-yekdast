@@ -17,6 +17,8 @@ def make_worker(kind: str | None = None):
         from .openhands import OpenHandsWorker
         return OpenHandsWorker()
     if kind == "fake":
+        import logging
+        logging.getLogger("agents_office.worker").warning("worker.kind is fake: builds will fail their checks; set it to claude_code")
         from .fake import FakeWorker
         return FakeWorker()
     raise ValueError(f'unknown worker kind "{kind}" (claude_code, mini_swe, openhands, fake)')
