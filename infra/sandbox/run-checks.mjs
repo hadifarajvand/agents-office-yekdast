@@ -49,11 +49,18 @@ async function main() {
   // The builder may add a dependency to package.json without refreshing the lockfile, which
   // makes `npm ci` refuse. Fall back to `npm install` (it rewrites the lock) so a legitimate
   // dependency is not a failed build; a genuine install error still fails on the second try.
-  let install = existsSync('package-lock.json')
-    ? await run('npm', ['ci', '--prefer-offline', '--no-audit', '--no-fund'])
-    : await run('npm', ['install', '--prefer-offline', '--no-audit', '--no-fund']);
+  const installOnce = () => existsSync('package-lock.json')
+    ? run('npm', ['ci', '--prefer-offline', '--no-audit', '--no-fund'])
+    : run('npm', ['install', '--prefer-offline', '--no-audit', '--no-fund']);
+  let install = await installOnce();
   if (!install.ok && existsSync('package-lock.json')) {
     install = await run('npm', ['install', '--prefer-offline', '--no-audit', '--no-fund']);
+  }
+  // A dropped connection through the egress proxy (ECONNRESET, ETIMEDOUT) is the network's fault:
+  // retry with backoff instead of failing the whole build on one reset.
+  for (let i = 1; !install.ok && /ECONNRESET|ETIMEDOUT|EAI_AGAIN|network/i.test(install.out) && i <= 3; i++) {
+    await new Promise((r) => setTimeout(r, 5000 * i));
+    install = await installOnce();
   }
   record('dependencies install', install.ok, install.out, install.ms);
   if (!install.ok) return;
@@ -77,11 +84,16 @@ async function main() {
   if (!scripts.start) { record('the app starts (npm start)', false, 'package.json has no "start" script'); return; }
   const t0 = Date.now();
   let log = '';
+  if ((await probe('/healthz', 1)).status !== 0) {
+    record('the app starts and /healthz answers 200', false, `port ${PORT} was already answering before the app started`);
+    return;
+  }
   const server = spawn('npm', ['start'], { env: { ...process.env, PORT, HOSTNAME: '127.0.0.1', NODE_ENV: 'production', EPHEMERAL_DB: '1' }, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
   server.stdout.on('data', (d) => (log += d));
   server.stderr.on('data', (d) => (log += d));
   try {
     const health = await probe('/healthz', 60);
+    if (health.status === 200 && server.exitCode !== null) health.status = 0; // answered by something else: the app itself exited
     record('the app starts and /healthz answers 200', health.status === 200, `status ${health.status}\n${tail(log, 1500)}`, Date.now() - t0);
     const home = await probe('/', 5);
     record('the home page answers without a server error', home.status > 0 && home.status < 500, `status ${home.status}`);

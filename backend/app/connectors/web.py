@@ -96,7 +96,7 @@ class HttpFetch:
         self._client, self._resolve = client, resolve
 
     async def fetch(self, url: str) -> dict:
-        client = self._client or httpx.AsyncClient(timeout=15, follow_redirects=False, headers={"User-Agent": UA})
+        client = self._client or httpx.AsyncClient(timeout=15, follow_redirects=False, trust_env=False, headers={"User-Agent": UA})
         try:
             for _ in range(5):
                 target, extra = url, {}

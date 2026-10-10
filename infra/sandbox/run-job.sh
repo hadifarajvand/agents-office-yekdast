@@ -10,6 +10,9 @@
 set -uo pipefail
 cd /workspace
 
+# A stale result from an earlier attempt must never be read as this run's proof.
+rm -f /out/checks.json /out/checks.log /out/patch.bundle /out/tree.tar.gz /out/npm-audit.json /out/exit_code /out/retries
+
 GIT=(git -c core.hooksPath=/dev/null -c safe.directory=/workspace -c user.email=agent@office.local -c user.name=office-agent)
 "${GIT[@]}" init -q 2>/dev/null
 "${GIT[@]}" add -A && "${GIT[@]}" commit -qm "task" --allow-empty
@@ -26,17 +29,21 @@ while :; do
   attempt=$((attempt + 1))
   last=$(tail -n 1 /out/agent.stdout)
   [ "$1" = claude ] && [ "$attempt" -lt 6 ] && grep -q '"is_error":true' <<<"$last" \
-    && grep -qiE 'upstream connection lost|API Error' <<<"$last" || break
+    && grep -qiE 'upstream connection lost|API Error: (5[0-9]{2}|Connection|Request timed out)' <<<"$last" || break
   echo "run-job: transient API error, resuming session (attempt $attempt)" >>/out/agent.stderr
   extra=(--continue); sleep 10
 done
+echo "$((attempt - 1))" >/out/retries   # recorded by the host as evidence
 
+# The lockfile is made BEFORE the commit, so the bundle and the scanned tree contain it.
+if [ -f package.json ] && [ ! -f package-lock.json ]; then
+  npm install --package-lock-only --ignore-scripts >/dev/null 2>&1
+fi
 "${GIT[@]}" add -A && "${GIT[@]}" commit -qm "agent work" --allow-empty
 "${GIT[@]}" bundle create /out/patch.bundle --all 2>>/out/agent.stderr
 tar --exclude=.git --exclude=node_modules -czf /out/tree.tar.gz -C /workspace . 2>>/out/agent.stderr
 
 if [ -f package.json ]; then
-  [ -f package-lock.json ] || npm install --package-lock-only --ignore-scripts >/dev/null 2>&1
   npm audit --omit=dev --json >/out/npm-audit.json 2>/dev/null
 fi
 
