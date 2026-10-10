@@ -28,7 +28,7 @@ from ..config import load_config
 from ..llm import BudgetExceeded, RunMeter, current_meter
 from . import exposure as exp
 from . import activity, jobs, leads
-from .stages import WORK
+from .stages import WORK, RegistryUnreachable
 
 log = logging.getLogger("agents_office.pipeline")
 
@@ -74,6 +74,8 @@ def _work_node(stage: str):
             out = await WORK[stage](state)
         except BudgetExceeded as exc:
             return await _park(jid, stage, f"budget: {exc}")
+        except RegistryUnreachable as exc:
+            return await _park(jid, stage, str(exc))
         except Exception as exc:
             log.exception("job %s stage %s failed", jid, stage)
             if router_down(exc):

@@ -56,6 +56,8 @@ class Script:
             ids = re.findall(r"id=(\S+)", user)
             if v == "NOCITE":
                 return {"verdict": "PASS", "reasons": ["looks fine"], "cites": []}
+            if v == "PREFIX":  # what a free model does with "<job>:<stage>:<n>:<kind>": cites the first segment only
+                return {"verdict": "PASS", "reasons": ["looks fine"], "cites": ["abc123def456"]}
             return {"verdict": v, "reasons": [f"{stage} {v.lower()}"], "cites": ids[:2]}
         if "verify whether a client job" in system:
             return {"deposit_real": True, "scope_clear": True, "price_fits_effort": True, "deadline_realistic": True,
@@ -78,6 +80,12 @@ class FakeWorker:
         self.models = ["nemotron-3-ultra-free"]
         self.checks = [{"name": "unit tests pass (npm test)", "ok": True, "detail": "12 passed"}]
         self.briefs: list[dict] = []
+        self.rechecks = 0
+        self.recheck_results: list[list[dict]] = []
+
+    async def recheck(self, job_dir, limits):
+        self.rechecks += 1
+        return self.recheck_results.pop(0) if self.recheck_results else self.checks
 
     async def run(self, job_dir, brief, limits):
         self.runs += 1
@@ -321,6 +329,44 @@ async def test_pass_without_cited_evidence_is_a_fail(env):
     await run_to_end(env, jid)
     job = await db.get_job(jid)
     assert job["stages"]["scope"]["attempts"] == 2
+
+
+async def test_a_cite_that_is_not_evidence_of_this_stage_does_not_count(env):
+    env.script.review_verdicts["scope"] = ["PREFIX", "PASS"]  # a bare job-id prefix names no evidence
+    jid = await start(env)
+    await run_to_end(env, jid)
+    job = await db.get_job(jid)
+    assert job["stages"]["scope"]["attempts"] == 2
+    passed = [a for a in await db.list_approvals(jid) if a["stage"] == "scope" and a["verdict"] == "PASS"]
+    assert passed and all(c.startswith(f"{jid}:scope:") for a in passed for c in a["evidence"])  # labels resolved to real ids
+
+
+REGISTRY_DOWN = [{"name": "dependencies install", "ok": False, "detail": "npm ERR! code ECONNRESET\n[registry unreachable]"}]
+GREEN = [{"name": "unit tests pass (npm test)", "ok": True, "detail": "12 passed"}]
+
+
+async def test_a_registry_outage_reruns_only_the_checks_and_uses_no_review_round(env, monkeypatch):
+    monkeypatch.setitem(env.cfg.worker, "recheck_pause_s", 0)
+    env.worker.checks = [REGISTRY_DOWN, GREEN]
+    env.worker.recheck_results = [GREEN]
+    jid = await start(env)
+    job = await run_to_end(env, jid)
+    assert env.worker.runs == 1 and env.worker.rechecks == 1  # the agent ran once; only the checks ran again
+    assert job["stages"]["build"]["attempts"] == 1 and job["status"] != "parked"
+    assert any("re-running the checks only" in e["text"] for e in job["events"])
+
+
+async def test_a_registry_outage_that_lasts_parks_the_build_without_failing_a_review(env, monkeypatch):
+    monkeypatch.setitem(env.cfg.worker, "recheck_pause_s", 0)
+    env.worker.checks = [REGISTRY_DOWN]
+    env.worker.recheck_results = [REGISTRY_DOWN, REGISTRY_DOWN]
+    jid = await start(env)
+    await owner(env, jid)  # verify -> scope -> build
+    job = await db.get_job(jid)
+    assert job["status"] == "parked" and "registry is unreachable" in job["parkReason"]
+    assert env.worker.runs == 1 and env.worker.rechecks == 2
+    assert not [a for a in await db.list_approvals(jid) if a["stage"] == "build"]  # no lead was asked to fail it
+    assert job["costs"]["tokens"] >= 1000  # the agent run is still paid for
 
 
 async def test_failed_security_check_fails_without_asking_a_model(env):

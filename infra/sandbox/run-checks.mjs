@@ -9,6 +9,7 @@ const OUT = process.env.CHECKS_OUT || '/out/checks.json';
 const PORT = process.env.CHECK_PORT || '3000';
 const BASE = `http://127.0.0.1:${PORT}`;
 const results = [];
+const REGISTRY_UNREACHABLE = '[registry unreachable]';  // read by backend/app/checks/run.py
 const tail = (s, n = 2500) => (s.length > n ? '…' + s.slice(-n) : s);
 
 function run(cmd, args, { timeoutMs = 600_000, env = {} } = {}) {
@@ -46,22 +47,35 @@ async function main() {
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
   const scripts = pkg.scripts || {};
 
-  // The builder may add a dependency to package.json without refreshing the lockfile, which
-  // makes `npm ci` refuse. Fall back to `npm install` (it rewrites the lock) so a legitimate
-  // dependency is not a failed build; a genuine install error still fails on the second try.
-  const installOnce = () => existsSync('package-lock.json')
-    ? run('npm', ['ci', '--prefer-offline', '--no-audit', '--no-fund'])
-    : run('npm', ['install', '--prefer-offline', '--no-audit', '--no-fund']);
+  // The install gets short, bounded attempts: a hung registry connection once held this check for
+  // 101 minutes. Each attempt is capped (INSTALL_TIMEOUT_MS), the whole step is capped
+  // (INSTALL_BUDGET_MS) and npm's own fetch retries are kept short.
+  const INSTALL_TIMEOUT_MS = Number(process.env.CHECKS_INSTALL_TIMEOUT_MS) || 180_000;
+  const INSTALL_BUDGET_MS = Number(process.env.CHECKS_INSTALL_BUDGET_MS) || 420_000;
+  const BACKOFF_MS = process.env.CHECKS_INSTALL_BACKOFF_MS === undefined ? 5000 : Number(process.env.CHECKS_INSTALL_BACKOFF_MS);
+  const NETWORK = /ECONNRESET|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ECONNREFUSED|socket hang up|npm (ERR!|error) network|\[timed out after/i;
+  const fetchFlags = ['--prefer-offline', '--no-audit', '--no-fund', '--fetch-timeout=30000', '--fetch-retries=2',
+    '--fetch-retry-mintimeout=2000', '--fetch-retry-maxtimeout=10000'];
+  const opts = { timeoutMs: INSTALL_TIMEOUT_MS };
+  const installStart = Date.now();
+  const installOnce = () => run('npm', [existsSync('package-lock.json') ? 'ci' : 'install', ...fetchFlags], opts);
   let install = await installOnce();
-  if (!install.ok && existsSync('package-lock.json')) {
-    install = await run('npm', ['install', '--prefer-offline', '--no-audit', '--no-fund']);
+  // The builder may add a dependency to package.json without refreshing the lockfile, which makes
+  // `npm ci` refuse. Fall back to `npm install` (it rewrites the lock), but never after a network
+  // failure: that would only repeat the same dead connection under another command.
+  if (!install.ok && existsSync('package-lock.json') && !NETWORK.test(install.out)) {
+    install = await run('npm', ['install', ...fetchFlags], opts);
   }
   // A dropped connection through the egress proxy (ECONNRESET, ETIMEDOUT) is the network's fault:
-  // retry with backoff instead of failing the whole build on one reset.
-  for (let i = 1; !install.ok && /ECONNRESET|ETIMEDOUT|EAI_AGAIN|network/i.test(install.out) && i <= 3; i++) {
-    await new Promise((r) => setTimeout(r, 5000 * i));
+  // retry with backoff while the budget lasts instead of failing the whole build on one reset.
+  for (let i = 1; !install.ok && NETWORK.test(install.out) && i <= 2
+       && Date.now() - installStart + BACKOFF_MS * i + INSTALL_TIMEOUT_MS <= INSTALL_BUDGET_MS; i++) {
+    await new Promise((r) => setTimeout(r, BACKOFF_MS * i));
     install = await installOnce();
   }
+  // The host reads this marker to re-run only the checks, not to count a review round against the
+  // builder for a registry it could not reach.
+  if (!install.ok && NETWORK.test(install.out)) install.out += `\n${REGISTRY_UNREACHABLE}`;
   record('dependencies install', install.ok, install.out, install.ms);
   if (!install.ok) return;
 

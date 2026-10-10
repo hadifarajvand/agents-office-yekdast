@@ -47,7 +47,9 @@ class ClaudeCodeWorker(ContainerWorker):
             # kills the run. Keep it on streaming, retry instead, and cap runaway generations.
             # Flag names confirmed present in the worker image CLI binary (2026-10-05).
             "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK": "1", "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "8192",
-            "API_TIMEOUT_MS": "600000", "CLAUDE_STREAM_IDLE_TIMEOUT_MS": "120000", "CLAUDE_CODE_MAX_RETRIES": "6",
+            # nemotron answers a turn in about 2 s (big-pickle took 21-34 s), so a stalled stream is declared
+            # dead after 60 s, a whole request after 3 min, and a failed call is retried 3 times, not 6.
+            "API_TIMEOUT_MS": "180000", "CLAUDE_STREAM_IDLE_TIMEOUT_MS": "60000", "CLAUDE_CODE_MAX_RETRIES": "3",
             "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1", "DISABLE_AUTOUPDATER": "1", "DISABLE_TELEMETRY": "1",
         }
 

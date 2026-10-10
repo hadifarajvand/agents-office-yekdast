@@ -96,6 +96,17 @@ class ContainerWorker:
                 continue
         return None
 
+    async def recheck(self, job_dir: Path, limits: dict) -> list[dict]:
+        """Re-run only the in-container checks on the workspace the agent left: no agent, no new
+        patch. Used after a registry outage so the builder is not asked to redo finished work."""
+        cfg = load_config()
+        job_dir = Path(job_dir)
+        image = cfg.worker["images"][self.image_key]
+        spec = container_spec(job_dir.name, image=image, command=[ENTRYPOINT], env={"AO_CHECKS_ONLY": "1"})
+        await run_container(spec, timeout_s=int(limits.get("recheck_minutes", 15)) * 60)
+        from ..checks.run import read_checks
+        return read_checks(job_dir / "out")
+
     async def run(self, job_dir: Path, brief: dict, limits: dict) -> dict:
         cfg = load_config()
         job_dir = Path(job_dir)

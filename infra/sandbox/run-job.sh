@@ -7,8 +7,17 @@
 #   /out/npm-audit.json    npm audit of production dependencies
 #   /out/checks.json       install / build / test / start / browser-test results (run-checks.mjs)
 #   /out/agent.stdout|stderr, /out/exit_code
+# With AO_CHECKS_ONLY=1 it only re-runs run-checks.mjs on the existing workspace.
 set -uo pipefail
 cd /workspace
+
+# Re-run only the proof (the host sets this after a registry outage, so the agent's work is not
+# redone): the workspace, patch and tree from the earlier run stay as they are.
+if [ -n "${AO_CHECKS_ONLY:-}" ]; then
+  rm -f /out/checks.json /out/checks.log
+  node /opt/run-checks.mjs >/out/checks.log 2>&1 || true
+  exit 0
+fi
 
 # A stale result from an earlier attempt must never be read as this run's proof.
 rm -f /out/checks.json /out/checks.log /out/patch.bundle /out/tree.tar.gz /out/npm-audit.json /out/exit_code /out/retries
@@ -28,10 +37,10 @@ while :; do
   code=$?
   attempt=$((attempt + 1))
   last=$(tail -n 1 /out/agent.stdout)
-  [ "$1" = claude ] && [ "$attempt" -lt 6 ] && grep -q '"is_error":true' <<<"$last" \
+  [ "$1" = claude ] && [ "$attempt" -lt 4 ] && grep -q '"is_error":true' <<<"$last" \
     && grep -qiE 'upstream connection lost|API Error: (5[0-9]{2}|Connection|Request timed out)' <<<"$last" || break
   echo "run-job: transient API error, resuming session (attempt $attempt)" >>/out/agent.stderr
-  extra=(--continue); sleep 10
+  extra=(--continue); sleep 5
 done
 echo "$((attempt - 1))" >/out/retries   # recorded by the host as evidence
 

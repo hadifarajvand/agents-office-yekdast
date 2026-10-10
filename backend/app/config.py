@@ -101,7 +101,7 @@ DEFAULTS: dict = {
     "exposure": {"tier1_owner_clicks": 3, "preview_ttl_days": 7,
                  "keys": {"security": "sec-compliance", "commercial": "exec-ceo-strategist"}},
     # template: copied into every new job workspace (PLAN.md section 14, C3).
-    "worker": {"kind": "fake", "timeout_minutes": 180, "max_turns": 250, "template": "templates/webapp", "images": {
+    "worker": {"kind": "fake", "timeout_minutes": 45, "max_turns": 60, "template": "templates/webapp", "images": {
         "claude_code": "agents-office/worker-node:latest",
         "openhands": "agents-office/worker-openhands:latest",
         "mini_swe": "agents-office/worker-node:latest",

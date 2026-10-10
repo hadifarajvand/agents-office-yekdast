@@ -6,6 +6,7 @@ Models: research/drafts/tests run on the cheap pinned roles; the builder is pinn
 its own role. Every model call is metered by the node wrapper in graph.py."""
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from pathlib import Path
@@ -15,8 +16,10 @@ from ..config import load_config
 from ..context import build_pack, fence
 from ..context import seat as seat_of
 from ..policy import redact_secrets
+from ..checks.run import registry_unreachable
 from . import activity
 from . import exposure as exp
+from . import jobs
 from .ports import get_deps
 
 
@@ -156,15 +159,32 @@ async def scope(state: dict) -> dict:
     return {"scope": {"acceptance_criteria": crit, "tasks": data.get("tasks", []), "stack": data.get("stack")}}
 
 
+MAX_RECHECKS = 2
+
+
+class RegistryUnreachable(RuntimeError):
+    """The install check could not reach the package registry, even after re-running the checks.
+    The graph parks the job with this message; it is not a review round against the builder."""
+
+
 async def build(state: dict) -> dict:
     deps = get_deps()
     cfg = load_config()
     job_dir = Path(cfg.sandbox["jobs_dir"]) / state["job_id"]
     job_dir.mkdir(parents=True, exist_ok=True)
     brief = {**state["brief"], "scope": state.get("scope", {}), "feedback": state.get("feedback", "")}
-    limits = {"minutes": cfg.worker.get("timeout_minutes", 180), "model": cfg.roles.get("builder"),
-              "max_turns": cfg.worker.get("max_turns", 250)}
+    limits = {"minutes": cfg.worker.get("timeout_minutes", 45), "model": cfg.roles.get("builder"),
+              "max_turns": cfg.worker.get("max_turns", 60)}
     res = await deps.worker.run(job_dir, brief, limits)
+    # A registry outage is not the builder's fault: re-run only the checks (the agent's work is kept)
+    # instead of failing the build, which would spend a review round and a whole new agent run.
+    recheck = getattr(deps.worker, "recheck", None)
+    rechecks = 0
+    while recheck and res.get("checks") is not None and registry_unreachable(res["checks"]) and rechecks < MAX_RECHECKS:
+        rechecks += 1
+        await jobs.event(state["job_id"], f"build: package registry unreachable; re-running the checks only ({rechecks}/{MAX_RECHECKS}), no review round used")
+        await asyncio.sleep(float(cfg.worker.get("recheck_pause_s", 30)))
+        res = {**res, "checks": await recheck(job_dir, limits)}
     pinned = cfg.roles.get("builder", "")
     from ..llm import same_model
     swapped = [m for m in res.get("models_seen", []) if not same_model(pinned, m)]
@@ -184,8 +204,13 @@ async def build(state: dict) -> dict:
                     {"exit_state": res.get("exit_state"), "patch_path": res.get("patch_path"),
                      "log_path": res.get("log_path"), "tokens": res.get("tokens", 0), "usd": res.get("usd", 0.0),
                      "models_seen": res.get("models_seen", []), "model_swapped": swapped}, "patch")
-    return {"patch": {"path": res.get("patch_path"), "log": res.get("log_path")},
-            "_cost": {"tokens": int(res.get("tokens", 0)), "usd": worker_usd(pinned, res)}}
+    cost = {"tokens": int(res.get("tokens", 0)), "usd": worker_usd(pinned, res)}
+    if checks and registry_unreachable(checks):
+        await jobs.add_cost(state["job_id"], cost["tokens"], cost["usd"])  # the park skips the node's own cost step
+        raise RegistryUnreachable(f"the package registry is unreachable from the job container (the dependency install "
+                                  f"failed on the network after {rechecks} re-run(s) of the checks); fix the egress proxy "
+                                  "or network, then retry the build")
+    return {"patch": {"path": res.get("patch_path"), "log": res.get("log_path")}, "_cost": cost}
 
 
 def worker_usd(model: str, res: dict) -> float:
@@ -229,7 +254,6 @@ async def preview(state: dict) -> dict:
     await _evidence(state, "preview", "check", "preview deployed privately (Tier 0)", bool(info.get("app_id")),
                     {"app_id": info.get("app_id"), "internal_url": info.get("internal_url"), "public": False,
                      "seat": "dash" if "dash" in _seats("preview") else ""}, "deploy")
-    from . import jobs
     await jobs.touch(state["job_id"], preview=prev, tier=0)
     return {"preview": prev}
 

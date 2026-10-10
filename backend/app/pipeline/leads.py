@@ -11,17 +11,19 @@ from .ports import get_deps
 SYSTEM = (
     "You are the lead reviewing your own team's stage of a client job. Decide PASS or FAIL against the "
     "acceptance criteria. You may only PASS if the evidence supports it, and you must cite the evidence "
-    "ids you relied on. Evidence marked ok=false is a failure. Reply with JSON only: "
-    '{"verdict":"PASS"|"FAIL","reasons":["..."],"cites":["<evidence id>", ...]}. '
+    "ids you relied on, exactly as written after id= (E1, E2, ...). Evidence marked ok=false is a failure. Reply with JSON only: "
+    '{"verdict":"PASS"|"FAIL","reasons":["..."],"cites":["E1", ...]}. '
     "If you need a specialist's opinion first, instead reply {\"spawn\":[{\"bench\":\"<id>\",\"task\":\"...\"}]} "
     "naming up to 3 of the bench roles you were offered; you will then see their answers and must decide."
 )
 
 
-def _fmt(e: dict) -> str:
+def _fmt(e: dict, label: str | None = None) -> str:
+    """`label` is the short id the model cites (E1, E2...): the stored ids are colon-joined
+    ("<job>:<stage>:<n>:<kind>") and free models cite only their first segment."""
     ok = {True: "ok", False: "FAILED", None: "info"}[e.get("ok")]
     body = str(e.get("body"))[:1200]
-    return f'- id={e["id"]} [{e["kind"]}] {e["title"]} ({ok}): {body}'
+    return f'- id={label or e["id"]} [{e["kind"]}] {e["title"]} ({ok}): {body}'
 
 
 def _detail(e: dict) -> str:
@@ -49,7 +51,7 @@ async def review(stage: str, lead_id: str, lead_label: str, job: dict, evidence:
 
     user = (f"Stage: {stage}\nYou are: {lead_label}\nJob: {job.get('title')}\n"
             f"Client brief: {str(job.get('brief'))[:2000]}\nCriteria: {criteria or 'the stage did what it was asked'}\n\n"
-            "Evidence:\n" + "\n".join(_fmt(e) for e in mine))
+            "Evidence:\n" + "\n".join(_fmt(e, f"E{i}") for i, e in enumerate(mine, 1)))
     meter = RunMeter(label=f'job:{job["id"]}:{stage}:review')
     tok = current_meter.set(meter)
     try:
@@ -87,8 +89,15 @@ async def review(stage: str, lead_id: str, lead_label: str, job: dict, evidence:
                 "reasons": ["review void: " + "; ".join(meter.mismatches)]}
     verdict = str(data.get("verdict", "")).upper()
     reasons = [str(r)[:300] for r in (data.get("reasons") or [])][:6]
-    ids = {e["id"] for e in mine}
-    cites = [c for c in (data.get("cites") or []) if c in ids]
+    labels = {f"E{i}": e["id"] for i, e in enumerate(mine, 1)}
+    real = {e["id"] for e in mine}
+    # A cite counts only if it resolves to evidence of this job and stage: the short label or the full id.
+    cites = []
+    for c in data.get("cites") or []:
+        c = str(c).strip()
+        hit = labels.get(c.upper()) or (c if c in real else None)
+        if hit and hit not in cites:
+            cites.append(hit)
     if verdict == "PASS" and not cites:
         return {"verdict": "FAIL", "actor": lead_id, "cites": [], "reasons": ["PASS without citing evidence"] + reasons, "cost": cost}
     if verdict not in ("PASS", "FAIL"):

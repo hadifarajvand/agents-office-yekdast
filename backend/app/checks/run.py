@@ -15,6 +15,17 @@ REQUIRED = ("dependencies install", "the app builds (npm run build)", "unit test
             "browser tests pass (npm run test:e2e)")
 
 
+REGISTRY_UNREACHABLE = "[registry unreachable]"  # appended by infra/sandbox/run-checks.mjs
+INSTALL = "dependencies install"
+
+
+def registry_unreachable(checks: list[dict]) -> bool:
+    """True when the one thing that failed is the install, and it failed on the network: the
+    package registry could not be reached, which says nothing about the builder's work."""
+    bad = [c for c in checks if not c.get("ok")]
+    return len(bad) == 1 and bad[0]["name"] == INSTALL and REGISTRY_UNREACHABLE in str(bad[0].get("detail", ""))
+
+
 def read_checks(out_dir: str | Path) -> list[dict]:
     f = Path(out_dir) / "checks.json"
     if not f.exists():
