@@ -110,6 +110,14 @@ def compute_verdict(claims: list[dict], log: dict, rubric: dict | None = None) -
             "sufficient_search": sufficient, "reasons": reasons}
 
 
+def _reraise_if_fatal(e: Exception) -> None:
+    """A budget stop or a dead router is not a weak source: the stage must park, not compute a verdict."""
+    from ..llm import BudgetExceeded
+    from .graph import router_down
+    if isinstance(e, BudgetExceeded) or router_down(e):
+        raise e
+
+
 async def research(state: dict) -> dict:
     from .stages import _evidence, _feedback
     deps = get_deps()
@@ -127,13 +135,19 @@ async def research(state: dict) -> dict:
 
     urls: list[str] = [u.strip() for u in re.split(r"[\s,]+", str(b.get("links") or "")) if u.strip().startswith("http")]
     failures: list[str] = []
+    answered = 0
     for q in queries:
         try:
-            for hit in await web.search(q):
+            hits = await web.search(q)
+            for hit in hits:
                 if hit["url"] not in urls:
                     urls.append(hit["url"])
         except Exception as e:
+            _reraise_if_fatal(e)
             failures.append(f"search '{q[:60]}': {type(e).__name__}")
+            continue
+        if hits:
+            answered += 1
 
     claims, dropped, fetched = [], 0, []
     for url in urls[:max_f]:
@@ -145,18 +159,19 @@ async def research(state: dict) -> dict:
         if page["status"] >= 400 or len(page["text"]) < 200:
             failures.append(f"fetch {url[:80]}: status {page['status']}, {len(page['text'])} chars")
             continue
-        fetched.append(page["url"])
         try:
             data = await deps.chat_json(EXTRACT_SYSTEM, f"Idea:\n{idea}\n\nPage URL: {page['url']}\nPage text:\n"
                                         + fence(page["text"]), role="research")
         except Exception as e:
+            _reraise_if_fatal(e)
             failures.append(f"extract {url[:80]}: {type(e).__name__}")
             continue
+        fetched.append(page["url"])  # counted only once the page was actually read by the model
         kept, n_drop = verify_claims(data.get("claims"), page["url"], page["text"])
         claims.extend(kept)
         dropped += n_drop
 
-    run_log = {"search_available": can_search, "queries": len(queries), "query_list": queries,
+    run_log = {"search_available": can_search, "queries": answered, "query_list": queries,
                "fetched": len(fetched), "pages": fetched, "claims_kept": len(claims), "claims_dropped": dropped,
                "failures": failures[:30]}
     result = compute_verdict(claims, run_log)

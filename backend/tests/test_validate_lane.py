@@ -206,3 +206,16 @@ def test_the_api_takes_an_own_idea_into_the_validate_lane_and_guards_the_build(f
     assert r.status_code == 200 and r.json()["lane"] == "validate" and [s["name"] for s in r.json()["stages"]] == ["intake", "research"]
     r = c.post("/api/jobs", json={"kind": "own", "lane": "build", "title": "Bakery inbox", "description": "x" * 40})
     assert r.status_code == 400 and "validate job" in r.json()["error"]
+
+
+async def test_a_dead_router_or_budget_stop_cannot_yield_a_verdict(lane):
+    from app.llm import BudgetExceeded
+
+    async def boom(system, user, *, role="research"):
+        if "Propose web search queries" in system:
+            return {"queries": ["a", "b", "c"]}
+        raise BudgetExceeded("job budget")
+    set_deps(Deps(chat_json=boom, web=lane.web))
+    from app.pipeline.research import research
+    with pytest.raises(BudgetExceeded):
+        await research({"job_id": "x", "brief": {"title": "t"}, "loops": {}})
