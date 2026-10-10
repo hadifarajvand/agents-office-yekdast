@@ -15,6 +15,7 @@ Task fields the frontend reads (src/tasks.js): addedAt, startedAt, waitingAt, do
 """
 from __future__ import annotations
 
+import secrets
 import asyncio
 import logging
 import os
@@ -242,8 +243,12 @@ def _page(dark: bool = False) -> HTMLResponse:
     text = text.replace("<head>", f"<head>{meta}", 1)
     if dark:
         text = text.replace("<body>", '<body class="dark">', 1)
+    nonce = secrets.token_urlsafe(16)
+    text = text.replace("<script>", f'<script nonce="{nonce}">', 1)
+    csp = (f"default-src 'self'; script-src 'nonce-{nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+           "connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
     return HTMLResponse(text, headers={"Cache-Control": "no-store", "X-Frame-Options": "DENY",
-                                       "Referrer-Policy": "no-referrer"})
+                                       "Referrer-Policy": "no-referrer", "Content-Security-Policy": csp})
 
 
 @app.get("/", response_class=HTMLResponse)

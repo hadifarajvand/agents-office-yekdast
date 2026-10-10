@@ -43,6 +43,8 @@ def _norm(s: str) -> str:
 def verify_claims(raw: list, page_url: str, page_text: str) -> tuple[list[dict], int]:
     """Keep claims whose quote is really on the page (25 words max). Returns (kept, dropped)."""
     hay, kept, dropped = _norm(page_text), [], 0
+    if urlparse(page_url).scheme not in ("http", "https"):
+        return [], len(raw) if isinstance(raw, list) else 0  # a claim's link must be a web page
     for c in raw if isinstance(raw, list) else []:
         if not isinstance(c, dict):
             dropped += 1

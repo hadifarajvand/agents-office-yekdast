@@ -219,3 +219,9 @@ async def test_a_dead_router_or_budget_stop_cannot_yield_a_verdict(lane):
     from app.pipeline.research import research
     with pytest.raises(BudgetExceeded):
         await research({"job_id": "x", "brief": {"title": "t"}, "loops": {}})
+
+
+def test_a_claim_page_that_is_not_http_is_dropped():
+    kept, dropped = verify_claims([{"gate": "D1", "subject": "x", "quote": "costs forty nine dollars a month"}],
+                                  "javascript:alert(1)", "it costs forty nine dollars a month")
+    assert kept == [] and dropped == 1

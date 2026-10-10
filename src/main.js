@@ -934,7 +934,9 @@ document.getElementById('mIn').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') sendChat(e.target.value);
   e.stopPropagation();
 });
-function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+// Only http(s) links are ever rendered as links; anything else becomes an inert '#'.
+function safeUrl(u) { return /^https?:\/\//i.test(String(u || '')) ? String(u) : '#'; }
 function ago(ts) {
   const m = Math.round((Date.now() - ts) / 60000);
   return m < 1 ? 'now' : m < 60 ? m + 'm ago' : Math.round(m / 60) + 'h ago';

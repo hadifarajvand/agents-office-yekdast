@@ -75,6 +75,7 @@ body.dark #jobsOv { --jb-line: rgba(236,234,227,.12); --jb-card: #1E1F24; --jb-s
 `;
 
 export function initJobs(ctx) {
+  const safeUrl = (u) => (/^https?:\/\//i.test(String(u || '')) ? String(u) : '#'); // only http(s) become links
   const { DEPTS, R, esc, chatPush, feedPush, setStuck, clearStuck, isLive, syncJobs } = ctx;
   const API = '/api/jobs';
   let jobs = [], inbox = [], sel = null, open = false, timer = null, pipe = null, showForm = false, detail = null, promo = null;
@@ -160,13 +161,13 @@ export function initJobs(ctx) {
     if (!p.ready) act = '<p style="font-size:12px">Not ready: every line above must be ✓.</p>';
     else if (!prod.state) act = `<div class="jb-row"><input id="jbDomain" placeholder="production domain, e.g. orders.acmebakery.com" style="flex:1;min-width:220px;padding:8px 10px;border-radius:8px;border:1px solid var(--jb-line);font:inherit"><button class="jb-btn" id="jbPrep">PREPARE PRODUCTION</button></div>`;
     else if (['prepared', 'unhealthy'].includes(prod.state)) act = `<p style="font-size:12px">Repo: ${esc(prod.repo || '')}<br>Set these in the Dokploy app before deploying: <b>${esc((prod.env || []).join(', ') || 'see the app README')}</b>. Point ${esc(prod.domain || '')} at the server.${prod.state === 'unhealthy' ? `<br><span class="no">Last deploy did not answer /healthz (status ${esc(String((prod.probe || {}).status))}).</span>` : ''}</p><div class="jb-row"><label><input type="checkbox" id="jbEnvOk"> the variables are set</label><button class="jb-btn" id="jbDeploy">DEPLOY TO PRODUCTION</button></div>`;
-    else act = `<p style="font-size:12px">${prod.state === 'live' ? '● LIVE' : esc(prod.state)} · <a href="${esc(prod.url || '')}" target="_blank" rel="noopener noreferrer">${esc(prod.url || '')}</a></p>`;
+    else act = `<p style="font-size:12px">${prod.state === 'live' ? '● LIVE' : esc(prod.state)} · <a href="${esc(safeUrl(prod.url))}" target="_blank" rel="noopener noreferrer">${esc(prod.url || '')}</a></p>`;
     return `<h5>PRODUCTION · YOUR DECISION ONLY</h5><div class="jb-verdict jb-prod"><ul style="list-style:none;margin-left:0">${list}</ul>${act}</div>`;
   }
   // The validate lane's memo: the verdict is computed by the server from verified claims.
   function verdictCard(j, m) {
     const g = m.gates || {}, c = m.counts || {}, log = m.run_log || {};
-    const claims = (m.claims || []).slice(0, 12).map(x => `<li><b>${esc(x.gate)}</b> ${esc(x.subject || '')}: “${esc(x.quote)}” <a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">source</a></li>`).join('');
+    const claims = (m.claims || []).slice(0, 12).map(x => `<li><b>${esc(x.gate)}</b> ${esc(x.subject || '')}: “${esc(x.quote)}” <a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener noreferrer">source</a></li>`).join('');
     const next = j.status === 'done' ? `<div class="jb-row"><button class="jb-btn" data-build="landing">BUILD A LANDING-PAGE TEST</button><button class="jb-btn ghost" data-build="mvp">BUILD THE MVP</button></div>` : '';
     return `<div class="jb-verdict"><div class="jb-row"><span class="big ${esc(m.verdict)}">${esc(m.verdict || '?')}</span><span>confidence ${esc(m.confidence || '?')}</span><span>D1 competitors ${esc(g.D1)} · D2 pain ${esc(g.D2)} · A audience ${esc(g.A)}</span></div>
       <div class="jb-row"><span>${c.competitors || 0} competitors (${c.with_revenue || 0} earning)</span><span>${c.posts || 0} pain posts from ${c.communities || 0} places (${c.specific_posts || 0} specific)</span><span>${log.queries || 0} searches · ${log.fetched || 0} pages · ${log.claims_dropped || 0} unverifiable claims dropped</span></div>
@@ -214,7 +215,7 @@ export function initJobs(ctx) {
     const ev = (j.evidence || []).map(e => `<details><summary><span class="${e.ok === false ? 'no' : e.ok ? 'ok' : ''}">${e.ok === false ? '✕' : e.ok ? '✓' : '•'}</span> ${esc(e.stage)} · ${esc(e.title)}</summary><pre>${esc(JSON.stringify(e.body, null, 2))}</pre></details>`).join('');
     const ownerClicks = (j.approvals || []).filter(a => a.role === 'owner' && a.stage === 'exposure').length;
     $main.innerHTML = `<h3>${esc(j.title)}</h3>
-      <div class="jb-row"><span class="jb-badge ${j.status}">${STATUS_LABEL[j.status] || j.status}</span><span class="jb-pill t${j.tier || 0}" title="${esc(tier[1])}">NOW ${tier[0]}</span><span class="jb-pill t${j.requestedTier || 0}" title="${esc(req[1])}">ASKED FOR ${req[0]}</span><span>${esc(cost)}</span><span>${j.status === 'done' || j.status === 'killed' ? '' : esc(fmtLeft(j.deadlineAt))}</span>${j.preview && j.preview.expiresAt && !j.preview.stopped ? `<span>preview expires ${esc(untilText(j.preview.expiresAt))}</span>` : ''}${j.preview && j.preview.url ? `<a href="${esc(j.preview.url)}" target="_blank" rel="noopener noreferrer">${esc(j.preview.url)}</a>` : ''}</div>
+      <div class="jb-row"><span class="jb-badge ${j.status}">${STATUS_LABEL[j.status] || j.status}</span><span class="jb-pill t${j.tier || 0}" title="${esc(tier[1])}">NOW ${tier[0]}</span><span class="jb-pill t${j.requestedTier || 0}" title="${esc(req[1])}">ASKED FOR ${req[0]}</span><span>${esc(cost)}</span><span>${j.status === 'done' || j.status === 'killed' ? '' : esc(fmtLeft(j.deadlineAt))}</span>${j.preview && j.preview.expiresAt && !j.preview.stopped ? `<span>preview expires ${esc(untilText(j.preview.expiresAt))}</span>` : ''}${j.preview && j.preview.url ? `<a href="${esc(safeUrl(j.preview.url))}" target="_blank" rel="noopener noreferrer">${esc(j.preview.url)}</a>` : ''}</div>
       ${banner}<div class="jb-stepper" style="--n:${j.stages.length}">${stages}</div>${verdict}
       ${j.requestedTier ? `<h5>EXPOSURE · THREE KEYS</h5><div class="jb-row"><span>security: <b>${esc(nameOf((pipe && pipe.exposure.keys.security) || ''))}</b></span><span>commercial: <b>${esc(nameOf((pipe && pipe.exposure.keys.commercial) || ''))}</b></span><span>you${j.requestedTier >= 2 ? ': always' : `: the first ${j.ownerClicksNeeded} gated previews (${ownerClicks} so far on this job)`}</span></div>` : ''}
       ${promo ? productionPanel(promo) : ''}

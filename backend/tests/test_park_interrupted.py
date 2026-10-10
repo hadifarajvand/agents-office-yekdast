@@ -121,3 +121,15 @@ def test_job_timeout_covers_the_build_timeout():
     from app import jobqueue
     from app.config import load_config
     assert jobqueue.WorkerSettings.job_timeout > load_config().worker["timeout_minutes"] * 60
+
+
+def test_the_page_carries_a_nonce_csp(fake_db):
+    from fastapi.testclient import TestClient
+    from app.main import app
+    r = TestClient(app, base_url="http://127.0.0.1").get("/")
+    assert r.status_code == 200, r.text[:80]
+    if True:
+        csp = r.headers["content-security-policy"]
+        import re
+        n = re.search(r"nonce-([\w-]+)", csp).group(1)
+        assert f'<script nonce="{n}">' in r.text and "unsafe-inline'; img" not in csp.split("script-src")[1].split(";")[0]
