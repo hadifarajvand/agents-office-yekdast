@@ -45,11 +45,12 @@ export function effortFor({ task, routine, agent, office, model } = {}) {
 export function normModel(s) {
   const t = String(s || '').toLowerCase().trim();
   if (!t) return null;
-  for (const k of MODEL_KEYS) if (t === k || t.includes(k)) return k;
-  return null;
+  for (const k of MODEL_KEYS) if (t === k || (!t.includes('/') && t.includes(k))) return k;
+  const raw = String(s).trim();
+  return /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._:\/@-]{0,127}$/.test(raw) ? raw : null;
 }
-export const modelName = k => (MODELS[k] || MODELS[DEFAULT_MODEL]).name;
-export const modelId = k => (MODELS[k] || MODELS[DEFAULT_MODEL]).id;
+export const modelName = k => (MODELS[k] || (String(k || '').includes('/') ? { name: String(k) } : MODELS[DEFAULT_MODEL])).name;
+export const modelId = k => (MODELS[k] || (String(k || '').includes('/') ? { id: String(k) } : MODELS[DEFAULT_MODEL])).id;
 
 /** The one that wins, and where it was set. Each argument is a model key or empty. */
 export function modelFor({ task, routine, agent, office } = {}) {

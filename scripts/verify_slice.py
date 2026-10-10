@@ -23,7 +23,7 @@ BASE = os.environ.get("BASE_URL", "http://127.0.0.1:4520").rstrip("/")
 SCRIPTED = "--scripted" in sys.argv
 WITH_RESTART = "--with-restart" in sys.argv
 LIVE = {"exec", "engineering"}
-OFFLINE_LEADS = {"comply", "qa", "lexi", "alead", "elead", "mlead"}
+OFFLINE_LEADS = {"sec-compliance", "devops-cd", "lexi", "alead", "elead", "mlead"}
 OFFLINE_SEATS = {"piper", "cmail", "recon", "kmail", "vmail", "dash", "newt", "report", "imail", "riley", "gfx"}
 BRIEF = {"title": "Bakery ordering site", "client": "Acme Bakery", "deposit_ref": "INV-001: 50% deposit (USD 600) received 2026-10-01, signed contract C-17",
          "price": "USD 1,200 fixed price; 50% deposit paid, 50% on delivery", "audience": "local customers ordering pickup, about 30 orders a week",
@@ -124,7 +124,7 @@ def main() -> int:
     appr: dict[str, set] = {}
     for a in job.get("approvals", []):
         appr.setdefault(a["stage"], set()).add(a["role"])
-    expect = {"intake": None, "verify": {"olead", "owner"}, "scope": {"dlead"}, "build": {"dlead"},
+    expect = {"intake": None, "verify": {"exec-ceo-strategist", "owner"}, "scope": {"exec-vp-engineering"}, "build": {"exec-vp-engineering"},
               "security": {"owner"}, "preview": {"owner"}, "handoff": {"owner"}}
     for stage, want in expect.items():
         if want is None:
@@ -205,13 +205,13 @@ def main() -> int:
     # 5. sub-agents and consults
     j2 = c.post("/api/jobs", json={**BRIEF, "title": "Bakery spawn test", "requestedTier": 0}).json()["id"]
     wait_for(j2, lambda j: j["status"] in ("waiting", "running"))
-    r = c.post(f"/api/jobs/{j2}/spawn", json={"lead": "comply", "bench": "sec-container", "task": "x", "stage": "security"})
+    r = c.post(f"/api/jobs/{j2}/spawn", json={"lead": "sec-compliance", "bench": "sec-container", "task": "x", "stage": "security"})
     check("bench: an offline lead cannot spawn", r.status_code == 403 and "not live" in r.text, f"{r.status_code} {r.text[:80]}")
-    r = c.post(f"/api/jobs/{j2}/spawn", json={"lead": "dlead", "bench": "eng-api-designer", "task": "Name the main API endpoints for an ordering site.", "stage": "scope"})
+    r = c.post(f"/api/jobs/{j2}/spawn", json={"lead": "exec-vp-engineering", "bench": "eng-api-designer", "task": "Name the main API endpoints for an ordering site.", "stage": "scope"})
     check("bench: a live lead can spawn from its own bench", r.status_code == 200 and r.json().get("ok"), f"{r.status_code} {r.text[:80]}", skip=SCRIPTED and r.status_code != 200)
-    r = c.post(f"/api/jobs/{j2}/consult", json={"from": "olead", "to": "lexi", "question": "x", "stage": "verify"})
+    r = c.post(f"/api/jobs/{j2}/consult", json={"from": "exec-ceo-strategist", "to": "lexi", "question": "x", "stage": "verify"})
     check("consult: asking an offline department's lead is refused", r.status_code == 403, str(r.status_code))
-    r = c.post(f"/api/jobs/{j2}/consult", json={"from": "olead", "to": "dlead", "question": "How long would this take to build?", "stage": "verify"})
+    r = c.post(f"/api/jobs/{j2}/consult", json={"from": "exec-ceo-strategist", "to": "exec-vp-engineering", "question": "How long would this take to build?", "stage": "verify"})
     check("consult: exec lead can ask the engineering lead", r.status_code == 200 and r.json().get("ok"), f"{r.status_code}", skip=SCRIPTED and r.status_code != 200)
 
     # 6. kill

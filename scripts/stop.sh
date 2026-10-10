@@ -11,5 +11,10 @@ if [ -f data/api.pid ]; then
   fi
   rm -f data/api.pid
 fi
+if [ -f data/worker.pid ]; then  # the arq worker (AO_QUEUE=1), also by pidfile
+  pid="$(cat data/worker.pid)"
+  kill -0 "$pid" 2>/dev/null && kill "$pid" || true
+  rm -f data/worker.pid
+fi
 [ "${1:-}" = "--api-only" ] || { [ "${1:-}" = "--dry-run" ] && echo "[dry-run] docker compose stop" || docker compose stop; }
 echo "stopped"

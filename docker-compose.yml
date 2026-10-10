@@ -37,6 +37,21 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # Job queue for the arq worker and the event stream: loopback only, no persistence needed
+  # (queued jobs are re-derived from Postgres on boot).
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
+    networks: [ao-core]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   # Package-registry proxy for build jobs: allow-listed domains only, everything logged.
   egress:
     image: ubuntu/squid:latest   # pin a digest after the first successful run

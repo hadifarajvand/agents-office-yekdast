@@ -34,6 +34,9 @@ if [ "$DRY" = 1 ]; then
 fi
 nohup backend/.venv/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port "$PORT" > data/api.log 2>&1 &
 echo $! > data/api.pid
+if [ "${AO_QUEUE:-}" = "1" ]; then  # graph execution in an arq worker (needs the redis service)
+  (cd backend && nohup .venv/bin/arq app.jobqueue.WorkerSettings > ../data/worker.log 2>&1 & echo $! > ../data/worker.pid)
+fi
 for i in $(seq 1 60); do
   curl -sf "http://127.0.0.1:$PORT/api/health" >/dev/null && { echo "up: http://127.0.0.1:$PORT (pid $(cat data/api.pid))"; exit 0; }
   kill -0 "$(cat data/api.pid)" 2>/dev/null || die "the API exited; see data/api.log"

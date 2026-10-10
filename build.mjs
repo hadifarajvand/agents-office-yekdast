@@ -2,6 +2,8 @@
 import { build } from 'esbuild';
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { buildBrainGraph } from './graph-build.mjs';
+import { genRoster } from './scripts/gen_roster.mjs';
+genRoster(); // seats come from the backend seed
 await buildBrainGraph(); // V3.6: bake the vault's wiki-link graph into src/braingraph.js
 
 const res = await build({

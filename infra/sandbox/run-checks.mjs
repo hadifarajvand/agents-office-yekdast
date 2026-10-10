@@ -59,6 +59,10 @@ async function main() {
   if (!install.ok) return;
 
   if (scripts.build) {
+    // A retry reuses the workspace: a stale .next/standalone from an earlier attempt (read-only
+    // files) made the template's cpSync step fail with EACCES, so the gate failed on leftovers,
+    // not on the builder's code. Build from clean.
+    await run('sh', ['-c', 'chmod -R u+rwX .next 2>/dev/null; rm -rf .next']);
     const b = await run('npm', ['run', 'build']);
     record('the app builds (npm run build)', b.ok, b.out, b.ms);
     if (!b.ok) return;

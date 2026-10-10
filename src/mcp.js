@@ -14,22 +14,12 @@ import { MCP_LOGOS, MCP_BY_DEPT } from './mcplogos.js';
 
 // agent → tools they'd plausibly be driving (falls back to any connector in the dept's dock)
 export const AGENT_MCP = {
-  // marketing
-  mlead: ['meta', 'clarity', 'notion'], ada: ['meta', 'clarity'], newt: ['beehiiv', 'loops'], gfx: ['canva'], iggy: ['canva', 'clarity'], riley: ['meta', 'beehiiv', 'clarity', 'notion'],
-  vid: ['hyperframes', 'canva'],
-  // emails
-  elead: ['gmail', 'notion'], cmail: ['gmail'], imail: ['gmail', 'notion'], vmail: ['gmail'], kmail: ['gmail'],
-  // sales
-  enzo: ['fullenrich'], lexi: ['notion', 'gmail'], ilm: ['gmail', 'imessage', 'fullenrich'], pros: ['apollo', 'gmail'],
-  piper: ['notion', 'gmail'], folo: ['gmail', 'imessage'],
-  // operations
-  olead: ['notion', 'gmail', 'pandadoc'], scout: ['notion'], legal: ['pandadoc', 'gmail'], comply: ['notion', 'gmail'], report: ['gmail', 'notion'], dash: ['notion'],
-  // finance
-  alead: ['xero', 'gmail'],
-  invo: ['xero', 'stripe'], apay: ['xero'], recon: ['stripe', 'xero'],
-  // delivery
-  dlead: ['notion', 'gmail'], pco: ['notion'], qa: ['notion'], crep: ['pandadoc', 'notion'], cass: ['canva', 'notion'],
-  dasst: ['canva'], ona: ['gmail', 'notion'],
+  // the 17 seats of roster_seed.json (demo only; a served office uses each seat's own tools)
+  'exec-ceo-strategist': ['notion', 'gmail'], 'exec-vp-engineering': ['notion'], 'devops-cd': ['notion'], 'sec-compliance': ['notion'],
+  lexi: ['notion', 'gmail'], ilm: ['gmail', 'imessage', 'fullenrich'], piper: ['notion', 'gmail'], enzo: ['fullenrich'],
+  mlead: ['meta', 'clarity', 'notion'], riley: ['meta', 'beehiiv', 'clarity', 'notion'], gfx: ['canva'],
+  alead: ['xero', 'gmail'], invo: ['xero', 'stripe'], apay: ['xero'],
+  elead: ['gmail', 'notion'], newt: ['beehiiv', 'loops'], cmail: ['gmail'],
 };
 
 // screen axes in world space (iso azimuth 45°): SR = screen-right, FRONT = toward camera
@@ -158,8 +148,8 @@ export function initMcp({ scene, hud, LAYOUT, DEPTS, FR, R, connectors = null })
   // of the strip and each runs its OWN loom (below) instead of joining any dept's cluster/fan
   const SHARED = LIVE ? connectors.shared : { notion: '#151414', gmail: '#EA4335' };
   const uniqKeys = [...new Set(Object.values(BY_DEPT).flat())].filter(k => !SHARED[k]);
-  for (const k of ((LIVE && connectors.off) || [])) if (!uniqKeys.includes(k)) uniqKeys.push(k); // present but unusable: shown grey, never wired
   for (const k of Object.keys(SHARED)) uniqKeys.push(k);
+  const notConnected = (LIVE && connectors.off) || []; // present but unusable: no tile, no wire; one chip below says which
   const topconn = document.getElementById('topconn');
   const topImgs = {};
   if (topconn) {
@@ -178,11 +168,12 @@ export function initMcp({ scene, hud, LAYOUT, DEPTS, FR, R, connectors = null })
       topconn.appendChild(img);
       topImgs[k] = img;
     });
-    if (LIVE && !uniqKeys.length) { // honest empty state — nothing is wired until the user connects something
+    if (LIVE && (!uniqKeys.length || notConnected.length)) { // honest empty state, and the servers that are there but not usable
       const none = document.createElement('span');
       none.className = 'tc-none';
-      none.textContent = 'no connectors yet';
-      none.title = 'Connectors (GitHub, Dokploy) are set in .env.local and office.config.json; see PLAN.md.';
+      const why = notConnected.map(k => `${LOGOS[k]?.name || k} — ${STATUS[k] || 'not connected'}`);
+      none.textContent = uniqKeys.length ? `+${notConnected.length} not connected` : (why.length ? `no connectors yet · ${why.length} not connected` : 'no connectors yet');
+      none.title = (why.length ? why.join('\n') + '\n' : '') + 'Connectors (GitHub, Dokploy) are set in .env.local and office.config.json; see PLAN.md.';
       topconn.appendChild(none);
     }
   }

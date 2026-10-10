@@ -10,12 +10,26 @@
 set -uo pipefail
 cd /workspace
 
-GIT=(git -c core.hooksPath=/dev/null -c user.email=agent@office.local -c user.name=office-agent)
+GIT=(git -c core.hooksPath=/dev/null -c safe.directory=/workspace -c user.email=agent@office.local -c user.name=office-agent)
 "${GIT[@]}" init -q 2>/dev/null
 "${GIT[@]}" add -A && "${GIT[@]}" commit -qm "task" --allow-empty
 
-"$@" >/out/agent.stdout 2>/out/agent.stderr
-code=$?
+# A free router model sometimes drops the stream ("API Error: upstream connection lost") and Claude
+# Code exits early with is_error. That is the platform's failure, not the agent's: resume the same
+# session (--continue) instead of handing a half-done workspace to the review. Bounded; other
+# commands and other errors are never retried.
+: >/out/agent.stdout; : >/out/agent.stderr
+attempt=0; extra=()
+while :; do
+  "$@" "${extra[@]}" >>/out/agent.stdout 2>>/out/agent.stderr
+  code=$?
+  attempt=$((attempt + 1))
+  last=$(tail -n 1 /out/agent.stdout)
+  [ "$1" = claude ] && [ "$attempt" -lt 6 ] && grep -q '"is_error":true' <<<"$last" \
+    && grep -qiE 'upstream connection lost|API Error' <<<"$last" || break
+  echo "run-job: transient API error, resuming session (attempt $attempt)" >>/out/agent.stderr
+  extra=(--continue); sleep 10
+done
 
 "${GIT[@]}" add -A && "${GIT[@]}" commit -qm "agent work" --allow-empty
 "${GIT[@]}" bundle create /out/patch.bundle --all 2>>/out/agent.stderr

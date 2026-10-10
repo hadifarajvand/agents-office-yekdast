@@ -1,4 +1,5 @@
 // Agents Office v4 — roster + design tokens (ported from v1 command-centre.html)
+import { SEED_AGENTS } from './roster.gen.js';
 
 // Nominal.so tokens (locked design language, 30 Jul 2026)
 export const TOKENS = {
@@ -27,46 +28,9 @@ export const DEPTS = {
   brain:       { name: 'THE BRAIN',              short: 'THE BRAIN',   chip: '#D1DECD', ink: '#4C7A57', floor: '#E9EFE4' },
 };
 
-// 35 agents, 8 departments, every department has a lead (V4, 1 Oct 2026).
-// grid = [col,row] desk slot on the department plinth.
-export const AGENTS = [
-  // 27 staffed seats, roles from Citadel-Cloud-Management/citadel-saas-factory (MIT, see NOTICE). Free desks: FREE_SEATS below.
-  // STRATEGY & LEGAL
-  { id: 'olead', name: 'CEO STRATEGIST', dept: 'exec', lead: true,  grid: [0, 0], hair: '#111111', skin: '#F0C9A0' },
-  { id: 'scout', name: 'COMPETITIVE INTEL', dept: 'exec', grid: [0, 0], hair: '#101820', skin: '#B07850' },
-  { id: 'legal', name: 'CONTRACT COUNSEL', dept: 'exec', grid: [0, 0], hair: '#20242e', skin: '#F0C9A0' },
-  // MARKET & SALES
-  { id: 'lexi', name: 'VP SALES', dept: 'revenue', lead: true,  grid: [0, 0], hair: '#5a2d0c', skin: '#F0C9A0' },
-  { id: 'ilm', name: 'LEAD QUALIFIER', dept: 'revenue', grid: [0, 0], hair: '#26140a', skin: '#F5D5B0' },
-  { id: 'piper', name: 'PROPOSAL WRITER', dept: 'revenue', grid: [0, 0], hair: '#2d1a0a', skin: '#F0C9A0' },
-  { id: 'enzo', name: 'PRICING ANALYST', dept: 'revenue', grid: [0, 0], hair: '#1c1c2e', skin: '#E0A878' },
-  // BACKEND BUILD
-  { id: 'dlead', name: 'VP ENGINEERING', dept: 'engineering', lead: true,  grid: [0, 0], hair: '#1f1f1f', skin: '#F0C9A0' },
-  { id: 'pco', name: 'SERVICE BUILDER', dept: 'engineering', grid: [0, 0], hair: '#3d2814', skin: '#E8B98E' },
-  { id: 'ona', name: 'CODE REVIEWER', dept: 'engineering', grid: [0, 0], hair: '#0d0d0d', skin: '#9C6B43' },
-  // PRODUCT & FRONTEND
-  { id: 'mlead', name: 'FRONTEND LEAD', dept: 'frontend', lead: true,  grid: [0, 0], hair: '#2a1a0e', skin: '#E0A878' },
-  { id: 'riley', name: 'COMPONENT BUILDER', dept: 'frontend', grid: [0, 0], hair: '#8a4a1f', skin: '#F5D5B0' },
-  { id: 'gfx', name: 'UI DESIGNER', dept: 'frontend', grid: [0, 0], hair: '#141414', skin: '#F0C9A0' },
-  // DEVOPS & QA
-  { id: 'qa', name: 'DEVOPS LEAD', dept: 'devops', lead: true,  grid: [0, 0], hair: '#101820', skin: '#C68B59' },
-  { id: 'dash', name: 'IMAGE BUILDER', dept: 'devops', grid: [0, 0], hair: '#0d0d0d', skin: '#9C6B43' },
-  { id: 'report', name: 'SMOKE TESTER', dept: 'devops', grid: [0, 0], hair: '#2e2118', skin: '#E8B98E' },
-  { id: 'imail', name: 'E2E TESTER', dept: 'devops', grid: [0, 0], hair: '#111111', skin: '#C68B59' },
-  // SECURITY & PRIVACY
-  { id: 'comply', name: 'SECURITY LEAD', dept: 'secdata', lead: true,  grid: [0, 0], hair: '#5a3a1a', skin: '#C68B59' },
-  { id: 'recon', name: 'SAST SCANNER', dept: 'secdata', grid: [0, 0], hair: '#33221a', skin: '#E8B98E' },
-  { id: 'kmail', name: 'SECRET SCANNER', dept: 'secdata', grid: [0, 0], hair: '#4a2a10', skin: '#D89F70' },
-  { id: 'vmail', name: 'DEPENDENCY AUDITOR', dept: 'secdata', grid: [0, 0], hair: '#7a3b12', skin: '#F5D5B0' },
-  // FINANCE & PRICING
-  { id: 'alead', name: 'FINANCE LEAD', dept: 'fin', lead: true,  grid: [0, 0], hair: '#1f1f1f', skin: '#E0A878' },
-  { id: 'invo', name: 'PRICING MODELLER', dept: 'fin', grid: [0, 0], hair: '#4a2a10', skin: '#F5D5B0' },
-  { id: 'apay', name: 'USAGE & COST', dept: 'fin', grid: [0, 0], hair: '#0a0a0a', skin: '#8A5A32' },
-  // CONTENT & SUPPORT
-  { id: 'elead', name: 'CONTENT EDITOR', dept: 'content', lead: true,  grid: [0, 0], hair: '#2b2b2b', skin: '#E8B98E' },
-  { id: 'newt', name: 'DOCS WRITER', dept: 'content', grid: [0, 0], hair: '#26140a', skin: '#D89F70' },
-  { id: 'cmail', name: 'STATUS WRITER', dept: 'content', grid: [0, 0], hair: '#3b2b1d', skin: '#F0C9A0' },
-];
+// Seats come from backend/app/seed/roster_seed.json via scripts/gen_roster.mjs (src/roster.gen.js): one source, no drift.
+// grid = [col,row] desk slot on the department plinth, assigned below.
+export const AGENTS = SEED_AGENTS.map(a => ({ ...a }));
 
 // Up to 10 seats per department (owner, 3 Oct 2026). The named agents above are re-seated onto the
 // first slots in order; the rest are FREE_SEATS: empty desks, drawn but unstaffed, with no id, no
@@ -132,12 +96,12 @@ export const APPROVAL_BY_AGENT = {
   vid:   'Ship the mobile app update — v2.3, 4 screens changed',
   ada:   'Scale “cold call anxiety” creative to $180/day — CPA $29',
   mlead: 'Release the design-system v2 to all surfaces — 6 components changed',
-  olead: 'Sign off the Q4 strategy checklist — 3 vendor renewals inside',
+  'exec-ceo-strategist': 'Sign off the Q4 strategy checklist — 3 vendor renewals inside',
   newt:  'Send the August newsletter to 3,400 subscribers — draft v3 attached',
   scout: 'Green-light the CallForge comparison play — memo attached',
   enzo:  'Buy 500 FullEnrich credits — current batch runs out tomorrow',
   dash:  'Deploy the v4 API migration to prod — breaking change for 2 integrations',
-  comply: 'Rotate the leaked API key — 2 services need a redeploy',
+  'sec-compliance': 'Rotate the leaked API key — 2 services need a redeploy',
   apay:  'Contractor invoice #218 is $350 over the contract rate — hold payment and query?',
 };
 

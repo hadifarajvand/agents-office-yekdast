@@ -121,6 +121,7 @@ export function fromPicker(cadence, at, start) {
   if (cadence === 'daily') return { kind: 'daily', at: t, ...s };
   if (cadence === 'weekdays') return { kind: 'weekdays', at: t, ...s };
   if (cadence === 'hourly') return { kind: 'hourly', every: 1, from: '09:00', to: '17:00', weekdaysOnly: true, ...s };
+  if (cadence === 'once' && s.start) { const [y, m, dd] = start.split('-').map(Number), [h, mi] = t.split(':').map(Number); return { kind: 'once', atMs: new Date(y, m - 1, dd, h, mi).getTime() }; }
   const d = dayIndex(cadence);
   if (d >= 0) return { kind: 'weekly', days: [d], at: t, ...s };
   return { kind: 'weekdays', at: t, ...s };
@@ -145,6 +146,7 @@ export function describe(when) {
   const from = when.start && startMs(when) > Date.now() ? ` · from ${shortDate(startMs(when))}` : '';
   let base = '';
   switch (when.kind) {
+    case 'once': { const d = new Date(when.atMs); return `once · ${d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })} · ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}`; }
     case 'minutes': return `every ${when.every} min`;
     case 'hourly': return (when.every > 1 ? `every ${when.every} hours` : 'every hour') + (when.from ? ` ${when.from}–${when.to}` : '') + (when.weekdaysOnly ? ' · weekdays' : '');
     case 'daily': base = 'every day' + at; break;
@@ -164,6 +166,7 @@ export function describe(when) {
 export function valid(when) {
   if (!when || typeof when !== 'object') return false;
   const t = s => /^\d{2}:\d{2}$/.test(s || '');
+  if (when.kind === 'once') return Number.isFinite(when.atMs) && when.atMs > 0;
   if (when.kind === 'minutes') return Number.isInteger(when.every) && when.every >= 1;
   if (when.kind === 'hourly') return Number.isInteger(when.every) && when.every >= 1 && (!when.from || (t(when.from) && t(when.to) && when.from < when.to));
   if (when.kind === 'daily' || when.kind === 'weekdays') return t(when.at);
@@ -178,6 +181,7 @@ export function nextRun(when, from = Date.now()) {
   const sm = startMs(when);
   if (sm && from < sm) from = sm - 1; // nothing fires before the start date
   const f = new Date(from);
+  if (when.kind === 'once') return when.atMs > from ? when.atMs : null;
   if (when.kind === 'minutes') { const step = when.every * 60000; return Math.floor(from / step) * step + step; }
   if (when.kind === 'hourly') {
     const start = when.from ? mins(when.from) : 0, end = when.to ? mins(when.to) : 24 * 60, step = when.every * 60;

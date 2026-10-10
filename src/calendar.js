@@ -22,7 +22,7 @@ const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())
 const hm = ts => { const d = new Date(ts); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const startOfDay = ts => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
 const mondayOf = ts => { const d = new Date(startOfDay(ts)); const k = (d.getDay() + 6) % 7; d.setDate(d.getDate() - k); return d.getTime(); };
-const CADENCES = [['daily', 'Every day'], ['weekdays', 'Every weekday'], ['mon', 'Mondays'], ['tue', 'Tuesdays'], ['wed', 'Wednesdays'], ['thu', 'Thursdays'], ['fri', 'Fridays'], ['sat', 'Saturdays'], ['sun', 'Sundays'], ['hourly', 'Every hour, 9–5, weekdays']];
+const CADENCES = [['daily', 'Every day'], ['weekdays', 'Every weekday'], ['mon', 'Mondays'], ['tue', 'Tuesdays'], ['wed', 'Wednesdays'], ['thu', 'Thursdays'], ['fri', 'Fridays'], ['sat', 'Saturdays'], ['sun', 'Sundays'], ['hourly', 'Every hour, 9–5, weekdays'], ['once', 'Once, on this day']];
 
 export function initCalendar(ctx) {
   const { tasks, routines, agentOf, DEPTS, DEPT_KEYS, RT_DEPTS, rtRefuse, create, createRoutine, cancelTask, rtAct, openAgent, esc, isLive, officeModel, MODEL_KEYS, modelName, currentDept } = ctx;
@@ -95,7 +95,7 @@ export function initCalendar(ctx) {
     E.rail.innerHTML = list.length ? list.map(r => { const a = agentOf(r.agent), chip = DEPTS[r.dept].chip; return `<div class="cv-r${r.paused ? ' paused' : ''}${onlyRoutine === r.id ? ' on' : ''}" data-rid="${r.id}" style="--chip:${chip}">
         <div class="cv-r-t">${esc(r.title)}</div>
         <div class="cv-r-m">${esc(r.desc || describe(r.when))} · ${esc(a ? a.name : r.agent)}</div>
-        <div class="cv-r-n">${r.paused ? '<span class="cv-paused">PAUSED</span>' : `next ${esc(untilText(r.nextAt))}`}${r.needsOk ? ' · waits for your OK' : ''}</div></div>`; }).join('')
+        <div class="cv-r-n">${r.needsYou ? '<span class="cv-need">NEEDS YOU</span> ' : ''}${r.paused ? '<span class="cv-paused">PAUSED</span>' : `next ${esc(untilText(r.nextAt))}`}${r.createdBy ? ` · scheduled by ${esc(r.createdBy)}` : ''}${r.needsOk ? ' · waits for your OK' : ''}</div></div>`; }).join('')
       : `<div class="cv-empty">No routines yet.<br>Click a day, write what should happen, switch on REPEAT.</div>`;
   }
   function renderChips() {

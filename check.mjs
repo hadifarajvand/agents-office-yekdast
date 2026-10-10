@@ -46,6 +46,8 @@ async function launch() {
 }
 
 /* ---------- 1. build ---------- */
+import { genRoster } from './scripts/gen_roster.mjs';
+genRoster();
 const SEATS = JSON.parse(fs.readFileSync(path.join(ROOT, 'backend', 'app', 'seed', 'roster_seed.json'), 'utf8')).agents.length;
 const { DEPTS: DEPT_NAMES_ALL, DEPT_KEYS: DK } = await import('./src/data.js');
 const DEPT_NAMES = Object.fromEntries(DK.map(k => [k, DEPT_NAMES_ALL[k].short]));
@@ -145,8 +147,8 @@ else {
       const fired = await page.evaluate(() => window.CC.tasks.tasks.some(t => t.routine && /triage the inbox/i.test(t.title))); if (!fired) throw new Error('RUN NOW did not make a task');
       await page.click('.tp-dd'); await page.click('.tp-menu button[data-k="engineering"]');
       await page.fill('.tp-in', 'every day at 9am post the reel'); await page.keyboard.press('Enter'); await page.waitForTimeout(400);
-      const no = await page.evaluate(() => document.querySelector('.tp-hint').textContent); if (!/later release/.test(no)) throw new Error('engineering not refused: ' + no);
-      const still = await page.evaluate(() => window.CC.routines().length); if (still !== 1) throw new Error('a refused routine was added');
+      const no = await page.evaluate(() => document.querySelector('.tp-hint').textContent); if (/later release/.test(no)) throw new Error('engineering routine refused: ' + no);
+      const still = await page.evaluate(() => window.CC.routines().length); if (still !== 2) throw new Error('engineering routine not added: ' + still);
       const opts = await page.evaluate(() => [...document.querySelectorAll('.tp-model option')].map(o => o.value).join(',') + '|' + document.querySelector('.tp-model').value); if (opts !== 'sonnet,opus,fable,haiku|haiku') throw new Error('model menu: ' + opts);
       const eff = await page.evaluate(() => [...document.querySelectorAll('.tp-effort option')].map(o => o.value).join(',') + '|' + document.querySelector('.tp-effort').value); if (eff !== ',low,medium,high,xhigh,max|') throw new Error('effort menu: ' + eff);
       // V3.7: the box grows with the text, and the big editor mirrors it both ways
@@ -160,7 +162,7 @@ else {
       const bigOff = await page.evaluate(() => !document.getElementById('tpBig').classList.contains('on')); if (!bigOff) throw new Error('Esc did not close the big editor');
       await page.fill('.tp-in', ''); await page.evaluate(() => document.querySelector('.tp-in').dispatchEvent(new Event('input', { bubbles: true }))); await page.evaluate(() => document.querySelector('.tp-in').blur()); await page.click('.tp-chip[data-f="all"]'); // hand the keys back, feed back to All
       const rest = await page.evaluate(() => document.querySelector('.tp-in').offsetHeight); if (rest > 34) throw new Error('box did not shrink back: ' + rest + 'px');
-      return 'hint says the schedule · SCHEDULED row + next-up strip + board column · RUN NOW fires · engineering refused · box grows + big editor mirrors';
+      return 'hint says the schedule · SCHEDULED row + next-up strip + board column · RUN NOW fires · engineering routine accepted · box grows + big editor mirrors';
     });
     await step('smoke: department focus opens the chat rail', async () => {
       await page.keyboard.press('1'); await page.waitForTimeout(1800);

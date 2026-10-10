@@ -58,6 +58,10 @@ const POOL = {
   cass:  ['Sync the {co} assets to the portal', 'Organise the {co} asset library', 'Export the logo set, 4 formats', 'Archive the finished {co} files', 'Tag 60 assets by campaign'],
   dasst: ['Draft the {co} social templates', 'Resize the {co} banners, 6 sizes', 'Mock up the {co} landing page', 'Prepare the {co} brand sheet', 'Design the {co} report cover'],
   ona:   ['Kickoff call prep for {co}', 'Onboarding checklist for {co}', 'Set up the {co} client portal', 'Walk {co} through the first report', 'Day-7 check-in with {co}'],
+  'exec-ceo-strategist': ['Is the {segment} idea worth building? Verdict for the owner', 'Scope the {co} request into a one-page brief', 'Check the {co} client is real before we build', 'Weigh two {segment} ideas, recommend one'],
+  'exec-vp-engineering': ['Review the {co} build plan before the container run', 'Sign off the {co} backend stages', 'Decide: rebuild or patch the {co} preview', 'Check the {co} build gates are all green'],
+  'devops-cd': ['Build the {co} worker image and run its checks', 'Put the {co} preview up and smoke-test it', 'Re-run the e2e suite on the {co} copy', 'Tidy stale preview containers'],
+  'sec-compliance': ['Scan the {co} build for secrets and risky dependencies', 'Review the {co} preview before it is shown to the owner', 'Check the {co} egress allow-list is unchanged', 'Write the security note for the {co} handoff'],
 };
 
 // keywords that route a typed task to the right agent inside the chosen department
@@ -80,6 +84,8 @@ const KEYS = {
   qa: ['qa', 'test', 'check', 'proof', 'bug', 'regression'], crep: ['report', 'status', 'results', 'monthly'],
   cass: ['asset', 'file', 'portal', 'library', 'export', 'logo'], dasst: ['design', 'mock', 'template', 'banner', 'brand sheet', 'resize'],
   ona: ['onboard', 'kickoff', 'checklist', 'welcome'],
+  'exec-ceo-strategist': ['idea', 'verdict', 'worth', 'brief', 'scope', 'client', 'strategy'], 'exec-vp-engineering': ['build plan', 'backend', 'sign off', 'rebuild', 'patch', 'gates'],
+  'devops-cd': ['image', 'container', 'preview', 'deploy', 'smoke', 'e2e', 'worker'], 'sec-compliance': ['secret', 'security', 'dependency', 'scan', 'egress', 'risk'],
 };
 
 // handoff chains — one piece of work passing desk to desk (the multi-agent story)
@@ -138,9 +144,9 @@ export function initTasks(ctx) {
   let seq = 1;
   // V3.5 routines. Live: the server's list (polled). Demo: session-only, fired by this tick.
   const routines = []; let rseq = 1, polling = false, railAgent = null, railExp = false;
-  const RT_DEPTS = ['content', 'fin', 'revenue'];
+  const RT_DEPTS = ['exec', 'engineering', 'devops', 'secdata', 'content', 'fin', 'revenue'];
   const RT_NAMES = { content: 'Content', fin: 'Finance', revenue: 'Revenue', exec: 'Exec', engineering: 'Engineering', frontend: 'Frontend', devops: 'Devops', secdata: 'Secdata' };
-  const rtRefuse = k => `Routines come to ${RT_NAMES[k] || k} in a later release. This release: Content, Finance and Revenue.`;
+  const rtRefuse = k => `Routines come to ${RT_NAMES[k] || k} in a later release. Available now: ${RT_DEPTS.map(d => RT_NAMES[d]).join(', ')}.`;
   const deptRoutines = k => routines.filter(r => r.dept === k);
   const agentRoutines = id => routines.filter(r => r.agent === id);
   const nextOf = list => list.filter(r => !r.paused && r.nextAt).sort((a, b) => a.nextAt - b.nextAt)[0];
@@ -769,7 +775,7 @@ export function initTasks(ctx) {
       .sort((a, b) => b.changedAt - a.changedAt).slice(0, 60);
     const before = structural ? {} : rects();
     P_.rows.innerHTML = filter === 'sched'
-      ? (scopedRoutines().sort(byNext).map(rowHTMLr).join('') || `<div class="tp-empty">No routines yet. Type one with a time in it — "every weekday at 8am, …" — or press REPEAT.${RT_DEPTS.includes(dept) ? '' : ' Emails, Accounting and Sales this release.'}</div>`)
+      ? (scopedRoutines().sort(byNext).map(rowHTMLr).join('') || `<div class="tp-empty">No routines yet. Type one with a time in it — "every weekday at 8am, …" — or press REPEAT.${RT_DEPTS.includes(dept) ? '' : ' Routines are not open for this department yet.'}</div>`)
       : (list.map(rowHTMLp).join('') || `<div class="tp-empty">Nothing here right now.</div>`);
     renderNext();
     P_.rows.querySelectorAll('.tp-act button').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); rtAct(b.closest('[data-rid]').dataset.rid, b.dataset.act); }));

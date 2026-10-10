@@ -242,7 +242,23 @@ export function initJobs(ctx) {
   // Re-render only when the data changed, and keep what the owner is doing: the note being typed
   // and the evidence entries they opened. (A poll every 6 s must never eat a half-written note.)
   let lastSig = '';
+  // Live updates for the selected job: the server pushes (SSE); each push triggers one poll. The
+  // 6 s timer stays as the fallback if the stream is unavailable.
+  let es = null, esFor = '', esT = 0;
+  function watch() {
+    const want = open && sel && typeof EventSource !== 'undefined' ? sel : '';
+    if (want === esFor) return;
+    if (es) { es.close(); es = null; }
+    esFor = want;
+    if (!want) return;
+    try {
+      es = new EventSource(`${API}/${want}/stream`);
+      es.onmessage = () => { clearTimeout(esT); esT = setTimeout(poll, 150); };
+      es.onerror = () => { if (es && es.readyState === 2) { es = null; esFor = ''; } };
+    } catch { es = null; esFor = ''; }
+  }
   function render() {
+    watch();
     if (!open) return;
     const sig = JSON.stringify([jobs, detail, sel, promo, inbox]);
     if (sig === lastSig) return;

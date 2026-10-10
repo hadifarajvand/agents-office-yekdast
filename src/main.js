@@ -3,6 +3,7 @@
 import './api.js'; // adds the headers the hardened API requires to every /api call (must run first)
 import * as THREE from 'three';
 import { TOKENS, DEPTS, DEPT_KEYS, AGENTS, FREE_SEATS, SEAT_ROWS, LAYOUT, WORKLINES, APPROVAL_ASKS, APPROVAL_BY_AGENT } from './data.js';
+import { SEED_V1 } from './roster.gen.js';
 import { V1, FILE_GEN, STATS, KPIS, P, rnd, ri, person, money } from './v1data.js';
 import {
   PLINTH_H, mat, rbox, makePlinth, makeFloorTitle, makeDesk, makeChair,
@@ -246,7 +247,7 @@ for (const a of AGENTS) {
     a, person, warn, pill, seat: person.position.clone(), seatRot: ANG + Math.PI,
     stand: person.position.clone().add(rot(new THREE.Vector3(1.5, 0, 0.15))),
     state: 'working', bob: Math.random() * 10, path: null, pathI: 0, speed: 9.5, ask: null,
-    v1: V1.find(x => x.id === a.id), feed: [],
+    v1: seatV1(a), feed: [],
   };
 }
 
@@ -655,6 +656,15 @@ let modalOpen = null, modalTab = 'chat'; // modalOpen = agent id open in the rai
 // V3.3: the rail docks LEFT for every department — the task panel has the right side
 const RAIL_SIDE = Object.fromEntries(DEPT_KEYS.map(k => [k, 'left']));
 const SCREEN_RIGHT = new THREE.Vector3(1, 0, -1).normalize();
+
+// role and tagline come from the backend seed; the hand-written chat lines of v1data.js are kept where a seat has them
+function seatV1(a) {
+  const s = SEED_V1[a.id] || {}, old = V1.find(x => x.id === a.id) || {};
+  const tagline = s.tagline || old.tagline || '';
+  return { greeting: `${tagline || 'I am ' + a.name + '.'} Give me a task in the bar on the right, or ask me something here.`,
+    chips: ['What are you working on?', 'What can you do for me?', 'What tools can you use?'], chat: [], fallback: ['On it.'], ...old,
+    role: s.role || old.role || a.name, tagline };
+}
 
 function ensureChat(id) {
   if (chatHist[id]) return;
