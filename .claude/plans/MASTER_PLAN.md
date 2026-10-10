@@ -48,12 +48,12 @@ Section numbers are stable IDs used across the file and in older notes, so they 
 
 Only open decisions. "Rec" is my recommendation. Last updated 2026-10-10 (after owner round 5).
 
-**Settled since the last version (no action):** order of work (real runs first, personas last, §16.10) · brain in Postgres with automatic markdown backup · Redis + arq kept · stack frozen as in §16.9.15 · three Postgres uses: persona catalog, brain, agent memory (§16.10.1).
+**Settled since the last version (no action):** owner accepted all recommendations on rows 5-15 and approved GATE 1 on 2026-10-10 (execution starts at §7 Phase 0/S2) ·  stack review answers 1-6 recorded in §16.10.4 (freeze until a job reaches preview, Agent SDK after S2, keep 9router, arq later, agents in waves, drop mini_swe/openhands after S2) ·  native LangGraph agents with Citadel as reference only (§16.10.3, approved 2026-10-10; supersedes "Citadel-native agents only, personas unmodified") ·  order of work (real runs first, personas last, §16.10) · brain in Postgres with automatic markdown backup · Redis + arq kept · stack frozen as in §16.9.15 · three Postgres uses: persona catalog, brain, agent memory (§16.10.1).
 
 | # | Decide | Options | Rec | Read |
 |---|---|---|---|---|
-| 1 | **Persona catalog design (your proposal, reworked):** the catalog indexes every file an agent has (persona, its domain rules, skills, subagent definition) with full-text search over their details; leads search, the pipeline loads the files found by path. Files are copied unmodified into the repo (all 265; only 146 are there today) | accept / change | accept | §16.10.2 |
-| 2 | Keep Citadel's 15 domain folders on disk (department is a column in the catalog), or physically move files into the 8 department folders | keep folders / move | keep folders | §16.10.2 |
+| 1 | ~~Persona catalog~~ **Accepted**, reworked as role cards + native specs | done | | §16.10.2-3 |
+| 2 | ~~Folders~~ **Decided:** move into 8 department folders | done | | §16.10.2 |
 | 3 | ~~8 departments mapping~~ **Accepted** | done | | §16.9.10 |
 | 4 | ~~10-seat rule~~ **Accepted** | done | | §16.9.10 |
 | 5 | Sandbox: one throwaway container per department per job; per-agent tools and writable area inside (software-enforced), or one container per role | per department / per role | per department | §16.9.11-12 |
@@ -68,7 +68,7 @@ Only open decisions. "Rec" is my recommendation. Last updated 2026-10-10 (after 
 | 14 | `check:core` goes in `package.json`, `CLAUDE.md` unchanged | yes / no | yes | D6 |
 | 15 | This file vs `PLAN.md`: fold into PLAN.md, or amend `CLAUDE.md` | fold in / amend | fold in | B4 |
 | 16 | ~~GATE 2~~ **Done 2026-10-10:** `npm run check` 18/18, branch `chore/checkpoint-before-real-runs`, 3 commits, not pushed | done | | |
-| 17 | **GATE 1**: approve the plan so work can start (step 1 = GATE 2, step 2 = finish S2) | Approve | when 1-15 settled | |
+| 17 | **GATE 1**: approve the plan so work can start (§7 order; start = finish S2) | Approve | after 5-15 | |
 
 Things only you can do outside the repo (no decision, just tasks): provide the search tool if not SearXNG; Dokploy server and DNS; Telegram bot token as an env-var name; confirm the two models exist in 9router; set `AO_API_TOKEN`. Reference notes and warnings are kept at the end of this section.
 
@@ -629,14 +629,57 @@ Rules that keep them apart:
 | **C. Index plus pointer (your idea, chosen)** | A row per agent holds parsed details and the **path and hash** of each file; the files stay unmodified in git | **Chosen** |
 
 **Design (option C)**
-- **Files:** copy the missing 119 agent files, plus the domain rules and skills, from the vendored clone into `backend/app/seed/citadel/` byte for byte; record it in `PROVENANCE.md`. Never edit them (rule: personas unmodified).
+- **Files:** copy the missing 119 agent files, plus the domain rules and skills, from the vendored clone into `backend/app/seed/citadel/` byte for byte; record it in `PROVENANCE.md`. Never edit them (role cards stay byte-identical; our own agent specs live separately, §16.10.3).
 - **Table `persona_catalog`:** `agent_id`, `name`, `domain`, `department` (from our 8-department map), `tier`, `role_line`, `description` (registry), `tools`, `skills`, `headings` (the section titles), `search_text` (generated, indexed with Postgres full-text search).
-- **Table `persona_files`:** `agent_id`, `kind` (persona, rule, skill, subagent), `path`, `sha256`. This is the "address of every file the agent has".
+- **Table `persona_files`:** `agent_id`, `kind` (role_card, rule, skill, tool_doc, agent_spec; the old `subagent` kind is dropped, see §16.10.3), `path`, `sha256`. This is the "address of every file the agent has".
 - **Lead flow:** `find_agents(query, department)` returns at most 10 lines (id, name, role line, tier). The lead picks. The **pipeline**, not the lead, then loads the chosen agents' files by path, only from `seed/citadel/`, only the picked ones. Lookup costs no model tokens; the lead reads about 10 lines plus the chosen personas.
 - **Rebuild and checks:** the table is rebuilt from the files at boot. Tests: all 265 registry ids have a file, every hash matches, the rebuild twice gives the same table, a path outside `seed/citadel/` is refused, the 8-department counts sum to 265.
 - **Folders (owner decided 2026-10-10):** files move into 8 department folders. Contents stay byte-identical; the catalog and `PROVENANCE.md` keep each file's original Citadel path and hash, so a future upstream update is still comparable by hash. Cost accepted: upstream updates are no longer a plain folder diff.
 
 **Honest limit.** 254 of the 265 files are the same template with a different role line, so searching their "details" mostly matches the role line and description. Search will find the right *kind* of agent; it will not reveal depth the files do not have. The 11 hand-written agents are the only ones with real tool lists. The files also mention a RAG vector store (`backbone/rag/`) we do not run; the platform rules file overrides that, the file stays unedited.
+
+### 16.10.3 Native LangGraph agents; Citadel is reference only (fb-74, approved 2026-10-10)
+
+**What an agent is here.** A compiled graph from `create_agent(model, tools, system_prompt, middleware, state_schema, checkpointer, store)`: it loops model, tool calls, model until done. Parts: (1) model via 9router, per-agent override; (2) system prompt; (3) an explicit tool list, which **is** the allowlist; (4) middleware (tool-call and model-call limits, summarization, human-in-the-loop interrupt, model fallback, redaction); (5) state (`AgentState` plus job_id, stage, budget); (6) memory: checkpointer per job thread, `Store` for namespaced notes; (7) optional sub-agents (another agent wrapped as a tool, clean context, only its final message returns), skills (`SKILL.md`, name and description visible, body loaded on demand) and MCP tools (`langchain-mcp-adapters`, filtered per agent). Installed: langgraph 1.2.12 and adapters 0.3.2; **`langchain` (holds `create_agent`) is missing, add `langchain>=1.0`**. `create_react_agent` is deprecated. `deepagents` is not added; we copy its ideas.
+
+**Citadel mapping**
+| Citadel item | Becomes |
+|---|---|
+| 254 template agents | **Role cards**: data, not runnable agents; source of a seat's prompt |
+| 11 hand agents | Templates for the first real agent specs |
+| 21 "subagents" | **Removed as agents.** Repo-search helpers, test-runner, linter, formatter, api-caller, sql-runner, browser-driver become **tools** (hosts and databases allowlisted); pr-drafter, changelog-writer, translation become **skills**; cost-estimator and model-router become **plain code**; security, performance, accessibility and compliance auditors are the only candidates for real **sub-agents**, and only if a stage needs a fresh-context specialist |
+| `tools.yaml` | Tool registry: id, python or MCP implementation, risk class |
+| 6 rules | Policy middleware and prompt fragments, enforced in code |
+| 5 skills | Kept as `SKILL.md` skills |
+
+**Structure.** Seat (10 per department, one lead) = role card + **agent spec** `agents/<dept>/<seat>.yaml` with `model, effort, prompt_ref, tools, mcp, skills, subagents, middleware, limits{tool_calls, usd, tokens}, memory namespace, output_schema`. A sub-agent is a spec reachable only as a tool of a named parent: never in the roster, depth 1, read-only by default. `build_agent(spec)` makes the agent at job time. The outer pipeline `StateGraph` (stages, gates, budget, resume) stays; agents run **inside** stage nodes. The pipeline decides, agents propose.
+
+**Allowlist: three locks, all must pass.** (1) the tool is in the spec; (2) its risk class (read, write-sandbox, network, deploy-preview, never) is within the department ceiling, and production, marketing, outreach and spending are `never` for everyone (pinned by `tests/test_promote.py`); (3) runtime middleware checks every call, limits calls, interrupts on network and preview-deploy tools, and writes an audit row. MCP servers are declared in config by env-var name; each spec lists the MCP tools it may use.
+
+**Effect on §16.10.2.** The catalog indexes role cards, skills and tool docs. Files still move into 8 department folders, in two trees: `seed/roles/<dept>/` (Citadel cards, hash and provenance kept) and `agents/<dept>/` (our specs).
+
+**Leads and first specs.** The 8 leads that exist in `roster_seed.json` today are: CEO Strategist (`exec-ceo-strategist`), VP Sales (`lexi`), VP Engineering (`exec-vp-engineering`), Frontend Lead (`mlead`), DevOps Lead (`devops-cd`), Security Lead (`sec-compliance`), Finance Lead (`alead`), Content Editor (`elead`). They come from the older 9-group roster and do **not** match the 8 departments of §16.9.10 one for one (e.g. no QA or Growth lead, Finance is separate). Re-pointing the leads to the new 8 is part of the persona step. Each lead approves only its own stages (`DEFAULT_STAGES`). Real specs first: the leads that own a stage (CEO, VP Engineering, Security, DevOps) plus a reviewer and a tester; others stay role cards until a job needs them. Target about 15 real specs, not 265.
+
+**Build order (after real runs pass):** (1) add `langchain`, tool registry with risk classes, `build_agent`; tests: allowlist denies, call limit, interrupt, production unreachable; (2) convert the chat specialist and the build and review workers to specs; (3) leads as supervisors with `find_agents`; (4) skills loader and MCP filtering; (5) move files and rebuild the catalog.
+
+**Honest limit.** 254 role cards are boilerplate; depth comes from our department prompts and skills, not from Citadel.
+
+### 16.10.4 Stack review and decisions (fb-75, owner answered 2026-10-10)
+
+Two ECC read-only agents reviewed the stack (architect) and the agent rewrite (code-architect). Verdict: keep the core (FastAPI, LangGraph pipeline with Postgres checkpoints and owner gates, hardened Claude Code container, Dokploy, UI); change the hand-rolled tool loop (`engine.py:159-195`, silently returns partial output at its step cap) to `create_agent` plus middleware; treat 9router stalls (`claude_code.py:45-50`) as the top runtime risk; arq is only a process boundary plus a lock. No job has finished end to end (G1), so every "keep" is provisional.
+
+| # | Decision | Owner answer |
+|---|---|---|
+| 1 | Freeze the stack until one bakery job reaches a preview (S2 to S5) | **Yes** |
+| 2 | Claude Agent SDK inside the container instead of the CLI subprocess (hooks instead of skip-permissions) | **Yes, right after S2 passes** |
+| 3 | 9router | **Keep.** If S1/S2 show repeated stalls, revisit: direct Anthropic for the builder only |
+| 4 | Retire arq for a Postgres job table | **Later (after S3).** Remove the `asyncio.create_task` second path meanwhile |
+| 5 | Rewrite agents in waves: about 6 stage specs first (CEO, VP Engineering, Security, DevOps, reviewer, tester), widen only as real runs prove them | **Yes.** Replaces "define all 265 at once". The design agent's three tiers (about 30 hand-written, about 120 family template plus delta, about 115 dormant stubs) are the end state, reached wave by wave |
+| 6 | Delete the `mini_swe` and `openhands` adapters until a bake-off is scheduled | **Yes.** Done after S2 finishes (do not touch `worker/` while S2 runs) |
+
+**Agent spec schema** (design agent, adopted): `agents/<dept>/<id>.yaml`, pydantic `AgentSpec` with `extra=forbid`; fields id, dept, lead, role_card (path and sha256), model tier, effort, prompt {mission, procedure, never, output_contract, done_when}, tools, mcp, skills, subagents (auditors only, depth 1), middleware and limits, output_schema, state, memory. `build_agent(spec, ctx)` is the only caller of `create_agent`. Registry `backend/app/tools/registry.yaml` carries a risk class per tool; department ceilings sit in `config.py` beside `DEFAULT_STAGES`. Validator: ids equal the 265 registry ids, hashes match, tools within ceiling, no `never` tool anywhere, runnable specs have non-empty procedure, never and output contract, `build_agent` works with a fake model, no spec reaches the promote path. Spot-check 10% of generated deltas by hand. Unverified until checked against the installed `langchain`: the middleware names.
+
+**Next order:** finish S2 and record it; then (red test first) reliability and security fixes; then wave 1 (6 specs, `langchain>=1.0`, replace `engine.py` loop); then Agent SDK swap; arq retirement after S3.
 
 ## 1. Why this exists: goal, diagnosis, strategy
 
@@ -770,9 +813,7 @@ Scoring: 1–5 per criterion (5 best), weighted **time-to-platform 35%, capabili
 
 Estimates are rough working hours. The sequence is in 7.5. Each task: red test first (B1), then fix, then `pytest` green and the pinned tests (B7) green.
 
-### Phase P. Define every agent persona (first; no implementation before this)
-
-For each seat in `roster_seed.json`: role, scope, what it decides alone, what it escalates to the owner, tools, model (haiku main, nemotron others), output contract. Add the missing **design** seats (brief, brand system, mockups). Decide the owner-gate list and the product-type templates (§13 open questions). Exit: owner approves the persona sheet. Phases 0–4 below start only after this.
+### Phase P (moved to Phase 5). Agents are defined in waves after real runs (owner 2026-10-10, §16.10.3-4); nothing here blocks Phases 0-4.
 
 ### Phase 0. Safety net (~0.7 h)
 
@@ -817,6 +858,18 @@ Run `security-reviewer` over this phase.
 - **4.3 Jobs first** (D5). *Files:* `src/shell.html`, `src/main.js`, `src/jobs.js`. ~1 h.
 - **4.4 Freeze list** into `PLAN.md` §20. ~0.3 h.
 
+### Phase 5. Native agents in waves (after Phase 3 passes one full job; owner order 2026-10-10)
+
+Each task: red test first, `npm run check` green, one check run at a time.
+- **5.1 Dependencies and registry.** Add `langchain>=1.0`; confirm the middleware names against the installed version. Create `backend/app/tools/registry.yaml` (id, impl, risk, hosts, doc) and department ceilings in `config.py` next to `DEFAULT_STAGES`. *Red tests:* a tool above its ceiling is refused; production, marketing, outreach and spending are `never`; promote unreachable (extend `tests/test_promote.py`). ~4 h.
+- **5.2 Schema and builder.** `backend/app/agents/{schema.py,build.py,middleware.py}`: `AgentSpec` (extra=forbid), `build_agent(spec, ctx)` as the only caller of `create_agent`, `AllowlistAudit` middleware (re-check tool, host and path; audit row; interrupt on network and preview-deploy). *Red tests:* fake-model build succeeds and tool names equal the spec list; call limit stops a loop; a non-listed tool cannot be called. ~8 h.
+- **5.3 Replace the hand-rolled loop** (`graph/engine.py:159-195`) with `build_agent` for the chat specialist; no silent truncation (hitting a limit parks or errors). ~3 h.
+- **5.4 Wave 1: six specs** (CEO, VP Engineering, Security, DevOps, reviewer, tester) as `agents/<dept>/<id>.yaml`; computed verdicts stay in code; role cards moved to `seed/roles/<dept>/` with `PROVENANCE.md` updated. ~12 h. *Gate:* one full job passes with wave 1.
+- **5.5 Validator** `tests/test_agent_specs.py` (checks listed in §16.10.4). Catalog tables (`persona_catalog`, `persona_files`) built from role cards; `find_agents(query, dept)`. ~6 h.
+- **5.6 Agent SDK swap** inside the container (decision 2): replaces the CLI subprocess and `--dangerously-skip-permissions` with hooks; rerun `run-checks.mjs` on a template copy; rebuild the image. Only after S2 passes. ~8 h.
+- **5.7 Housekeeping:** delete `worker/mini_swe.py` and `worker/openhands.py` (after S2); remove the `asyncio.create_task` second path (`main.py:55`, `pipeline/api.py:28`); retire arq for a Postgres job table after S3 (decision 4).
+- **5.8 Later waves:** family templates and deltas by department, then dormant stubs; spot-check 10% of generated deltas by hand. Widen one department at a time.
+
 ### 7.5 Sequence
 
 ```
@@ -826,7 +879,7 @@ Run `security-reviewer` over this phase.
                       [ S2 ends ]
 1.4b + 3.4 (one image rebuild) → restart API + worker → 3.2 (S3)
 3.5 (you) → 3.3 → 3.6 → (3.7 if D3=C)
-Phase 4 last
+Phase 4 → Phase 5 (waves)
 ```
 
 **Totals.** Phase 0 ≈ 0.7 h, Phase 1 ≈ 9 h, Phase 2 ≈ 4 h, Phase 3 coding ≈ 5–9 h, Phase 4 ≈ 3.3 h, plus waiting on real runs. Roughly 1.5 working days of coding for Phases 1–2.
