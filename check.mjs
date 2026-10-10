@@ -223,11 +223,18 @@ else {
       const page = await browser.newPage({ viewport: { width: 1100, height: 720 } });
       const errors = []; page.on('pageerror', e => errors.push(e.message));
       await step('live-ui: the API refuses a request without the office header and a foreign origin', async () => {
-        const noHeader = await page.request.post(base + '/api/tasks', { data: { dept: 'fin', text: 'x' } });
+        // the guard checks the per-boot token (401) before the office header (403), so a request that
+        // is meant to fail on the header or the body type carries the page's own token
+        const home = await (await page.request.get(base + '/')).text();
+        const tok = (home.match(/name="ao-token" content="([^"]*)"/) || [])[1];
+        if (!tok) throw new Error('the page carries no ao-token meta');
+        const noToken = await page.request.post(base + '/api/tasks', { data: { dept: 'fin', text: 'x' }, headers: { 'x-ao-client': 'office' } });
+        if (noToken.status() !== 401) throw new Error('without X-AO-Token: ' + noToken.status());
+        const noHeader = await page.request.post(base + '/api/tasks', { data: { dept: 'fin', text: 'x' }, headers: { 'x-ao-token': tok } });
         if (noHeader.status() !== 403) throw new Error('without X-AO-Client: ' + noHeader.status());
         const foreign = await page.request.get(base + '/api/health', { headers: { origin: 'https://evil.example' } });
         if (foreign.status() !== 403) throw new Error('foreign origin: ' + foreign.status());
-        const text = await page.request.post(base + '/api/tasks', { data: 'dept=fin', headers: { 'x-ao-client': 'office', 'content-type': 'text/plain' } });
+        const text = await page.request.post(base + '/api/tasks', { data: 'dept=fin', headers: { 'x-ao-client': 'office', 'x-ao-token': tok, 'content-type': 'text/plain' } });
         if (text.status() !== 415) throw new Error('text/plain body: ' + text.status());
       });
       await page.goto(base + '/?norender=1');
@@ -239,7 +246,10 @@ else {
         if (demo) throw new Error(demo + ' demo tasks are still on a live office');
       });
       await step('live-ui: a client job runs from the form to the owner’s verdict', async () => {
-        await page.click('#topJobs'); await page.click('#jbNew');
+        // D5: the live office lands on Jobs, so the screen is usually open already
+        await page.waitForFunction(() => document.body.classList.contains('jobsOpen'), null, { timeout: 5000 }).catch(() => {});
+        if (!(await page.evaluate(() => document.body.classList.contains('jobsOpen')))) await page.click('#topJobs');
+        await page.click('#jbNew');
         await page.fill('#jbForm [name=title]', 'Bakery site'); await page.fill('#jbForm [name=client]', 'Acme Bakery');
         await page.fill('#jbForm [name=deposit_ref]', 'INV-001 paid');
         await page.fill('#jbForm [name=description]', 'A small ordering site for a bakery with a menu and an order form.');
@@ -250,7 +260,7 @@ else {
         const stages = await page.$$eval('.jb-stage b', els => els.map(e => e.textContent.replace(/^\S+\s/, '')));
         if (stages.join('|') !== 'Intake|Verify|Scope|Build|Security review|Preview deploy|Exposure|Handoff') throw new Error('stage order: ' + stages.join('|'));
         const stuck = await page.evaluate(() => Object.values(window.CC.R).filter(r => r.state === 'stuck').map(r => r.a.id));
-        if (stuck.join() !== 'olead') throw new Error('the exec lead should be waving, got: ' + stuck.join());
+        if (stuck.join() !== 'exec-ceo-strategist') throw new Error('the exec lead should be waving, got: ' + stuck.join());
         return 'eight stages in order · the exec lead waves';
       });
       await step('live-ui: the exposure gate shows the three keys; the owner approves from the lead’s chat card', async () => {
@@ -260,7 +270,7 @@ else {
         await page.keyboard.press('Escape');
         if (await page.evaluate(() => document.body.classList.contains('jobsOpen'))) throw new Error('Escape did not close the Jobs screen');
         const lead = await page.evaluate(() => Object.values(window.CC.R).find(r => r.state === 'stuck')?.a.id);
-        if (lead !== 'comply') throw new Error('the security lead should wave at exposure, got ' + lead);
+        if (lead !== 'sec-compliance') throw new Error('the security lead should wave at exposure, got ' + lead);
         await page.evaluate(id => window.CC.openAgent(id), lead);
         await page.waitForSelector('.m-appr .a-yes', { timeout: 8000 });
         await page.click('.m-appr .a-yes');
