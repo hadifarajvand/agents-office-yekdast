@@ -117,6 +117,22 @@ async def _park(jid: str, stage: str, reason: str) -> dict:
     return {"route": "park", "park_stage": stage, "park_reason": reason}
 
 
+COMPUTED_STAGES = ("build",)
+
+
+def _advisory(stage: str, out: dict, evidence: list[dict]) -> dict:
+    """A stage whose verdict is computed from container checks: when every check is green a lead's
+    FAIL or unreadable answer is recorded as a note and does not send the work back. Void reviews
+    (wrong model) still stand; failed checks never reach here as PASS."""
+    mine = [e for e in evidence if e["stage"] == stage]
+    if (stage not in COMPUTED_STAGES or out["verdict"] == "PASS" or not mine
+            or any(e.get("ok") is not True for e in mine)
+            or any(str(r).startswith("review void") for r in out.get("reasons", []))):
+        return out
+    note = "advisory (checks are green): lead said " + out["verdict"] + " - " + "; ".join(out.get("reasons") or [])
+    return {**out, "verdict": "PASS", "cites": [e["id"] for e in mine][:3], "reasons": [note[:600]]}
+
+
 def _review_node(stage: str):
     async def node(state: JobState) -> dict:
         jid = state["job_id"]
@@ -142,6 +158,7 @@ def _review_node(stage: str):
                 if router_down(exc):
                     return await _park(jid, stage, "the model router (9router) is unreachable; start it and retry this stage")
                 raise
+            out = _advisory(stage, out, evidence)
             await activity.finish(shown, ok=out["verdict"] == "PASS", result=f'{out["verdict"]}: ' + "; ".join(out["reasons"]))
             c = out.get("cost") or {}
             if c.get("tokens") or c.get("usd"):

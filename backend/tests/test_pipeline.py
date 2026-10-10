@@ -305,11 +305,11 @@ async def test_repeated_fails_park_the_job_and_the_owner_can_retry_or_kill(env):
     await owner(env, jid)  # verify
     job = await db.get_job(jid)
     assert job["status"] == "parked" and "scope" in job["parkReason"]
-    env.script.review_verdicts["build"] = ["FAIL", "FAIL", "FAIL"]
+    env.script.review_verdicts["security"] = ["FAIL", "FAIL", "FAIL"]
     await env.graph.ainvoke(Command(resume={"action": "retry", "note": "try again"}), config=thread(jid))
     job = await db.get_job(jid)
     assert job["stages"]["scope"]["state"] == "approved"  # the retry fixed scope ...
-    assert job["status"] == "parked" and "build" in job["parkReason"]  # ... and build then failed review
+    assert job["status"] == "parked" and "security" in job["parkReason"]  # ... and security then failed review
     await jobs.touch(jid, status="killed")
     await env.graph.ainvoke(Command(resume={"action": "kill"}), config=thread(jid))
     assert (await db.get_job(jid))["status"] == "killed"
@@ -520,3 +520,11 @@ async def test_a_worker_without_check_results_cannot_pass_the_build(env):
     await owner(env, jid)
     job = await db.get_job(jid)
     assert job["status"] == "parked" and job["stage"] == "build"
+
+
+async def test_green_checks_make_a_lead_fail_on_build_advisory(env):
+    env.script.review_verdicts["build"] = ["FAIL"]
+    jid = await start(env)
+    job = await run_to_end(env, jid)
+    assert job["status"] == "done"
+    assert job["stages"]["build"]["attempts"] == 1
