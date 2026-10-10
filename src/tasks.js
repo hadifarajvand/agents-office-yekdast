@@ -128,7 +128,16 @@ function span(ms) { // "4 min" · "1 h 12 m" · "3 h"
   const h = Math.floor(m / 60), r = m % 60;
   return r ? `${h} h ${r} m` : `${h} h`;
 }
-const agentOf = id => AGENTS.find(a => a.id === id);
+// A stored task can name a seat the roster no longer has (olead, dlead, ...). Its history is kept and shown
+// read-only under "former seat"; it is never remapped to another seat and never dropped.
+const FORMER = new Map();
+const agentOf = id => AGENTS.find(a => a.id === id) || FORMER.get(id);
+const isFormer = id => !AGENTS.some(a => a.id === id);
+function noteFormer(st) { // true when the row was registered as a former seat's; false when its department is unknown
+  if (!st || !st.agent || !DEPTS[st.dept]) return false;
+  if (!FORMER.has(st.agent)) FORMER.set(st.agent, { id: st.agent, dept: st.dept, name: `${st.agent} (former seat)`, former: true });
+  return true;
+}
 const STATE_LABEL = { next: 'Backlog', doing: 'In progress', waiting: 'Waiting', done: 'Done', sched: 'Scheduled' };
 
 export function initTasks(ctx) {
@@ -215,7 +224,7 @@ export function initTasks(ctx) {
   function deliver(t) {
     const a = agentOf(t.agent);
     chatPush(t.agent, { who: 'file', icon: t.error ? '⚠' : '📄', name: (t.note || slug(t.title)) + '.md',
-      meta: `${t.error ? 'could not complete' : t.approved ? 'sent after your OK · saved to your brain' : 'delivered · saved to your brain'} · ${timeStr(t.doneAt)} · click to view`, content: t.result });
+      meta: `${t.error ? 'could not complete' : (t.approved ? 'sent after your OK' : 'delivered') + (t.note ? ' · saved to your brain' : '')} · ${timeStr(t.doneAt)} · click to view`, content: t.result });
     if (!t.error) chatPush(t.agent, { who: 'agent', text: `Done — "${t.title}"${t.routine ? ` (routine, ${t.when}${t.late ? ', ran late' : ''})` : ''} is ready above${t.read && t.read.length ? ` (I read ${t.read.slice(0, 3).join(', ')})` : ''}${t.used && t.used.length ? `. Used ${t.used.join(', ')}` : ''}. Say "revise: …" and I'll change it.` });
     feedPush(R[t.agent], '📄', `Delivered: ${t.title}`);
     if (brain && t.read) for (const n of t.read.slice(0, 2)) brain.readNote(t.agent, n);
@@ -570,8 +579,15 @@ export function initTasks(ctx) {
     } catch (e) { console.warn('office poll:', e.message); }
     polling = false;
   }
+  function addFormer(st) { // a former seat's row: shown as it was stored, read-only, no desk, no chat, no emote
+    if (!noteFormer(st) || tasks.some(x => x.sid === st.id)) return;
+    const t = mk({ agent: st.agent, title: st.title, text: st.text, by: 'you', live: true, former: true, sid: st.id, state: st.state === 'doing' || st.state === 'waiting' ? 'next' : st.state,
+      doneAt: st.doneAt, changedAt: st.doneAt || st.addedAt, addedAt: st.addedAt, result: st.result, error: !!st.error, last: 'former' });
+    if (t.state === 'done') { t.progress = 1; doneCount[t.dept]++; }
+    dirty = true;
+  }
   function reconcile(st) { // a server task the page did not start (a routine firing, a catch-up, an approval finishing) → the same cards, the same moves
-    if (!agentOf(st.agent)) return;
+    if (isFormer(st.agent)) { addFormer(st); return; }
     let t = tasks.find(x => x.live && x.sid === st.id);
     if (!t) {
       t = mk({ agent: st.agent, title: st.title, text: st.text, plan: st.plan, by: st.by === 'routine' ? 'routine' : 'you', live: true, srv: !!st.routine, sid: st.id,
@@ -681,7 +697,7 @@ export function initTasks(ctx) {
       if (brain) { try { brain.setGraph(await (await fetch(API + '/brain')).json()); } catch {} }
       const list = await (await fetch(API + '/tasks')).json();
       for (const st of list) {
-        if (!agentOf(st.agent)) continue;
+        if (isFormer(st.agent)) { addFormer(st); continue; }
         if (st.state === 'done') {
           const t = mk({ agent: st.agent, title: st.title, text: st.text, plan: st.plan, by: 'you', live: true, sid: st.id, state: 'done',
             doneAt: st.doneAt, changedAt: st.doneAt, addedAt: st.addedAt, result: st.result, read: st.read, note: st.note, tools: st.tools || [], used: st.used || [], error: !!st.error, last: 'done' });
@@ -718,6 +734,7 @@ export function initTasks(ctx) {
     const a = agentOf(t.agent), now = Date.now();
     const f = getFocused();
     const who = (f && f !== 'brain') ? a.name : `${a.name} · ${DEPTS[t.dept].short}`;
+    if (t.former) return `${who} · ${t.error ? '<span class="tp-amber">failed</span>' : STATE_LABEL[t.state].toLowerCase()}${t.doneAt ? ' ' + timeStr(t.doneAt) : ''} · history, read-only`;
     switch (t.state) {
       case 'next': {
         const src = t.routine ? `routine · ${t.when}${t.late ? ' · <span class="tp-late">late · was due ' + timeStr(t.due) + '</span>' : ''}` : t.by === 'you' ? (t.live ? 'added by you · live' : 'added by you') : t.last === 'handoff' && t.from ? `from ${agentOf(t.from).name}` : t.revised ? 'sent back to revise' : 'from the Brain';
@@ -732,9 +749,9 @@ export function initTasks(ctx) {
   }
   function rowHTMLp(t) {
     const pct = Math.round(t.progress * 100);
-    const chip = `<span class="tp-st ${t.state}">${t.state === 'doing' ? `<span data-pct="${t.id}">${pct}%</span>` : STATE_LABEL[t.state]}</span>`;
+    const chip = `<span class="tp-st ${t.state}${t.error ? ' failed' : ''}">${t.state === 'doing' ? `<span data-pct="${t.id}">${pct}%</span>` : t.error && t.state === 'done' ? 'Failed' : STATE_LABEL[t.state]}</span>`;
     const bar = t.state === 'doing' ? `<div class="tp-bar"><i data-bar="${t.id}" style="width:${pct}%"></i></div>` : '';
-    return `<div class="tp-row ${t.state}${t.last === 'handoff' ? ' handoff' : ''}${t.live ? ' live' : ''}" data-id="${t.id}" data-dept="${t.dept}" data-agent="${t.agent}">
+    return `<div class="tp-row ${t.state}${t.error ? ' failed' : ''}${t.former ? ' former' : ''}${t.last === 'handoff' ? ' handoff' : ''}${t.live ? ' live' : ''}" data-id="${t.id}" data-dept="${t.dept}" data-agent="${t.agent}">
       ${chip}<div class="tp-body"><div class="tp-t">${t.routine ? '⏱ ' : ''}${esc(t.title)}</div><div class="tp-m">${metaFor(t)}</div>${bar}</div>
       <span class="tp-ago" data-ago="${t.id}">${span(Date.now() - t.changedAt)}</span></div>`;
   }
