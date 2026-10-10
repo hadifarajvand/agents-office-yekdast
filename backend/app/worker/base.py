@@ -39,6 +39,9 @@ def task_markdown(brief: dict) -> str:
         "- Work only inside /workspace. Write a test for every acceptance criterion (unit tests in tests/, "
         "browser tests in e2e/) and make `npm test` and `npm run test:e2e` pass.\n"
         "- Do not add secrets, API keys or real client data. Read configuration from environment variables.\n"
+        "- node_modules is not in /workspace yet: run `npm ci` first (it installs from a local cache, no registry needed).\n"
+        "- `npm run test:e2e` starts and stops its own server. Never leave a server running in the background "
+        "(no trailing `&`): a stale one holds the port and every later run fails with EADDRINUSE.\n"
         "- Add a README.md with how to install, test and run the app.\n"
         "- Do not try to reach the internet except through the package registry proxy already configured.\n"
     )

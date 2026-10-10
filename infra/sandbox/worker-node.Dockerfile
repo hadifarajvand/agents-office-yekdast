@@ -33,6 +33,12 @@ RUN cd /opt/template && npm ci --no-audit --no-fund --ignore-scripts \
  && rm -rf /opt/template/node_modules \
  && chmod -R a+rwX /opt/npm-cache
 
+# Small shell tools the agent reaches for when a test server hangs (ps, pkill, lsof, curl). Without
+# them a turn is lost per missing command. Placed after the heavy layers so they stay cached.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends procps lsof curl \
+ && rm -rf /var/lib/apt/lists/*
+
 COPY run-job.sh /opt/run-job.sh
 COPY run-checks.mjs /opt/run-checks.mjs
 RUN chmod 0755 /opt/run-job.sh /opt/run-checks.mjs \
