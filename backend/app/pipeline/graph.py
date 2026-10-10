@@ -69,30 +69,35 @@ def _work_node(stage: str):
         tok = current_meter.set(meter)
         out: dict = {}
         lead = activity.stage_cfg(stage).get("lead", "")
-        shown = await activity.start(job, stage, lead, activity.stage_cfg(stage).get("label", stage), key="work") if lead else None
+        attempt = int(state.get("loops", {}).get(stage, 0))
+        shown = await activity.start(job, stage, lead, activity.stage_cfg(stage).get("label", stage), key="work",
+                                     attempt=attempt) if lead else None
+        stopped = ""  # why the stage did not finish; empty while it went well (a stage may legitimately return {})
         try:
             out = await WORK[stage](state)
         except BudgetExceeded as exc:
-            return await _park(jid, stage, f"budget: {exc}")
+            stopped = f"budget: {exc}"
         except RegistryUnreachable as exc:
-            return await _park(jid, stage, str(exc))
+            stopped = str(exc)
         except Exception as exc:
             log.exception("job %s stage %s failed", jid, stage)
-            if router_down(exc):
-                return await _park(jid, stage, "the model router (9router) is unreachable; start it and retry this stage")
-            return await _park(jid, stage, f"{stage} failed: {type(exc).__name__}")
+            stopped = ("the model router (9router) is unreachable; start it and retry this stage" if router_down(exc)
+                       else f"{stage} failed: {type(exc).__name__}")
         finally:
             current_meter.reset(tok)
-            ev = [e for e in await db.list_evidence(jid) if e["stage"] == stage]
-            kinds = ", ".join(sorted({str(e.get("kind", "")) for e in ev if e.get("kind")})) or "none"
-            await activity.finish(shown, ok=bool(out), result=(f"{stage} finished; evidence: {kinds}" if out else f"{stage} did not finish"))
             extra = out.pop("_cost", None) if isinstance(out, dict) else None
             await jobs.add_cost(jid, meter.tokens + (extra or {}).get("tokens", 0), meter.usd + (extra or {}).get("usd", 0.0))
-        costs = (await db.get_job(jid))["costs"]
-        if costs["usd"] > usd_cap:  # includes the build worker's tokens, priced from the table
-            return await _park(jid, stage, f'budget: ${costs["usd"]:.2f} spent, over the ${usd_cap:.2f} cap')
-        if token_cap and costs["tokens"] > token_cap:
-            return await _park(jid, stage, f'budget: {costs["tokens"]} tokens used, over the {token_cap} token cap')
+        if not stopped:
+            costs = (await db.get_job(jid))["costs"]
+            if costs["usd"] > usd_cap:  # includes the build worker's tokens, priced from the table
+                stopped = f'budget: ${costs["usd"]:.2f} spent, over the ${usd_cap:.2f} cap'
+            elif token_cap and costs["tokens"] > token_cap:
+                stopped = f'budget: {costs["tokens"]} tokens used, over the {token_cap} token cap'
+        if stopped:  # the row says what the job says: this stage did not complete
+            await activity.finish(shown, ok=False, result=stopped)
+            return await _park(jid, stage, stopped)
+        kinds = ", ".join(sorted({str(e.get("kind", "")) for e in await db.list_evidence(jid) if e["stage"] == stage and e.get("kind")})) or "none"
+        await activity.finish(shown, ok=True, result=f"{stage} finished; evidence: {kinds}")
         await jobs.set_stage(jid, stage, "review")
         return {**out, "route": ""}
     return node
@@ -153,7 +158,7 @@ def _review_node(stage: str):
         for role in roles:
             if role in existing:
                 continue
-            shown = await activity.start(job, stage, role, f"review {stage}", key="review")
+            shown = await activity.start(job, stage, role, f"review {stage}", key="review", attempt=attempt)
             try:
                 out = await leads.review(stage, role, role, job, evidence)
             except Exception as exc:

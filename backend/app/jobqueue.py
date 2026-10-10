@@ -12,16 +12,24 @@ import asyncio
 import logging
 import os
 import socket
+import time
 
 from arq import create_pool
 from arq.connections import RedisSettings
 
 log = logging.getLogger("agents_office.queue")
 _pool = None
+_degraded: dict | None = None  # set while the API is driving work in-process because the queue refused it
 
 
 def enabled() -> bool:
     return os.environ.get("AO_QUEUE") == "1"
+
+
+def status() -> dict:
+    """For /api/health: is the queue on, and is the API quietly doing the worker's job because it is down."""
+    d = _degraded
+    return {"enabled": enabled(), "degraded": d is not None, "since": d["at"] if d else None, "last": d["text"] if d else ""}
 
 
 def redis_settings() -> RedisSettings:
@@ -33,16 +41,21 @@ async def _enqueue(fn: str, what: str, *args, job_id: str) -> bool:
     One driver per id: arq refuses a second job with the same id while one is queued or running,
     so a double-clicked approval (or a kill sent mid-run) never puts two drivers on one run.
     A kill is cooperative anyway: it sets the status first and the running stage stops on it."""
-    global _pool
+    global _pool, _degraded
     try:
         if _pool is None:
             _pool = await create_pool(redis_settings())
         queued = await _pool.enqueue_job(fn, *args, _job_id=job_id)
         if queued is None:
             log.info("%s already has a driver in the worker; not queuing a second", what)
+        _degraded = None
         return True
-    except Exception:
+    except Exception as e:
         log.exception("queue unavailable, running %s in the API process", what)
+        text = f"queue unavailable ({type(e).__name__}); {what} runs in the API process, without the worker's restart safety"
+        _degraded = {"at": int(time.time() * 1000), "text": text}
+        from . import activity  # the feed the Jobs screen and the office header read
+        activity.emit("queue", text, connector="redis", level="warn")
         return False
 
 
@@ -159,6 +172,8 @@ async def release_lock(redis, me: str) -> None:
 
 
 async def on_startup(ctx) -> None:
+    from . import logsetup
+    logsetup.configure()
     ctx["lock_owner"] = await take_lock(ctx["redis"])
     ctx["lock_task"] = asyncio.create_task(keep_lock(ctx["redis"], ctx["lock_owner"]))
     from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver

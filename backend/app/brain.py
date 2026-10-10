@@ -8,11 +8,14 @@ here in full.
 """
 from __future__ import annotations
 
+import logging
 import re
 import time
 from pathlib import Path
 
 from . import db
+
+log = logging.getLogger("ao.brain")
 
 NOTE_EXT = {".md", ".txt"}
 
@@ -129,7 +132,8 @@ async def search(brain_path: Path, query: str, k: int = 4, dept: str = "") -> li
                 break
         if out:
             return out
-    except Exception:
+    except Exception as e:
+        log.warning("brain search fell back to keyword scoring over the files: %s: %s", type(e).__name__, e)
         _index_sig["sig"] = None
     idx = vault_index(brain_path)
     return [{"note": n, "body": idx[n][:800]} for n in relevant_notes(idx, dept or "zzzz", query, k)]

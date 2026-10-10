@@ -442,6 +442,51 @@ async def test_router_outage_parks_with_a_clear_reason_instead_of_failing_review
     assert job["status"] == "parked" and "9router" in job["parkReason"]
 
 
+async def work_rows(jid: str, stage: str) -> list[dict]:
+    """The display-only task rows the pipeline wrote for a stage's own work (not its reviews or seats)."""
+    return [t for t in await db.list_tasks()
+            if t.get("jobId") == jid and t.get("stage") == stage and "-work-" in t["id"]]
+
+
+async def test_a_stage_that_returns_nothing_but_succeeds_is_not_recorded_as_failed(env):
+    jid = await start(env)  # verify returns {} on success; its row must still read finished
+    rows = await work_rows(jid, "verify")
+    assert len(rows) == 1
+    assert rows[0]["state"] == "done" and not rows[0]["error"], rows[0]["result"]
+    assert "finished" in rows[0]["result"] and "did not finish" not in rows[0]["result"]
+
+
+async def test_a_stage_parked_by_the_budget_is_not_recorded_as_finished(env, monkeypatch):
+    monkeypatch.setitem(env.cfg.budget, "lanes", {"build": {"usd": 0.005, "tokens": 0}})
+    jid = await start(env)
+    await owner(env, jid)
+    assert (await db.get_job(jid))["status"] == "parked"
+    rows = await work_rows(jid, "build")
+    assert len(rows) == 1 and rows[0]["error"] is True
+    assert "budget" in rows[0]["result"] and "finished" not in rows[0]["result"]
+
+
+async def test_a_stage_that_crashes_is_recorded_failed_with_the_reason(env, monkeypatch):
+    from app.pipeline import graph
+
+    async def boom(state):
+        raise ValueError("kaboom")
+    monkeypatch.setitem(graph.WORK, "verify", boom)
+    jid = await start(env)
+    job = await db.get_job(jid)
+    assert job["status"] == "parked" and "ValueError" in job["parkReason"]
+    rows = await work_rows(jid, "verify")
+    assert len(rows) == 1 and rows[0]["error"] is True
+    assert "verify failed: ValueError" in rows[0]["result"] and "did not finish" not in rows[0]["result"]
+
+
+async def test_pipeline_rows_carry_the_attempt_so_a_retry_is_not_a_duplicate(env):
+    jid = await start(env)
+    row = (await work_rows(jid, "verify"))[0]
+    assert row["attempt"] == 0 and row["parks"] == 0
+    assert "-a0-" in row["id"]
+
+
 def test_build_cost_comes_from_tokens_and_the_price_table_not_the_workers_own_figure():
     from app.pipeline.stages import worker_usd
     res = {"tokens_in": 1_000_000, "tokens_out": 100_000, "tokens_cached": 10_000_000, "usd": 99.0}

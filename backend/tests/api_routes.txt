@@ -17,6 +17,7 @@ GET /api/mcp
 GET /api/routines
 GET /api/skills
 GET /api/tasks
+GET /api/tasks/integrity
 GET /api/usage
 GET /command-centre-v2.html
 GET /dark

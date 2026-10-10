@@ -26,6 +26,24 @@ class Unconfigured:
         return refuse
 
 
+def readiness(d: Deps) -> dict:
+    """Which pieces of the pipeline are real. `build_deps` swaps a missing deployer or promoter for `Unconfigured`
+    so the office still boots; this is how the owner finds out before a stage trips over it. `why` is the setup
+    hint the adapter itself raised (it names env vars, never their values)."""
+    def adapter(x, what: str) -> dict:
+        if x is None:
+            return {"ready": False, "why": f"{what} is not built"}
+        if isinstance(x, Unconfigured):
+            return {"ready": False, "why": x._why[:160]}
+        return {"ready": True, "why": ""}
+    notifier = {"ready": True, "why": ""} if getattr(d.notifier, "enabled", False) else {
+        "ready": False, "why": "Telegram is not configured; gates and parks show only in the Jobs screen"}
+    web = {"ready": True, "why": ""} if getattr(d.web, "can_search", False) else {
+        "ready": False, "why": "no web search tool is bound; the validate lane cannot research"}
+    return {"worker": adapter(d.worker, "the build worker"), "deployer": adapter(d.deployer, "the deployer"),
+            "promoter": adapter(d.promoter, "production promotion"), "web": web, "notifier": notifier}
+
+
 def build_deps() -> Deps:
     cfg = load_config()
     try:

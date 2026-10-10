@@ -93,3 +93,24 @@ async def test_the_inbox_lists_what_waits_for_the_owner_in_priority_order(fake_d
     set_deps(None)
     assert [(i["kind"], i["title"]) for i in items] == [("gate", "gate"), ("parked", "parked"),
                                                         ("production", "unhealthy"), ("memo", "memo")]
+
+
+async def test_an_archived_job_is_not_in_the_inbox(fake_db):
+    """Archiving hides a job from the list; it must not keep asking for the owner's attention."""
+    def mk(title, **kw):
+        j = jobs.new_job("client", title, {"title": title})
+        j.update(kw)
+        return j
+    rows = [mk("parked-live", status="parked", parkReason="budget"),
+            mk("parked-archived", status="parked", parkReason="budget", archived=True),
+            mk("gate-archived", status="waiting", archived=True,
+               pending=[{"stage": "verify", "roles": ["owner"], "needsOwner": True}]),
+            mk("memo-archived", status="done", lane="validate", archived=True)]
+    for r in rows:
+        await db.save_job(r)
+    set_deps(Deps(chat_json=None))
+    from app.main import app
+    c = TestClient(app, headers={"X-AO-Client": "office", "Origin": "http://localhost:4520"})
+    items = c.get("/api/inbox").json()
+    set_deps(None)
+    assert [i["title"] for i in items] == ["parked-live"]

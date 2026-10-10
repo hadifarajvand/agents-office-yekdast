@@ -12,6 +12,7 @@ module owns what happens inside one specialist turn.
 """
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import Optional, TypedDict
@@ -27,9 +28,24 @@ from .. import roster as roster_mod
 from ..llm import RunMeter, ask, ask_haiku_json, ask_with_tools, current_meter
 from ..mcp import registry as mcp_registry
 from ..models import effort_for, model_for
-from ..context import build_pack
+from ..context import build_pack, fence
 from ..roster import Agent
 from ..skills import Skills
+
+log = logging.getLogger("ao.engine")
+COMPANY_CHARS = 1800
+
+
+def company_context(biz: str) -> str:
+    """The company notes (business model, voice) as a prompt section. They are vault text, and an approved
+    proposal titled like one of them ("Brand voice") lands here, so they are fenced as data and capped."""
+    if not biz:
+        return ""
+    heading = "COMPANY CONTEXT\n"
+    room = max(COMPANY_CHARS - len(heading) - len(fence("", "company notes")), 0)
+    if len(biz) > room:
+        log.info("company context truncated %d→%d", len(biz), room)
+    return heading + fence(biz[:room], "company notes")
 
 
 def persona(a: Agent) -> str:
@@ -261,8 +277,7 @@ async def run_task(
         policy.UNTRUSTED_CONTENT_RULE,
         policy.OUTPUT_CONTRACT,
     ]
-    if biz:
-        system_parts.append(f"COMPANY CONTEXT\n{biz}")
+    system_parts.append(company_context(biz))
     system = "\n\n".join(p for p in system_parts if p)
 
     m = model_for(task.get("model"), task.get("routineModel"), agent.model, office_model)

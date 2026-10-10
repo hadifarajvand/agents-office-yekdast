@@ -52,17 +52,23 @@ def _brief(job: dict) -> str:
     return (b if isinstance(b, str) else str(b))[:400]
 
 
-async def start(job: dict, stage: str, seat: str, what: str, *, dept: str | None = None, key: str = "") -> str | None:
-    """Open a "doing" task for `seat` and return its id (None if it could not be written)."""
+async def start(job: dict, stage: str, seat: str, what: str, *, dept: str | None = None, key: str = "",
+                attempt: int | None = None) -> str | None:
+    """Open a "doing" task for `seat` and return its id (None if it could not be written).
+
+    `attempt` is the review-loop round (the same number the stage's evidence carries); `parks` is how
+    many times the job had parked when the row opened, so a retry after a park is not mistaken for a duplicate."""
     try:
         t = _now()
-        tid = f'pl-{job["id"]}-{stage}-{seat}{("-" + key) if key else ""}-{t}'
+        tag = f"-a{attempt}" if attempt is not None else ""
+        tid = f'pl-{job["id"]}-{stage}-{seat}{("-" + key) if key else ""}{tag}-{t}'
         title = f'{job.get("title", "job")} — {what}'
         await db.save_task({"id": tid, "dept": dept or dept_of_seat(seat, stage), "agent": seat, "by": "pipeline",
                             "pipeline": True, "jobId": job["id"], "stage": stage, "state": "doing", "title": title,
                             "text": (_brief(job) or title), "plan": list(STAGE_PLAN.get(stage, [])) if key != "review" else
                             [f"Read the {stage} evidence", "Return PASS or FAIL with reasons"],
-                            "lane": job.get("lane", ""), "needsOk": False, "createdAt": t, "addedAt": t, "startedAt": t, "runs": 0})
+                            "lane": job.get("lane", ""), "needsOk": False, "createdAt": t, "addedAt": t, "startedAt": t, "runs": 0,
+                            **({"attempt": attempt, "parks": int(job.get("parkCount", 0))} if attempt is not None else {})})
         return tid
     except Exception:  # display only
         log.exception("activity.start failed")

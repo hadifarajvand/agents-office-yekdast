@@ -69,8 +69,11 @@ async def _park_after_crash(job_id: str, reason: str) -> None:
 
 async def dispatch(job_id: str, payload) -> None:
     """Hand a start/resume/kill to the worker queue, or run it in this process when the queue is off."""
-    if jobqueue.enabled() and await jobqueue.enqueue(job_id, payload):
-        return
+    if jobqueue.enabled():
+        if await jobqueue.enqueue(job_id, payload):
+            return
+        # the owner chose the worker; Redis refused, so this process drives the job. Say so on the job itself.
+        await jobs.event(job_id, "queue unavailable: this job runs in the API process, so an API restart will park it")
     _spawn(_drive(job_id, payload))
 
 
@@ -248,8 +251,14 @@ async def park_interrupted() -> int:
     n = 0
     for j in await db.list_jobs():
         if j.get("status") == "running" and j.get("id"):
-            await jobs.touch(j["id"], status="parked", parkReason=RESTART_REASON)
+            count = int(j.get("parkCount", 0)) + 1  # one key per park, so each restart tells the owner once
+            await jobs.touch(j["id"], status="parked", parkReason=RESTART_REASON, parkCount=count)
             await jobs.event(j["id"], "interrupted by a restart; parked")
+            try:
+                await jobs.notify_once(j["id"], f"park:restart:{count}",
+                                       f'⚠ "{j.get("title", j["id"])}" was interrupted by a restart and is parked. Press Retry to continue.')
+            except Exception:  # no deps yet, or a dead channel: the park above already happened and the rest must follow
+                log.exception("could not tell the owner that job %s was parked by a restart", j["id"])
             n += 1
     return n
 
@@ -368,7 +377,7 @@ async def inbox():
     from ..connectors.promote import checklist
     items = []
     for j in await db.list_jobs():
-        if not (j.get("stages") and j.get("status")):
+        if not (j.get("stages") and j.get("status")) or j.get("archived"):
             continue
         base = {"jobId": j["id"], "title": j.get("title", ""), "lane": j.get("lane", "build")}
         p = (j.get("pending") or [{}])[0]
