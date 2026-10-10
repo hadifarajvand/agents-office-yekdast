@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| Date | 2026-10-09 (created 2026-10-07) |
-| Repo state | branch `main` at `bfc8e7a`, plus 74 uncommitted files |
-| Status | **Under owner review.** Order approved 2026-10-10: real runs first, personas last. Brain in Postgres (md backup) and Redis/arq kept. GATE 1 and GATE 2 still open; no code written. |
-| Built from | `CLAUDE.md`, `.claude/plans/PLAN.md`, `PROJECT_STRUCTURE.md`, four read-only audits |
-| Audit caveat | Audit claims are **unverified until a failing test reproduces them** (rule B1). A claim that does not reproduce is dropped. |
+| Date | 2026-10-10 (created 2026-10-07; PLAN.md folded in and this file made the sole plan 2026-10-10) |
+| Repo state | branch `chore/checkpoint-before-real-runs` at `af1e947`, working tree clean, nothing pushed (`develop` is the PR base) |
+| Status | **This is the only plan file.** `PLAN.md` is frozen read-only history (owner, 2026-10-10). GATE 1 (start) and GATE 2 (checkpoint commits) were passed 2026-10-10 for the earlier plan; the audit in **Part G** is a new request and has its own Gate 1 (open). |
+| Built from | `CLAUDE.md`, `.claude/plans/PLAN.md` (now frozen, its run log copied into Part F), `PROJECT_STRUCTURE.md`, four read-only audits, and the Part G audit of 2026-10-10 |
+| Audit caveat | Audit claims are **unverified until a failing test reproduces them** (rule B1). A claim that does not reproduce is dropped. Part G labels each item **verified / implemented / tested / pending** and never marks an item complete because code changed. |
 
 ## Read this first
 
@@ -28,6 +28,8 @@
 | Check the rules | §2 |
 | Look up code, infra, API | §3 |
 | See today's live state / audit findings | §4 / §5 |
+| See run results (S1–S7), the build lane's history and the old decision log | **Part F** |
+| See the 2026-10-10 audit of the Brain, tasks, seats, build reliability and data consistency, with fixes, acceptance criteria and status | **Part G** |
 
 Section numbers are stable IDs used across the file and in older notes, so they were kept when sections were moved.
 
@@ -40,13 +42,13 @@ Section numbers are stable IDs used across the file and in older notes, so they 
 | V1–V5 platform vision (§13) | **Recorded**; five questions open |
 | Agent personas (Phase P) | **Next** |
 
-**Relationship to other files.** `CLAUDE.md` rules win over everything. `PLAN.md` stays the decision log and the §11 run-results runbook. `PROJECT_STRUCTURE.md` is merged into §3 (not deleted). Neither `CLAUDE.md` nor `PLAN.md` was changed; once approved, add one pointer line in `PLAN.md`. A decision here that reverses `PLAN.md` (D2) takes effect after that line is added.
+**Relationship to other files (owner decision 2026-10-10: this file is the only plan).** `CLAUDE.md` rules win over everything and now point here. **`PLAN.md` is frozen, read-only history**: nothing new is written to it. Its decision log (§13), run-results runbook (§11), the 2026-10-04 one-day revision (§14), system notes (§15–16), the 2026-10-05..07 redesign and feature inventory (§17–20) and the 2026-10-10 freeze list were reconciled into this file (Part F for run results and history, §12 for the freeze list, Part G for the 2026-10-10 audit). Code comments that say "PLAN.md section N" still point at that frozen copy and are left as they are. `PROJECT_STRUCTURE.md` is merged into §3 (not deleted). A decision here that reverses `PLAN.md` (D2, D4) takes effect now: this file wins.
 
 ---
 
 ## Needs your attention
 
-Only open decisions. "Rec" is my recommendation. Last updated 2026-10-10 (after owner round 5).
+Only open decisions. "Rec" is my recommendation. Last updated 2026-10-10 (after the Part G audit; rows 18-24 are new).
 
 **Settled since the last version (no action):** owner accepted all recommendations on rows 5-15 and approved GATE 1 on 2026-10-10 (execution starts at §7 Phase 0/S2) ·  stack review answers 1-6 recorded in §16.10.4 (freeze until a job reaches preview, Agent SDK after S2, keep 9router, arq later, agents in waves, drop mini_swe/openhands after S2) ·  native LangGraph agents with Citadel as reference only (§16.10.3, approved 2026-10-10; supersedes "Citadel-native agents only, personas unmodified") ·  order of work (real runs first, personas last, §16.10) · brain in Postgres with automatic markdown backup · Redis + arq kept · stack frozen as in §16.9.15 · three Postgres uses: persona catalog, brain, agent memory (§16.10.1).
 
@@ -66,9 +68,16 @@ Only open decisions. "Rec" is my recommendation. Last updated 2026-10-10 (after 
 | 12 | A failed container check can never be overridden, only re-run | never / owner override | never | §16.8 |
 | 13 | Platform changes itself only with your approval each time | confirm | confirm | §16.9.3 |
 | 14 | `check:core` goes in `package.json`, `CLAUDE.md` unchanged | yes / no | yes | D6 |
-| 15 | This file vs `PLAN.md`: fold into PLAN.md, or amend `CLAUDE.md` | fold in / amend | fold in | B4 |
+| 15 | ~~This file vs `PLAN.md`~~ **Decided 2026-10-10:** this file is the only plan; `PLAN.md` is frozen history; run log copied to Part F. `CLAUDE.md` and `README.md` now point here | done | | B4, Part F |
 | 16 | ~~GATE 2~~ **Done 2026-10-10:** `npm run check` 18/18, branch `chore/checkpoint-before-real-runs`, 3 commits, not pushed | done | | |
-| 17 | **GATE 1**: approve the plan so work can start (§7 order; start = finish S2) | Approve | after 5-15 | |
+| 17 | ~~GATE 1~~ **Approved 2026-10-10** for the delivery plan (§7); work went through T1.x/T2.x (see §5 status column) | done | | |
+| 18 | **Part G audit, Gate 1 (new, open):** approve the Part G task list before any implementation code | Approve / edit | after 19-24 | **G.9** |
+| 19 | **Which seat list is authoritative?** The plan gives three: the 17 seeded seats (running), §16.1's 42 proposed seats, and 8 departments × up to 10 seats (§16.9.10). Only the 4 leads act today | 17 / 42 / 8×10 / other | decide, do not infer; leads stay leads in every option | **G.4** |
+| 20 | **Does the Part G request lift the 2026-10-10 freeze** (§12: Brain, learning, routines, roster, personas, `tasks.js`, `graph/engine.py`) for the fixes in G.9 only? And does it override "real runs first, personas last"? | lift for G.9 only / keep frozen | lift for the listed fixes only | §12, G.9 |
+| 21 | **Task board design:** 81 of the 83 task rows are display-only pipeline rows (42 of them are failed stages stored as `done`). Keep them in the board with a `failed` look, move them to a per-job activity strip, or hide them | keep+fix / strip / hide | keep and show failures honestly | **G.3** |
+| 22 | **"web.py notes 1-3"** in the request: I could not find a numbered list by that name. Which notes are meant (code comments in `connectors/web.py`, or PLAN/MASTER findings F-11/S-02)? | name them | | G.5 |
+| 23 | **A fresh S2 run** (real job, real container, minutes of nemotron tokens). Needed to verify the build-completeness fixes that b16fab3 shipped; I will not create one without your yes | yes / later | yes | **G.5** |
+| 24 | **Models (D4):** the config runs every role on `oc/nemotron-3-ultra-free` (commit 9c51973, your 2026-10-10 instruction), while D4 in §6 still says Haiku for the main model. Confirm D4 is superseded | confirm / restore Haiku | confirm | §6 D4 |
 
 Things only you can do outside the repo (no decision, just tasks): provide the search tool if not SearXNG; Dokploy server and DNS; Telegram bot token as an env-var name; confirm the two models exist in 9router; set `AO_API_TOKEN`. Reference notes and warnings are kept at the end of this section.
 
@@ -91,14 +100,14 @@ Things only you can do outside the repo (no decision, just tasks): provide the s
 | D2 | Dokploy: server, wildcard DNS, preview repo; Dokploy MCP is configured locally, tool names still unconfirmed | preview deploy (S5) |
 | D3 | Telegram bot token and chat id (S7) as env-var names only | notifications |
 | D4 | Confirm `cc/claude-haiku-4-5-20251001` and `oc/nemotron-3-ultra-free` exist in 9router | D4 model rule |
-| D5 | Set `AO_API_TOKEN` (needed before exposing the UI beyond localhost; also breaks the SSE stream until fixed, S-04) | security phase |
+| D5 | `AO_API_TOKEN` is now generated per boot (T2.4 done, commit 96c79b3); set a fixed one only to expose the UI beyond localhost | security phase |
 
 ### E. Warnings (no decision needed, but know them)
-- **No run has ever completed end to end.** S2 was last seen at the build stage (2026-10-07; this reading is stale). None of S1–S7 is recorded as passed.
-- **74 files are uncommitted** with no rollback point until GATE 2.
+- **No run has ever completed end to end.** Verified 2026-10-10 against the DB: 31 job records, none a finished build (the one `done` job is a validate job, `b7ee7e938665`). The bakery S2 job `7bc5b4b2aa83` failed at the `npm ci` check and was later killed; the nemotron bakery and Tip splitter jobs were killed, archived and their workspaces deleted on the owner's request. S2 needs a fresh run (Needs-attention row 23). None of S1–S7 is recorded as passed (S1 partial).
+- **Rollback point exists.** The 74 uncommitted files were committed in `02b658e`/`9a6ce7d`/`6f613a1` (GATE 2, 2026-10-10); later work is committed on `chore/checkpoint-before-real-runs`, nothing pushed.
 - **Citadel personas are boilerplate** (254 of 265). Seat quality will come from the platform layer, not persona text.
 - **Agent audit findings are advisory** until a failing test reproduces them (rule B1).
-- **Do not touch** `templates/webapp/` or `infra/sandbox/run-job.sh` or restart the worker until S2 finishes.
+- **Template and worker image:** `templates/webapp/`, `infra/sandbox/run-job.sh` and the image were changed after S2 (T1.4b, 3.4, b16fab3). Any change to the template needs `run-checks.mjs` rerun on a copy and `npm run image`; new image content applies only to jobs started afterwards.
 - **Citadel's deploy/rollback commands and docker/k8s MCP conflict with our rules** and are not exposed to agents.
 
 </details>
@@ -233,7 +242,7 @@ Why not all 15 live: the research agent's (unsourced) judgement is that coordina
 | P5 | Generic node factory + department subgraph skeleton (LangGraph), Store namespaces, registry loader (265 as data) | one department running end to end behind a flag | none |
 | P6 | Add the **design** department and gate (brief → brand → mockups → owner approval) | new stage in `DEFAULT_STAGES` + tests | **owner design gate** |
 | P7 | Wire Wave-1 departments into the existing stages; keep computed verdicts and separation of duties | stages use persona nodes | existing gates |
-| P8 | Then Phases 0–3 of §7 (safety net, run honesty, security, prove one real run), with D4 models | S2 recorded in `PLAN.md` §11 | per §7 |
+| P8 | Then Phases 0–3 of §7 (safety net, run honesty, security, prove one real run), with D4 models | S2 recorded in Part F (S2) | per §7 |
 
 Waves 2–3 start only after one Wave-1 run completes end to end.
 
@@ -305,7 +314,7 @@ Our `templates/webapp/` is already Next.js + Drizzle + Playwright; it stays the 
 You are right to ask. `CLAUDE.md` is only the rule file for the **developer assistant** (me, Claude Code, working in this repo). The platform backend (LangGraph) never loads it: I searched `backend/app` and `infra`; the only mentions are a comment in `roster.py` and a prompt line in `worker/base.py` that points at the **generated app's own** `CLAUDE.md` inside `templates/webapp/`. The container worker already runs `claude --bare` (`worker/claude_code.py:31`), and the installed CLI also has `--setting-sources`, so the flag question from §15.3 is answered: both exist (confirm behaviour with the "quote CLAUDE.md" test). Consequences:
 1. Platform agents get their rules from `platform-rules.md`, not `CLAUDE.md`.
 2. D6 (`check:core`) is a dev-loop convenience for **me**; it edits `CLAUDE.md` only because that file lists my loop. It is not a platform feature. Default: skip the `CLAUDE.md` line, put the script in `package.json`.
-3. B4 (a second plan file next to `PLAN.md`) is a developer-process question. Recommendation: fold into `PLAN.md` after approval.
+3. B4 (a second plan file next to `PLAN.md`) is a developer-process question. **Resolved 2026-10-10:** this file is the only plan; `PLAN.md` is frozen history.
 Backend templates: see the table in 16.4.
 
 ### 16.6 A8: D2 = B explained
@@ -569,7 +578,7 @@ Method: read §4, §5, §13, §14, §15, §3.2–3.7 of this file. Everything be
 | G6 | **The brain does not help the agents.** Markdown vault, chunks in the database, but no retrieval wired into stages and no memory across jobs; skills and lessons have no UI. | §14.1, §14.2 item 4 | See "Brain" below |
 | G7 | **No way to know whether a change made things better:** no replay of the bakery job, no tracing. | §14.2 items 5, 6 | One scripted replay (S2 as a test) and the audit tables you already have. No tracing service yet |
 | G8 | **The UI shows static data:** KPIs 0, roster and seats from `data.js`, calendar cannot schedule. | §14.1 | Wire after G1. Cosmetic until then |
-| G9 | **The plan itself is the biggest time sink:** 1,578 lines in this file plus a 665-line `PLAN.md`, 74 uncommitted files, and no rollback point. | §4, F-22 | GATE 2 first (commit the work), then fold this file into `PLAN.md` (B4) and keep one short list of next steps |
+| G9 | **The plan itself is the biggest time sink:** 1,578 lines in this file plus a 665-line `PLAN.md`, 74 uncommitted files, and no rollback point. | §4, F-22 | GATE 2 done (work committed); resolved 2026-10-10 the other way: this file is the only plan and `PLAN.md` is frozen (B4). Keep one short list of next steps (Needs your attention) |
 
 **The stack: keep it, add only this**
 
@@ -708,7 +717,7 @@ Scoring: 1–5 per criterion (5 best), weighted **time-to-platform 35%, capabili
 | # | Decision | Recommended | Needs your yes? |
 |---|---|---|---|
 | D1 | Scope of work | **Freeze (A)** non-critical subsystems (keep code, no new work) | **Approved** (canvas) |
-| D2 | Citadel SafetyGovernor / `AO_BACKBONE` | **On (owner chose B)**: the Citadel bridge is the single model-and-budget authority | **Approved** (canvas 2026-10-09; needs `PLAN.md` line) |
+| D2 | Citadel SafetyGovernor / `AO_BACKBONE` | **On (owner chose B)**: the Citadel bridge is the single model-and-budget authority | **Approved** (canvas 2026-10-09). Not applied: `AO_BACKBONE=1` is set, but the governor cannot meter the container builder (G.5), so "single authority" is only true for host-side calls |
 | D3 | Preview target | **Hybrid (C)**: local first, then Dokploy via the Dokploy MCP | **Approved** (canvas) |
 | D4 | Model for real runs | **Owner option D**: `cc/claude-haiku-4-5-20251001` main, `oc/nemotron-3-ultra-free` for all other agents | **Approved** (canvas) |
 | D5 | Landing screen | **Jobs first (A)**, office one click away | **Approved** (canvas) |
@@ -733,9 +742,9 @@ Scoring: 1–5 per criterion (5 best), weighted **time-to-platform 35%, capabili
 | B. On, and make it the single authority | 2 | 4 | 2 | 2 | 3 | 2.60 |
 | C. Status quo (two authorities) | 1 | 3 | 1 | 5 | 5 | 2.30 |
 
-**Pick A.** Today every tier maps to one model, so routing adds nothing; the bridge's per-stage cap is never reset by Retry; the `$` ceiling is skipped for `job:` labels (it does not govern jobs); and the vendored code is a prototype on the hot path. **What you lose:** the `$1` per-routine-run ceiling (routines are frozen) and the Citadel daily budget; per-lane caps stay. **Revisit when** there are two or more real model tiers or you need a daily cap; then port the cap into `llm.py` rather than enabling the bridge. This **reverses the PLAN §19 migration direction**, so it needs your explicit yes and a `PLAN.md` line. The code, tests and clone stay.
+**Pick A.** Today every tier maps to one model, so routing adds nothing; the bridge's per-stage cap is never reset by Retry; the `$` ceiling is skipped for `job:` labels (it does not govern jobs); and the vendored code is a prototype on the hot path. **What you lose:** the `$1` per-routine-run ceiling (routines are frozen) and the Citadel daily budget; per-lane caps stay. **Revisit when** there are two or more real model tiers or you need a daily cap; then port the cap into `llm.py` rather than enabling the bridge. This **reverses the PLAN §19 migration direction**; the owner's yes was given on 2026-10-09 (canvas, B, below) and is recorded here. The code, tests and clone stay.
 
-**Owner decision (canvas, 2026-10-09): B.** There are now two real model tiers (`cc/claude-haiku-4-5-20251001` main, `oc/nemotron-3-ultra-free` for the rest), so routing has value and the governor is worth keeping on. Tasks: make the bridge the single authority, reset its per-stage cap on Retry, and make the `$` ceiling apply to `job:` labels (today skipped). Still needs a `PLAN.md` line; supersedes the Pick A reasoning above.
+**Owner decision (canvas, 2026-10-09): B.** There are now two real model tiers (`cc/claude-haiku-4-5-20251001` main, `oc/nemotron-3-ultra-free` for the rest), so routing has value and the governor is worth keeping on. Tasks: make the bridge the single authority, reset its per-stage cap on Retry, and make the `$` ceiling apply to `job:` labels (today skipped). Recorded here (`PLAN.md` is frozen); supersedes the Pick A reasoning above.
 
 **Pros and cons of keeping D2 = B (governor on) — owner asked 2026-10-09**
 
@@ -813,13 +822,15 @@ Scoring: 1–5 per criterion (5 best), weighted **time-to-platform 35%, capabili
 
 Estimates are rough working hours. The sequence is in 7.5. Each task: red test first (B1), then fix, then `pytest` green and the pinned tests (B7) green.
 
+**Status 2026-10-10 (from git; see the §5 status map for per-finding detail).** Phase 0 done (GATE 2). Phase 1: T1.1-T1.5, T1.4a, T1.4b implemented and tested; **T1.6 partly done** (open items in G.3/G.5). Phase 2: T2.1-T2.5 implemented and tested. Phase 3: 3.4 implemented; **3.1 (finish S2) did not happen** (the run failed, then was cleared; a fresh run is open), 3.2/3.3/3.5/3.6 not started. Phase 4: 4.1 (`check:core`) and 4.3 (Jobs first) and 4.4 (freeze list) done; **4.2 (`AO_BACKBONE` off) not done** and its premise changed (G.5). Phase 5 not started. Work added since: 45 min / 60 turn lanes, install caps, `recheck`, short evidence labels, the standalone copy fix, TASK.md and image tool fixes (Part F, S2 updates).
+
 ### Phase P (moved to Phase 5). Agents are defined in waves after real runs (owner 2026-10-10, §16.10.3-4); nothing here blocks Phases 0-4.
 
 ### Phase 0. Safety net (~0.7 h)
 
 - **0.1 Test database check.** Confirm `AO_TEST_DATABASE_URL` is not the live database before running Postgres tests while S2 runs. Run backend tests only (not the full UI check) until S2 ends. *Done when:* written down in §4.
 - **0.2 Commit the 74 files.** New branch off `main`, logical conventional commits (including `PROJECT_STRUCTURE.md`, `scripts/gen_roster.mjs`, `src/roster.gen.js`), no push, `npm run check` first. **GATE 2:** present the diff summary and messages; wait for confirmation.
-- **0.3 Docs.** After approval, add one line to `PLAN.md` pointing to this file, and record accepted decisions (D1–D7) there.
+- **0.3 Docs.** ~~Add a pointer line to `PLAN.md`~~ Superseded 2026-10-10: `PLAN.md` is frozen; decisions are recorded here and `CLAUDE.md`/`README.md` point to this file.
 
 ### Phase 1. Make a run cheap, finite and honest (~9 h)
 
@@ -843,7 +854,7 @@ Run `security-reviewer` over this phase.
 
 ### Phase 3. Prove the platform (needs your inputs)
 
-- **3.1 Finish S2 (running).** Record per-stage minutes, the build-gate checks (install, build, unit tests, start, `/healthz`, home, e2e), writes outside the job dir, egress refusals, no docker.sock, Claude Code flag confirmations, and "results are big-pickle, not Haiku" in `PLAN.md` §11. Apply the D4 rule.
+- **3.1 Finish S2 (the 2026-10-07 run failed and was cleared; a fresh run is open, row 23).** Record per-stage minutes, the build-gate checks (install, build, unit tests, start, `/healthz`, home, e2e), writes outside the job dir, egress refusals, no docker.sock, Claude Code flag confirmations, and which model ran (today: nemotron on every role) in Part F (S2). Apply the D4 rule (see Needs-attention row 24).
 - **3.2 S3 restart/resume (needs T1.3).** Kill the worker via `data/worker.pid` (no `pkill -f`) mid-build; the job parks once; Retry resumes from the checkpoint; exactly one `ao-job-*` container exists. Record the minutes. ~1 h.
 - **3.3 Preview that proves itself (F-14, F-19).** *Files:* `pipeline/stages.py`, `connectors/dokploy.py`, `connectors/mcp_client.py`, `pipeline/graph.py`. Check every Dokploy call result; poll the deployment status; probe `/healthz` with backoff; `apply_exposure` errors park instead of failing; reuse one app per job (janitor-expirable); wrap MCP calls in `asyncio.wait_for`. Needs the real Dokploy to confirm tool names. ~3 h.
 - **3.4 Lockfile before bundle (F-15, after S2).** *Files:* `infra/sandbox/run-job.sh`. Generate the lockfile before the final commit so the shipped tree equals the checked tree and `npm ci` passes. Rebuild the image together with T1.4b.
@@ -854,9 +865,9 @@ Run `security-reviewer` over this phase.
 ### Phase 4. Cut the drag (your decisions)
 
 - **4.1 `check:core`** (D6). *Files:* `check.mjs`, `package.json`; one line in `CLAUDE.md` Loop (needs your OK). ~1 h.
-- **4.2 `AO_BACKBONE` off, single authority** (D2). *Files:* `llm.py`, `.env.example`, `.env.local`, `PLAN.md` line. Keep the bridge code and tests. ~1 h.
+- **4.2 `AO_BACKBONE` off, single authority** (D2). *Files:* `llm.py`, `.env.example`, `.env.local`. Keep the bridge code and tests. **Title and D2 disagree:** D2=B says the governor stays on as the single authority; this task's title says off. Unresolved; see G.5. ~1 h.
 - **4.3 Jobs first** (D5). *Files:* `src/shell.html`, `src/main.js`, `src/jobs.js`. ~1 h.
-- **4.4 Freeze list** into `PLAN.md` §20. ~0.3 h.
+- **4.4 Freeze list.** Done: it lives in §12 here (and as a frozen copy in `PLAN.md` §20.1).
 
 ### Phase 5. Native agents in waves (after Phase 3 passes one full job; owner order 2026-10-10)
 
@@ -906,7 +917,7 @@ Phase 4 → Phase 5 (waves)
 | Dokploy MCP tool names differ from the code | High | 3.3 confirms against the real server; mark unverified names |
 | Scope creep back into frozen parts | High | B5; §12 list |
 | Local preview adds attack surface | Medium | D3 constraint: run inside the sandbox spec only; design check first |
-| Reversing PLAN §19 (D2) surprises later work | Low | Your explicit yes; keep code and tests; `PLAN.md` line |
+| Reversing PLAN §19 (D2) surprises later work | Low | Your explicit yes; keep code and tests |
 
 **Stop and rethink** if S1, S2 or S5 fails, or S2's wall clock exceeds 7 h (PLAN §11).
 
@@ -940,7 +951,7 @@ Phase 4 → Phase 5 (waves)
 | B6 | **Gates.** GATE 1 (this plan) before any implementation; GATE 2 (diff summary + messages) before any commit. No push without an explicit ask. |
 | B7 | **Pinned rules stay green:** `test_promote`, `test_architecture`, `test_infra_invariants`, `test_openapi_contract` must pass after every task. |
 | B8 | **Security-trigger diffs** (auth, input handling, DB, file paths, external calls, crypto, secrets) get `security-reviewer`. |
-| B9 | **Where results go.** Run results go to `PLAN.md` §11. Status ticks go to §4 and §7 of this file. |
+| B9 | **Where results go.** Run results go to Part F of this file (S1..S7 lines). Status ticks go to §4, §5 and §7. `PLAN.md` is frozen. |
 | B10 | **Stop and rethink** if S1, S2 or S5 fails, or if S2's wall clock is beyond 7 h (PLAN §11). |
 | B11 | **Commits** are conventional, one logical change each. |
 
@@ -991,21 +1002,47 @@ Size: **large**, cross-cutting, security triggers touched (phases 1 → 2 → 4 
 
 ## 4. Where things stand today
 
+*Re-read 2026-10-10 (this replaces the 2026-10-09 reading, which said S2 was running). Verified = observed in git, the DB, `ps` or `docker ps` in this session.*
+
 | Item | State |
 |---|---|
-| Boot, verify, UI, queue/worker, task queue, worker lock, policies, SafetyGovernor, OpenAPI contract, roster fixtures | Done (315 tests, `npm run check` 18/18) |
-| S1 9router | Partial pass (PLAN §11) |
+| Tests (**verified 2026-10-10, baseline for Part G**) | Backend **359 passed**; `npm run check` **24/24**, exit 0, run against the separate `office_ui` database (`AO_TEST_DATABASE_URL`). Nothing was changed since, so this is the baseline every Part G fix is compared with |
+| Boot, UI, queue/worker, task queue, worker lock, policies, SafetyGovernor, OpenAPI contract, roster fixtures | Done and green in `npm run check`. Live: API pid 53044 and worker pid 53049 (pid files, up about 50 min at the reading), Redis, Postgres, router-gateway and egress containers running; no `ao-job-*` container |
+| S1 9router | Partial pass (Part F, S1) |
 | S1b keyless search tool, S4, S5 Dokploy, S6 Promote, S7 Telegram | Not done. Dokploy, Promote and Telegram are not configured here (no `DOKPLOY_*`, `PREVIEW_*`, `PRODUCT_*`, `TELEGRAM_*` in `.env.local`) |
-| **S2 bakery build**, job `7bc5b4b2aa83` | **Running.** Stage `build`; container `ao-job-7bc5b4b2aa83` up 40 min; workspace last written 21:40. S2 clock started 20:51:52 (52 min elapsed). The owner verify gate was passed by someone other than the assistant. Token count read 9,342, the same as an earlier reading (it may update only at stage end; unverified). |
-| Symptom of F-03 visible now | The job reads `running` but still carries the restart `parkReason` text. |
-| S3 restart/resume | Not run; needs 1.3 first |
+| **S2 build** | **No passing run.** Bakery `7bc5b4b2aa83` failed at the `npm ci` check (101 min of ECONNRESET), was parked, then killed; the nemotron bakery and Tip splitter runs (`54332daa0a95`, `13d9c91f9080`, `0cd317edd900`) were killed, archived and their workspaces deleted on 2026-10-10. The fixes for what cost them (install caps, TASK.md, image tools, standalone copy) are committed but **implemented, not live-verified**. A fresh run needs the owner (row 23) |
+| Jobs in the DB | **31 records**: mostly `killed` and archived; 6 `parked` (5 archived, `3c7bb2841585` not archived); 1 `done` (validate job `b7ee7e938665`). No job is `running` |
+| Tasks in the DB | **83 rows, all `done`** (81 display-only `pl-…` pipeline rows, 1 routine run, 1 chat task). See G.3 |
+| Routines / calendar | 0 routines defined (`routines.json` is `{"routines": []}`, `routine_state` empty); the Calendar has no backend data of its own |
+| S3 restart/resume | Not run on a real job. The park-on-restart logic is implemented and tested (T1.3, `test_park_interrupted.py`) |
 | Stress test | Not started |
-| Uncommitted work | 74 files, no rollback point |
-| Running processes | API pid 55136, worker pid 60476, both alive. **Do not restart them before S2 ends.** |
+| Uncommitted work | None. Branch `chore/checkpoint-before-real-runs` at `af1e947`, not pushed |
+| Models | Every role runs `oc/nemotron-3-ultra-free` (`config.py`, commit 9c51973). `AO_BACKBONE=1`, `AO_QUEUE=1` and `AO_WORKER` are set in `.env.local` (values not recorded here) |
 
 ## 5. Audit findings register
 
 Severity is the auditor's. "Src" = which audit(s) reported it: **A** architect, **E** code-explorer, **F** silent-failure-hunter, **S** security-reviewer. All unverified until a red test reproduces them (B1).
+
+**Status map (2026-10-10).** The tables below keep the original wording (history). Status here comes from git (`git log`), the commit's test files and a read of the current code; **implemented** = a commit says so and the code shows it, **tested** = that commit added a named regression test and the 359-test baseline is green, **not live-verified** = no real job has exercised it. Nothing below is marked verified-in-production.
+
+| IDs | Task | Commit | Status |
+|---|---|---|---|
+| F-01 | T1.1 | a8e0f30 | implemented, tested |
+| F-02, F-04, F-17 | T1.2 | a492a70, 6403fb7 | implemented, tested; not live-verified (no worker cancel on a real job) |
+| F-03 | T1.3 | 6403fb7 | implemented, tested (`test_park_interrupted.py`); the boot sweep **does not notify** (`park_interrupted` in `pipeline/api.py:245` only touches and logs) — open, folded into G.5 |
+| F-05, F-06, F-07, F-09, F-10, F-20 | T1.4a | 65bdd7b | implemented, tested |
+| F-08, F-16, F-15 | T1.4b, 3.4 | cc7b2ec | implemented, tested (`test_run_checks.py`); image effects are not live-verified |
+| F-11 | T1.5 | c9c0cf7 | implemented, tested |
+| F-12 | T1.6 | af17023 | **partly done.** Done: send-then-mark, `NullNotifier` warns once, counter-based park key. **Open:** boot parks notify nobody; the inbox has no `failed` kind and no archived filter (G.3) |
+| F-13 | T1.6 | af17023 | **partly done.** Park causes are redacted type + message (`crash_reason`). **Open:** `graph.py:88` still passes `ok=bool(out)` inside a `finally` that also runs on park returns, so a stage that parked is written as finished and a failed stage is stored as `done` with `error` true (G.3) |
+| F-18 | T1.6 | af17023 | **partly done.** `boot.sh` starts Redis when `AO_QUEUE=1`. **Open:** the in-process fallback in `jobqueue._enqueue` only logs; no activity event the owner sees (G.5) |
+| F-24 | T1.6 | af17023 | implemented, tested (promote checklist has 5 items incl. `PRODUCT_*`) |
+| F-14, F-19, F-23 | 3.3, 3.x | — | open (needs a real Dokploy, S5) |
+| F-21 | 4.2 | — | open and **worse than described**: see G.5 (the governor cannot meter the container builder) |
+| F-22 | 0.2, 4.1 | 02b658e…, 646a50d | done: files committed, `check:core` exists |
+| S-01 | T2.1 | 199a22d | implemented, tested |
+| S-02, S-03, S-04, S-07, S-09, S-11 | T2.2-T2.5 | 96c79b3 | implemented, tested (S-04 verified in `scripts/boot.sh:36`) |
+| S-05, S-06, S-08, S-10, S-12 | backlog | — | open, see §12 |
 
 ### 5.1 Reliability, cost and honesty
 
@@ -1066,7 +1103,7 @@ agents-office-yekdast/
 ├── CLAUDE.md                  Rules for Claude Code in this repo
 ├── README.md  SKILLS.md  CHANGELOG.md  LICENSE  NOTICE
 ├── PROJECT_STRUCTURE.md       Structure map (merged into this file)
-├── .claude/plans/PLAN.md      Decisions, architecture, §11 runbook, §20 feature inventory
+├── .claude/plans/PLAN.md      FROZEN history (2026-10-10); its run log is copied into MASTER_PLAN Part F
 ├── .claude/plans/MASTER_PLAN.md   This file
 │
 ├── backend/                   API, pipeline, workers, tests            → 3.3
@@ -1308,7 +1345,7 @@ Layers as in 3.3. Env-var names in `.env.example`: `ROUTER_API_KEY`, `PORT`, `AO
 
 **Backlog (not on the critical path):** S-05 (`spawn`/`consult` stage allow-list, metering, `enabled` check, fenced task); S-06 (per-call approval; fail closed for write verbs on unlisted servers); S-08 (model-swap record; replace `sys.path.insert`); S-10 (strict env-var names; inline-secret check on by default); S-12 (runtime Promote-reachability test over `/api/openapi.json` and the MCP registry; nginx rate limit; non-default Postgres password; split Dokploy read/write keys); F-23 tests for the remaining untested hops once they are exercised by real runs.
 
-**Frozen (no new work; code stays, tests stay green; revisit after S6):**
+**Frozen (no new work; code stays, tests stay green; revisit after S6).** *2026-10-10 note: the owner's Part G request asks for fixes in several frozen areas (Brain, tasks, routines, roster, personas). Per the freeze rule ("a bug in a frozen path is fixed when it blocks the idea-to-preview pipeline") only the G.9 slices that the owner approves at Part G Gate 1 touch these paths; the rest of the list stays frozen. Needs-attention row 20.*
 
 | Area | Paths |
 |---|---|
@@ -1323,9 +1360,465 @@ Layers as in 3.3. Env-var names in `.env.example`: `ROUTER_API_KEY`, `PORT`, `AO
 
 **Do not touch without a failing test that demands it:** the LangGraph pipeline and Postgres checkpointer, sandbox/egress/router-gateway, `templates/webapp/` and `run-checks.mjs`, `research.compute_verdict`, `exposure.py` and `DEFAULT_STAGES`, `promote.py` and `test_promote.py`, `policy.py` redaction.
 
+# Part F. Run log and history (copied from the frozen `PLAN.md`, 2026-10-10)
+
+**What this is.** `PLAN.md` was the plan until 2026-10-10. The owner then made this file the only plan and froze `PLAN.md`. Everything in `PLAN.md` that is not already in Parts A to E is copied here, shortened where it was only narration and kept word for word where a number, a command or a finding matters. Source sections are named so a reader can check the frozen file. **From now on new run results are appended here** (S1 to S7, boot, verify, stress), and nothing is written to `PLAN.md`.
+
+**Reading rule.** A result here is what was observed on the date given. It is not re-verified by being copied. Where this file's later parts disagree with a result below, the later part wins (it was read more recently).
+
+## F.1 Runbook results (source: `PLAN.md` §11)
+
+Preflight: `./setup`; `cp .env.example .env.local` and fill values; `npm run check` green with `AO_TEST_DATABASE_URL` set.
+
+| Step | Pass criteria | Result |
+|---|---|---|
+| **S1 9router** | a `langchain-openai` call to the pinned model returns the same model name and `usage_metadata`; the Anthropic endpoint answers (else set `ROUTER_FORMAT=openai`); the pinned model does not silently fall back; a keyless request fails with `REQUIRE_API_KEY=true`; the model supports tool-calling | **Partial pass, 2026-10-04, curl only.** Keyless `POST /v1/chat/completions` and `/v1/messages` give 401 "Missing API key" (note `GET /v1/models` is open without a key). With the key, `kr/glm-5` and `cc/claude-haiku-4-5-20251001` both answered. The response `model` field comes back **without the router prefix** (`glm-5`), so the model-swap check must compare the bare name. `POST /v1/messages` works with `x-api-key`. `kr/glm-5` returned a correct `tool_calls`. A 1-line prompt reported `prompt_tokens: 6283`: the router adds a preamble of about 6.3k tokens to Kiro models, so token caps must allow for it. **Not tested:** silent fallback; the `langchain-openai` check |
+| **S1b keyless web tool** | find the owner's search/fetch tool and bind it in `office.config.local.json` under `web.search` / `web.fetch` (`command`, `tool`, `arg`; see `connectors/web.py`); a validate job on a real idea runs at least 6 searches and fetches at least 3 pages; the memo's claims all link fetched pages; `GET http://127.0.0.1:…` through the tool is refused | **Not done.** Needs the owner (Needs attention) |
+| **S2 build, real** | worker image built (`docker build --pull=false --build-context template=templates/webapp -f infra/sandbox/worker-node.Dockerfile -t agents-office/worker-node:latest infra/sandbox`, or `npm run image`); all build-stage checks green; no write outside the job dir; a non-allow-listed domain refused and logged; no docker.sock; unverified Claude Code flags confirmed (`--max-turns`, `modelUsage`, usage fields); **minutes per stage recorded against the 3 to 6 h target** | **No passing run.** History in F.2. A fresh run needs the owner's yes (Needs attention row 23) |
+| **S3 restart/resume on real Postgres** | `AO_TEST_DATABASE_URL=… pytest backend/tests/test_postgres.py` passes; `npm run verify` includes a real API kill mid-gate with exactly one resume | **Not run on a real job.** The park-on-restart logic is implemented and tested (T1.3, `test_park_interrupted.py`). In the scripted stack on 2026-10-04 a real API kill mid-gate resumed exactly once |
+| **S4 budget** | real prices in `budget.usd_per_mtok`; `run_costs` and the job's `costs` match the router's token counts; a deliberately low `budget.lanes.build.usd` parks the job with a budget reason | **Not run** |
+| **S5 Dokploy on AlmaLinux 9.7** | `infra/dokploy/harden-almalinux.sh` (dry-run first); port 3000 unreachable from the internet; API key scoped; the MCP allow-list creates and deploys in `previews` and refuses delete/settings; the preview builds from the template Dockerfile with `EPHEMERAL_DB=1`, reachable only with credentials; real tool names checked against `connectors/dokploy.py` `TOOLS` (including `application-saveEnvironment` and the Dockerfile build type) | **Not done.** Dokploy is not configured here |
+| **S6 Promote** | Dokploy project `production` created once by hand; `PRODUCT_GITHUB_OWNER` and `PRODUCT_REPO_TOKEN` set; on a done bakery job, Jobs → Production → Prepare with a real domain creates a private repo and an undeployed production app; `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` set in Dokploy, box ticked, Deploy; `https://<domain>/healthz` is 200, sign-up works, data survives a redeploy | **Not done** (owner only) |
+| **S7 Telegram** | `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` set; a gate, a park and a finished job each send one message and nothing else | **Not done** |
+| **Boot** | `npm run boot` (Postgres, egress proxy, router gateway, API on 127.0.0.1:4520; pid in `data/api.pid`; `scripts/boot.sh --dry-run` shows what it would do); stop with `npm run stop`; `/api/health` answers and the page loads | **Pass, 2026-10-04.** First attempt failed because `backend/.venv` was Python 3.9 with langgraph 0.2.68 against the pinned 1.2.12; rebuilt on Python 3.12 (old one in `data/venv-py39-old`). The old-design `.env.local` is saved in `data/env.local.old-design`; the old `agents-office-yekdast-app-1` container was stopped to free port 4520 |
+| **Verify** | `npm run verify` (= `scripts/verify_slice.py --with-restart` then `scripts/verify_ui.mjs`; reports to `data/verify-report.json`, `data/verify-shots/`) checks the slice rules, both lanes, that every lead PASS cites real evidence, the promote refusals (prepare and deploy skipped unless `--scripted`), the inbox, kill, costs within the lane cap, an API kill mid-gate resuming once, STANDBY/OWNER in the UI | **Partial, 2026-10-04 (live `kr/glm-5`, `AO_WORKER=fake`): 31/40 slice checks + 10/11 UI checks.** Passing: gates, lead/owner approval rules, bench and consult rules, kill, costs within the lane cap, inbox, API kill mid-gate resuming exactly once, STANDBY/OWNER pills. Fixed on the way: `npm run verify` used system `python3` 3.9 (now the venv's); the script's bakery brief had no price, so the real model correctly refused it at verify. Failing, expected until S2/S1b: the `build` gate refuses the fake worker, so security, preview, handoff and the UI "checks ran" check never ran; the validate lane parks because no web tool is bound. **Safety note (Part G): `verify_slice.py` creates and advances real jobs and has stale expectations; never run it against the live stack.** |
+| **Stress** | parallel jobs, kill/restart mid-stage, budget-cap hit, router outage (must park with the 9router reason), lead-FAIL loops to park, double-click approvals | **Not started** |
+| **Then** | widen `live_departments` one department at a time (devops, secdata, revenue), each with a pass/fail line here; gated previews unlock when secdata and exec are both live | `config.py` already lists `exec, engineering, secdata, devops` as live (set 2026-10-05, F.6). **No pass/fail line was ever recorded for devops or secdata going live** |
+
+**Stop and rethink** if S1, S2 or S5 fails, or if S2's wall clock is beyond 7 h for the bakery job.
+
+## F.2 S2 history (source: `PLAN.md` §11, S2 updates)
+
+1. **2026-10-04.** Blocked at the image build: inside Docker `deb.debian.org` resolved to `198.20.0.26` (the 198.18.0.0/15 fake-IP range of a TUN/fake-IP VPN), which the Docker VM cannot reach. Fix on the machine, not in the repo (VPN TUN mode for Docker, Docker proxy settings, or pause the VPN). Later cleared; the image builds.
+2. **2026-10-04, later.** Real builds started under Claude Code/Haiku. Attempt 1 failed at `npm ci` (lockfile out of sync after `resend` was added to the template). Job `202e5a079b34` was killed by an owner stop (exit 137). The Squid allow-list was fixed along the way and its logs persist.
+3. **2026-10-05, job `847a6edd6878`, `oc/big-pickle` (owner: no Haiku or paid model).** Found and fixed, in order:
+   1. Verify blocked: `deadline_realistic` computed false (lane 7 h against `company.md` "3 days"); `company.md` now says 7 hours.
+   2. Kiro (`kr/*`) models time out at 9router, so roles moved to `oc/*`.
+   3. The pipeline accepted only haiku/sonnet/opus/fable; any router id (`provider/name`) now passes through `models.norm_model`/`model_id` (`tests/test_models.py`).
+   4. Claude Code died with "API returned an empty or malformed response": big-pickle pauses 8 to 13 s between stream chunks, Claude Code falls back to a non-streaming call, and 9router answers in OpenAI format. The worker env now sets `CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK`, `CLAUDE_STREAM_IDLE_TIMEOUT_MS`, `API_TIMEOUT_MS`, `CLAUDE_CODE_MAX_RETRIES`, `CLAUDE_CODE_MAX_OUTPUT_TOKENS` (names confirmed in the image binary).
+   5. Build gate `EACCES` in `scripts/standalone.mjs` on a retry from a stale `.next/standalone`; `run-checks.mjs` now builds from a clean `.next`.
+   6. Git "dubious ownership": `run-job.sh` passes `-c safe.directory=/workspace`. Open then: "API Error: upstream connection lost" after 1 to 2 turns; `claude-code:unrecognized_model` for `oc/big-pickle` (harmless); "router unreachable" park text misleading for timeouts.
+   7. First attempt that stayed alive used all 80 turns (24 min, `error_max_turns`). Gate: install, build, app start, `/healthz` and home OK; 3 of 42 unit and 6 e2e tests failing (the bakery project's own code). The 80-turn cap became `worker.max_turns` (then 250).
+   8. 2026-10-06: the 250-turn retry ran about 13 h across review rounds; last gate had unit 42/42 and only e2e failing (6 of 10). Parked after 3 reviews because the last run ended after 13 turns on `API Error: upstream connection lost`. `run-job.sh` now resumes `claude --continue` (up to 5 times, 10 s apart, logged in `agent.stderr`) when the final result is `is_error` with an API error. Separate finding: nginx logs `connect() to [IPv6]:20128 failed (101: Network unreachable)` (45 in 14 h, one 502): `host.docker.internal` is dual-stack and the IPv6 peer is dead. Not fixed; unverified that `--continue` works under `--bare`.
+   9. 2026-10-06: departments showed nothing while a job ran, because the pipeline wrote no tasks. New `pipeline/activity.py` writes a display-only task per stage, seat finding and lead review (`by: pipeline`, doing then done); run/revise refuse them; a write failure is swallowed and never changes a verdict (`test_pipeline.py::test_pipeline_work_shows_up_as_finished_display_only_tasks`). **This is the source of the 81 `pl-…` task rows analysed in G.3.**
+   10. 2026-10-06: switched to a one-page project (Tip splitter, job `2eaf5a51b415`). Verify is a computed rubric and parked two thinner briefs (no price or audience, bare deposit string, contradictory acceptance): it works as designed. The `claude --continue` resume was confirmed live. The kill endpoint left the job's container running (an hour); `sandbox.stop_job_container` now removes it on kill.
+   11. Activity tasks enriched (brief as text, `STAGE_PLAN`, lane, duration and evidence kinds on finish). The container stays per job (`ao-job-<id>`) on purpose: it holds untrusted generated code and must be disposable and isolated; a long-lived per-department container would share state between jobs and would need credentials or the Docker socket to manage.
+4. **FAIL, recorded 2026-10-10, job `7bc5b4b2aa83` (bakery, big-pickle).** The agent finished building but the `dependencies install` check failed: `npm ci` hit ECONNRESET fetching `nodemailer` from registry.npmjs.org through the egress proxy after **6,053 s (about 101 min)**; no other check ran. Claude Code logged `unrecognized_model oc/big-pickle` and the wrapper retried the session 5 times. The job was parked at `build` (interrupted by a restart). Evidence: `data/jobs/7bc5b4b2aa83/out/{checks.json,agent.stderr,exit_code}` (workspace since deleted).
+5. **Update 2026-10-10, every role on `oc/nemotron-3-ultra-free`, Tip splitter job `0cd317edd900`.** Applied and tested (implemented; not live-verified):
+   - **Lane budgets:** `worker.timeout_minutes` 45 and `max_turns` 60 (were 180 and 250); nemotron answers in about 2 s a turn against 21 to 34 s for big-pickle. Worker env: `API_TIMEOUT_MS` 180000, `CLAUDE_STREAM_IDLE_TIMEOUT_MS` 60000, `CLAUDE_CODE_MAX_RETRIES` 3; `run-job.sh` resumes at most 4 times, 5 s apart.
+   - **Install gate:** `run-checks.mjs` caps each `npm ci` at 180 s and the step at 420 s (was 101 min), retries a network failure with backoff, falls back to `npm install` only for a lockfile mismatch, and appends `[registry unreachable]` to the detail.
+   - **A network failure is not a review round:** `ContainerWorker.recheck` re-runs only the checks (`AO_CHECKS_ONLY=1`, no agent, `MAX_RECHECKS` = 2, `recheck_pause_s` 30). If the registry is still unreachable the build parks with `RegistryUnreachable` and no lead review runs (`test_pipeline.py`, `test_run_checks.py`).
+   - **Short evidence labels:** the lead prompt shows `E1, E2, …` and maps them back. nemotron had cited only the job-id prefix, which voided valid PASSes and parked scope three times.
+   - **Build `EACCES`:** `fs.cpSync(..., {recursive: true})` fails with `EACCES` on the bind-mounted workspace (Node 22.23, macOS virtiofs; tmpfs works). `scripts/standalone.mjs` now walks the tree with `copyFileSync`. In the container all 6 checks passed (install 12 s warm, build 20 s, unit, start and `/healthz` 200, home, e2e), and 6/6 on a fresh template copy via `run-checks.mjs`. A cold in-container install took 92 s once.
+   - **Token caps checked, not the cause.** From 9router `usageHistory`, 175 nemotron requests in 3 h: output averaged 177 tokens, largest 1,634; the worker's `CLAUDE_CODE_MAX_OUTPUT_TOKENS` is 8,192 and the model's own limits are 1,000,000 context / 65,536 output. No stream in `data/jobs/*/out/agent.stdout` carries a length stop, and the backbone governor (500k tokens per run) never fired. Input is the volume: 8 to 20k per request; three concurrent containers sent about 1.5M input tokens in 10 minutes. `costs.tokens` counts only host-side calls plus the build worker's total when its stage returns; the router log is the live view. 9router has `cavemanEnabled` (lite) and `headroomEnabled` on; Headroom compressed 1 of 6 requests by 9.6 %, so it is not the cause. **Part G re-checked this and corrected two sub-claims: see G.5.**
+   - **What cost completeness was turns spent on the sandbox, not tokens.** The first Tip splitter build ended `error_max_turns` at 60 turns with 17 failing tool calls: `vitest: not found` (the template ships without `node_modules`), no `curl`/`lsof`/`pkill`/`ps` in the image, and `EADDRINUSE` on 3000/3100 from the agent's own backgrounded servers. Fixed: TASK.md says to run `npm ci` first and never to background a server (`worker/base.py`); the image has `procps`, `lsof`, `curl` in a layer after the npm cache.
+   - **Runs cleared (2026-10-10, owner's request).** Both bakery jobs (`54332daa0a95`, `13d9c91f9080`) and the Tip splitter job (`0cd317edd900`) were killed, archived through `POST /api/jobs/{id}/archive`, and their `data/jobs/<id>` workspaces deleted; no `ao-job-*` container or queue entry is left. Their records stay in Postgres. The numbers from those runs are gone.
+   - **Still to record for the S2 result:** wall clock and minutes per stage of a fresh run on the fixed image and TASK.md, the retry count from `/out/retries`, and that it ran on nemotron.
+
+## F.3 Decision log (source: `PLAN.md` §13, condensed; later parts of this file win where they disagree)
+
+| Date | Decision | Status now |
+|---|---|---|
+| 2026-10-03 | One plan file; GUARDRAILS and the decision rubric folded in | Superseded 2026-10-10: this file is the only plan |
+| 2026-10-03 | Keep 35 seats / 8 departments; each lead approves only its own stages; exposure needs `comply` + `olead` (+ owner for the first 3 Tier 1, always Tier 2) | The 35 seats were cut to 17 (next row and F.6); "each lead approves only its own stages" stands (`DEFAULT_STAGES`) |
+| 2026-10-03 | Postgres checkpointer; Tier 1 clicks 3; preview TTL 7 days; research model `kr/glm-5`; builder Haiku fixed; VPS AlmaLinux 9.7 | Research model and builder changed (all roles `oc/nemotron-3-ultra-free`, Needs attention row 24) |
+| 2026-10-03 | Frontend shows up to 10 seats per department (`SEATS_PER_DEPT`, `FREE_SEATS` in `src/data.js`): named seats plus empty desks, drawn only, no backend entry; staffing a seat = move it into `AGENTS` and the seed | Relevant to G.4 (the "10 per department" idea came from here) |
+| 2026-10-04 | Departments relabelled (STRATEGY & LEGAL, MARKET & SALES, BACKEND BUILD, PRODUCT & FRONTEND, DEVOPS & QA, SECURITY & PRIVACY, FINANCE & PRICING, CONTENT & SUPPORT; keys unchanged); 27 staffed seats took roles from the Citadel registry; ids of existing leads and tested seats kept; the other 8 old seats dropped | Seats later cut to 17 (F.6, §19) |
+| 2026-10-04 | Bench (`seed/bench.json`, 226 Citadel roles, no hr-people) is not seats; a lead may spawn a bench role from its own department (`pipeline/spawn.py`, `POST /api/jobs/{id}/spawn`): depth 1, max 3 per job stage, audited before the model call, information only (evidence kind `spawn`, never a verdict) | Not wired into the automatic lead review; frozen |
+| 2026-10-04 | Agent architecture adopted: seats run inside stages as information-only workers; leads may spawn bench roles and consult other leads; brain search is Postgres full text; agents propose notes and the owner approves; one context builder for both execution paths; playbooks live in `brain-yekdast/Playbooks/` (tracked), not under the git-ignored `Agents Office/` | Basis of G.2 |
+| 2026-10-04 | **One-slice go-live:** only `exec` and `engineering` act as agents (`pipeline.live_departments`); other departments' stages need the owner (`exposure.stage_roles`); no persona or seat of an offline department is sent to a model; gated and public previews are refused (HTTP 400) until `secdata` and `exec` are both live | Live set widened 2026-10-05 (F.6) |
+| 2026-10-04 | **Rev 5, one-day revision (F.4):** Haiku fixed builder; 9router only; owner's keyless web fetcher; owner Promote | See F.4 |
+| 2026-10-04 | Boot and verification scripts prepared (`boot.sh`, `stop.sh`, `restart_api.sh`, `verify_slice.py`, `verify_ui.mjs`; `npm run boot|stop|verify`). Proven here against the scripted stack on real Postgres (32 API checks incl. a real process kill and resume, 11 UI checks); that run found and fixed a real bug (spawn/consult evidence written as a bare string into a JSONB column) | `verify_slice.py` is now stale and unsafe on the live stack (G.5) |
+| 2026-10-04 | **Live UI rule and activity stream:** served over http the UI shows no demo content; every effect comes from `/api/activity` and `/api/mcp` | Stands |
+
+## F.4 The one-day revision (source: `PLAN.md` §14, 2026-10-04)
+
+**Goal (owner):** the owner is the only human (CEO); departments are the employees. An idea (own or a client's) becomes a validated or killed idea, or a live product, within one working day.
+
+**Verdict of that audit.** Keep the governance layer (deterministic pipeline, lead and owner gates, evidence blackboard, Postgres checkpoints, sandbox spec, egress proxy, audit-before-call, Dokploy allow-list). The production layer was thin and in places set up to fail; most effort had gone into the org chart (seats, bench, 3D office), which added cost and no capability because no agent had a tool.
+
+**Findings, most serious first (fact unless marked):** (1) the platform never ran the app (build passed on "worker exit 0 + bundle exists"); (2) market validation was impossible (no web tool, no own-idea lane); (3) the cost cap was broken both ways (router calls priced at $0; the worker's own `total_cost_usd` could park every build at the $1 cap, assumption); (4) the builder started from an empty directory; (5) no route to production for anyone; (6) seats and bench gave opinions without tools; (7) 9router-only access (terms risk, silent fallback); (8) the owner was the bottleneck with no notification channel; (9) two execution engines (task engine and job pipeline); (10) the worker bake-off was too wide.
+
+**Changes C1 to C7 (implemented and tested 2026-10-04; backend 254 tests, `npm run check` 24/24, `verify_slice.py` 42/42 and `verify_ui.mjs` 14/14 on the scripted stack, `run-checks.mjs` 6/6 outside Docker):**
+- **C1 Budget:** estimated per-model price table, per-lane USD and token caps, worker cost = worker tokens × table (not the worker's own USD), router outage parks with a clear reason. Seats off by default (`seats: []`); a seat returns only when it owns a tool or a check.
+- **C2 Run-checks:** the job container installs, builds, tests and starts the app and smoke-tests `/healthz` and `/` (`infra/sandbox/run-job.sh` → `/out/checks.json`). The build gate cannot PASS unless they are green.
+- **C3 Golden template** `templates/webapp/` is copied into every new workspace.
+- **C4 Lanes** `validate | build`; the validate memo's verdict is computed from evidence counts, never stated by a model.
+- **C5 Owner Promote:** owner-only endpoint and button with a checklist; agents never call it.
+- **C6 CEO inbox:** one "Needs you" list and a `Notifier` port (Telegram or email; env-var names only).
+- **C7 One worker on the default path** (Claude Code); OpenHands and mini-swe stay behind the interface.
+
+**Time budget (assumption until S2 measures it):** validate 30 to 60 min; landing page 30 to 45; scope 10; build 60 to 180; checks 15; preview 10; owner review 15 to 30. That is 3 to 6 h for a small CRUD/SaaS MVP. Market proof (people paying) cannot happen in hours.
+
+## F.5 System notes (source: `PLAN.md` §15 to §16, 2026-10-04; structure is in §3, kept short here)
+
+- **Topology:** API (FastAPI + LangGraph) on 127.0.0.1:4520 serving the built UI (pid `data/api.pid`, log `data/api.log`); Postgres 16 (compose project `agents-office`, loopback); egress Squid (logs in the `egresslogs` volume); router-gateway nginx that injects the router key so no container holds it; 9router on the laptop at 127.0.0.1:20128 (config holds `http://host.docker.internal:20128`, which resolves in containers but **not on the host**, so host-side probes map it to 127.0.0.1); job containers `ao-job-<id>`. **Boot:** `set -a; . ./.env.local; set +a; npm run boot`. **Stop:** `scripts/stop.sh` (also needs `ROUTER_API_KEY` sourced for `docker compose`). Mutating API calls need `X-AO-Client: office`.
+- **Activity stream:** `activity.py` ring buffer of 400 events, `emit(...)` never raises; `GET /api/activity?since=` returns `{seq, events}`; the UI polls every 2 s (served mode only), skips history on the first poll and plays at most the last 12 events. `GET /api/mcp` appends stack connectors with live status (cached 15 s).
+- **Two UI modes:** served (http) = live, no demo data; `file://` = offline demo.
+- **Issues fixed then:** demo tasks in the live UI (gated by SERVED); UI motion not driven by backend (activity stream); router tile "failed" (hostname mapping); `npm run verify` used python 3.9 and a priceless brief; verify left jobs behind; Squid logs lost; `stop.sh` failed without `ROUTER_API_KEY` (workaround: source `.env.local`).
+- **Session log 2026-10-04:** restart parks `running` jobs and Retry continues from the checkpoint; the worker log is `stream-json --verbose` with an `out/trace.jsonl` digest; the image bakes template deps and the npm cache; `syncJobs` (`tasks.js`) maps jobs onto the board (running → doing, waiting → waiting, parked → backlog, done → done, desk = the lead of the current stage); UI render loop capped at 30 fps; model events already carry the stage lead as agent id (`tests/test_activity_agent.py`).
+- **Operating rules learned (still apply):** stop everything immediately when asked; boot only on request; leave the laptop's 9router app alone; never `pkill -f` or `pgrep -f` (pid files); never write secrets to files; hooks can block the first Bash/Edit of a session until a short statement is given.
+
+## F.6 Redesign history, 2026-10-05 to 2026-10-10 (source: `PLAN.md` §17 to §20.1)
+
+- **Re-audit with graphify (2026-10-05).** 232 files, 2,061 nodes, 4,670 edges, 109 communities; hubs `load_config` 111, `initTasks` 90, `get_job` 49, `MCPRegistry` 33, `get_deps` 33, `get_pool` 27, `initBrain` 25. Findings: stage ownership did not match the live set (stages owned by secdata, devops and revenue ran while only exec and engineering were live); the UI showed more than the backend ran (8 departments, 27 seats, 26 connector tiles against 2 departments and 0 connectors); MCPs, personas and skills were present but inert; no component had an end-to-end proof. **Rule that came out of it:** a capability becomes visible only after one real call is recorded in `/api/activity`; dormant means absent, not greyed out.
+- **Applied 2026-10-05.** `live_departments` = exec, engineering, secdata, devops; `handoff` moved to the exec lead with no seats; revenue's seats stay dormant; `applyLive` in `src/main.js` removes dormant departments from the scene when the backend reports `liveDepartments` (offline all eight stay). 248 tests passed.
+- **Personas and brain research (2026-10-06).** Citadel (MIT): 265 agents, only 11 hand-written, the rest one template with the role text swapped; for our departments every persona has `tools: []` and `skills: []`. Use it as persona and metadata source, not as architecture. Done: `backend/app/seed/citadel/` (byte-for-byte copies, pinned in `PROVENANCE.md`: 135 personas, the 11 hand-written subagents, 6 rules, 5 skills, registry, catalogs); `personas.py` loader (`get`, `for_seat`, `hand_agents`, `model_for`); `pipeline/spawn.py` gives a spawned bench role its Citadel prompt verbatim plus our information-only boundary. **Never done: feeding the persona into `context.build_pack` for staffed seats; per-seat tool allowlists; `pack_for(job)` so the builder's TASK.md carries the engineering playbook.** (Part G confirms `personas.for_seat` still has no caller.)
+- **Leads are Citadel personas, live-department seats removed (2026-10-06, §19).** Owner decision: remove the staffed seats and old leads in the four live departments; leads come from vendored Citadel personas: exec = `exec-ceo-strategist`, engineering = `exec-vp-engineering`, secdata = `sec-compliance`, devops = `devops-cd` (chosen over `qa-smoke`; the pipeline and tool allowlist keep it from promoting). A lead's seat id is its Citadel id. **Removed seats: scout, legal, pco, ona, recon, kmail, vmail, dash, report, imail.** Stage `seats` lists are empty; `exposure.keys` = sec-compliance + exec-ceo-strategist. Roster is 17. **This is the direct cause of "only leads are visible" (G.4).**
+- **Direction change: build on Citadel (2026-10-06, §19.1).** Dropped D1 (persona text in packs), D5 (rules in packs), D6 (review skills as prompts) because they add tokens to every call. Principle: mechanisms that are code or config cost no tokens; anything that adds prompt text or a model call is off unless the owner turns it on. **Superseded by §16.10.3 (native LangGraph agents, Citadel as reference only, approved 2026-10-10).** What stayed: `backbone_bridge.py` (flag `AO_BACKBONE`) puts Citadel's SafetyGovernor on every metered call and maps roles to tiers through `ModelRouter.select`; **no litellm; LangChain and LangGraph stay.**
+- **Feature inventory and backend decisions (2026-10-06 to 07, §20).** Features: 3D office; Task Status panel; chat with a lead; Jobs (eight-stage stepper, NEEDS YOU, gates, evidence, cost, retry, kill, spawn, consult, Promote); Calendar and routines (`when.js`, new `once` schedule); Brain graph and proposals; connectors; inbox, activity, usage, health, skills, bench. **Built:** roster fixtures generated from the seed (`scripts/gen_roster.mjs` → `src/roster.gen.js`); routines open to exec, engineering, devops, secdata, content, fin, revenue with `createdBy` and `needsYou`; Redis + arq queue (`jobqueue.py`, `AO_QUEUE=1`, one arq job per job id `drive-<id>`, worker events forwarded through a capped Redis stream); SSE `GET /api/jobs/{id}/stream`; `POST /api/jobs/{id}/archive`; chat tasks and routine runs as `drive_task` arq jobs; the worker takes `ao:worker-lock` (30 s TTL) before parking anything; `policies` enforced in `mcp.call_allowed` (30 tests); `AO_BACKBONE=1` and `AO_BACKBONE_MAX_USD=1` in `.env.local` (a routine run capped at $1 and 500k tokens; a job stage by tokens only); `/api/openapi.json` on (43 routes pinned in `tests/api_routes.txt`; regenerate with `UPDATE_API_ROUTES=1`); `src/v1data.js` trimmed to the 13 seeded seats. Graphify re-run: 6,326 nodes, 9,691 edges, 637 communities (the vendored clone alone is 2,821 nodes); hubs of our code unchanged. Suite then: 309 passed, 9 skipped; `npm run check` 18/18. **Live 2026-10-07:** a validate job was driven by the arq worker, a chat task ran as `drive_task` in 22 s, a routine run finished `done` in 7 s, and 18 old test jobs were archived.
+- **Open at that time and still open:** routine runs are not in an `ao-internal` sandbox; one worker only; `tasks.js` (974 lines) and `main.js` (1,533) are the two hubs and stay unsplit.
+- **Freeze list (owner approved 2026-10-10):** copied into §12 of this file. Dev loop: `npm run check:core` (no browser) while working; `npm run check` before every commit.
+
+## F.7 What was reconciled and where it went
+
+| `PLAN.md` section | Now lives in |
+|---|---|
+| §1 to §10 (goal, operating model, rubric, rules, architecture, implemented, gaps, owner items) | Parts A to E (they were already folded in on 2026-10-07 to 2026-10-09; nothing in them was newer than this file) |
+| §11 runbook | F.1, F.2, Part C §7 (the work plan) and Needs attention |
+| §12 dropped on purpose | §3 and §12 |
+| §13 decision log | F.3 and Part B |
+| §14 one-day revision | F.4 |
+| §15 to §16 system notes, session log | F.5 and §3 |
+| §17 to §19.1 re-audit, personas, Citadel pivot | F.6, §16.10.2 and §16.10.3 |
+| §20 feature inventory, queue, locks, OpenAPI | F.6, §3, §12 |
+| §20.1 freeze list | §12 |
+
+# Part G. Audit of 2026-10-10: Brain, tasks, seats, build reliability, data consistency
+
+Request: audit the Brain, reconcile the "65 tasks", restore the department/seat structure, find the primary cause of incomplete builds, and trace data consistency end to end. **This part is the audit and the plan. No code, test, job, database row or `PLAN.md` line was changed to produce it.** Fixes start only after Gate 1 (G.9, Needs-attention row 18).
+
+## G.0 Method and labels
+
+| Label | Meaning |
+|---|---|
+| **V** verified | Read in code, queried (SELECT only) or fetched (GET) in this session |
+| **V-inferred** | Follows from verified facts, but the exact record or run was not observed |
+| **I** implemented | A commit changed the code (never counts as done on its own) |
+| **T** tested | A named regression test exists and the baseline is green |
+| **L** live-verified | Exercised by a real job or the real UI. **Nothing in this part is L.** |
+| **P** pending | Not done |
+
+Allowed in this audit: reading files, `SELECT` through `docker exec agents-office-postgres-1 psql`, `GET` with the page token, the unit-test suite and `npm run check` against the separate `office_ui` database. Not done: `npm run verify`, `scripts/verify_slice.py`, creating or advancing any job, killing or cancelling anything, reindexing the production DB, removing any file. Statements about other people's intentions ("by the owner's decision") cite the plan section that records them.
+
+## G.1 Baseline
+
+| Check | Result | Label |
+|---|---|---|
+| Backend tests | **359 passed** | V |
+| `npm run check` (needs `AO_TEST_DATABASE_URL` pointing at `office_ui`) | **24/24, exit 0** | V |
+| Working tree before this audit | `af1e947`, only `MASTER_PLAN.md` modified | V |
+| Live stack | API on :4520, `/api/health` ok, model `oc/nemotron-3-ultra-free`; no `ao-job-*` container; 0 running jobs | V |
+| Tests that exist for Brain retrieval across departments, stage or role; ACL; truncation; graph/index parity | **None** (`test_architecture.py` covers search ranking, reindex, `build_pack`, proposals; `test_postgres.py` covers brain search/reindex) | V |
+
+Command for the baseline (the URL swaps the database name; do not source all of `.env.local` into pytest):
+
+```
+URL="$(set -a; . ./.env.local; printf '%s' "$DATABASE_URL" | sed -E 's#/[^/?]+(\?|$)#/office_ui\1#')" && AO_TEST_DATABASE_URL="$URL" npm run check
+```
+
+## G.2 Brain
+
+### G.2.1 How it works today (traced in code)
+
+```
+vault (brain-yekdast/*.md, AO_BRAIN)
+  → brain._walk_notes → chunk_note → reindex → brain_chunks (Postgres; db.brain_replace = DELETE all + INSERT in one transaction)
+  → brain.search (db.brain_search: OR tsquery + ts_rank; dept-name regex re-sort; falls back without a log line)
+  → context.build_pack(seat, stage, query, evidence)   ← pipeline/leads.py (stage leads)
+  → graph/engine.run_task (chat tasks: its own search, k=4, dept)   ← a second consumer
+proposals.py : seat proposes → JSON on disk → owner approves → note file written → reindex
+learn.py     : owner's "revise" feedback → per-seat lesson file (Agents Office/feedback/<seat>.md) → prompt_text
+graph        : brain.brain_graph (notes with at least one [[link]], max 160 nodes) → /api/brain → Brain screen
+```
+
+`build_pack` order and budget (`context.py`): head (name, role, does, stage) → DEPARTMENT PLAYBOOK (1,800) → brief + boundaries + skills + lessons (2,400) → FROM THE BRAIN, top 4 hits (2,200) → JOB EVIDENCE (1,600), then one final cut to **7,000**. **V**
+
+The only code that writes into the vault is `proposals.py` (approved notes), `learn.py` (lesson files) and the MCP access log. **No backend path saves a task deliverable as a note** (`task.note` is never set), yet the UI prints "saved to your brain" under every live deliverable (`src/tasks.js:218`). **V** → finding DC-1.
+
+Vault contents (V): `Company/company.md`, `Tech Stack/tech-stack.md`, `Playbooks/<dept>.md` (8 files, **1,546 bytes in total**, 126–288 bytes each), `Agents Office/{agents-office.md, routines.json, feedback/alead.md, skills/…}`, `audit/mcp-access.log`. Production index: **12 notes, 0 wiki-links**. Stray empty directories: `Agents\ Office/` and `Tech\ Stack/` (names with a literal backslash) in the vault root, and a literal `{skills,feedback,routines}/` inside `Agents Office/` (a failed brace expansion).
+
+### G.2.2 Findings
+
+| ID | Sev | Finding (all V unless stated) | Fix slice |
+|---|---|---|---|
+| BR-1 | High | **Notes, lessons and approved proposals enter the prompt unfenced.** `fence()` (`<untrusted>` wrapper plus "never follow instructions") is applied to job evidence only. A note that says "ignore your rules" is read as instruction. The chat-task path (`engine.py:253`) builds its own context; its fencing was not audited | S5 |
+| BR-2 | High | **The budget is inconsistent and truncation is silent.** Section caps add to 8,000 against a 7,000 total; the final cut removes the tail, which is the job evidence. Nothing is logged or recorded about what was cut | S5 |
+| BR-3 | High | **No access control.** Every seat can retrieve every note; `dept` only re-sorts hits with a regex built from the department name (not escaped). The `folder` column exists in `brain_chunks` but `chunk_note` is never given a folder, so the column is always empty and a folder ACL cannot work today | S9 |
+| BR-4 | Med | **Ranking is `ts_rank` plus a department sort.** No stage, role/seat, title, note-type or recency signal; OR-semantics returns weak matches | S9 |
+| BR-5 | Med | **Index and graph disagree.** The index includes `.obsidian`, `99-Archive`, `.trash`; the graph skips them. Identity is `p.stem`, so two notes with the same name in different folders collide | S9, S10 |
+| BR-6 | Med | **The Brain screen does not show the real vault.** Offline/sample data has 35 notes; production has 12 notes and 0 links; the live graph keeps only linked notes, so it is empty. The screen can fall back to the sample without saying so (V-inferred from `brain.js` plus the graph code) | S10 |
+| BR-7 | Med | **Playbooks are one to three lines and not tied to seats or stages.** 8 files for 8 departments; the four live departments each have one lead seat | S11 |
+| BR-8 | Med | **Personas are not used in prompts.** `personas.for_seat` has no caller; the pack head uses only roster name, role and `does` | S12 |
+| BR-9 | Med | **Proposals are sound on creation** (never overwrite; id regex; slug; path traversal tested) **but** approved text re-enters prompts unfenced (BR-1 laundering), there is no lock on concurrent approvals, and a proposal lives only as a JSON file (no row, no audit entry) | S5, S14 |
+| BR-10 | Low | **No observability.** No log or counter for: search fallback, empty results, notes chosen, sections truncated, index age. `reindex` runs at boot and after an approval; a file edited by hand is picked up only at the next reindex | S5, S9 |
+| BR-11 | Low | Stray empty directories (above). They are harmless to the index (no notes). Removing them needs the owner's yes | S17 |
+| BR-12 | Low | The vault, `routines.json` and lesson files are outside the database, so they are outside any DB backup | S14 |
+
+### G.2.3 The nine evaluations
+
+| # | Question | Current | Recommendation | Decision / dependency |
+|---|---|---|---|---|
+| 1 | Richer playbooks aligned to seats | 8 tiny files | One file per department, structured: **Purpose · Inputs · Steps (checklist) · Outputs · Hard limits · Hands off to · Escalate when**, with a `## Seat: <id>` section for **each seeded seat only** (leads for the four live departments; all 17 where the seat exists). Front-matter `dept`, `seats`, `stages` so retrieval can select by stage. Playbooks are trusted shared notes, so they arrive through the proposal flow and the owner approves the text. No seat is invented | Wording is the owner's to approve (S11). Depends on row 19 for which seats |
+| 2 | Better ranking | `ts_rank` + dept sort | Fetch top 20 by `ts_rank`, **re-rank in Python** (testable): + stage tag match, + seat/role match, + title match, + note type (playbook > project > lesson), + recency decay from file mtime, − archive/`.trash` (excluded). AND-terms first, OR as fallback. Keep the weights in one dict | S9. Golden queries prove it |
+| 3 | Who can retrieve what | nobody is blocked | Front-matter `visibility: shared \| dept:<id> \| seat:<id> \| owner`; default from folder (`Playbooks/<dept>` → that department; `Company`, `Tech Stack` → shared; `Agents Office/feedback/<seat>` → that seat; `audit` and `owner` → never retrieved). Filter in SQL on `folder`/`visibility`. A seat gets its department plus shared | S9. **Decision:** default for an unlabelled note (rec: shared read-only) |
+| 4 | Postgres storage + markdown backup/recovery | DB holds a derived index only; vault is the truth | **Two steps.** Now: keep the vault as truth, add an index-vs-vault integrity check. Then (migration `003`): `brain_notes(path, body, front_matter, sha256, version, source, author, updated_at)` as truth, `brain_note_versions`, automatic export to markdown after each approval (write temp then rename), `brain restore` from the vault if the table is empty. Prove restore in a disposable DB. Already approved in §16.10.1; this sets the order | S14, after S9/S10 |
+| 5 | Per-agent and per-job memory | per-seat lesson files only | `agent_memory(seat_id, key, text, source_job, created_at)` and `job_memory(job_id, …)` (job memory follows the retention class of §16.8 and is never shared). Retrieval takes a `scope`. Nothing in either scope becomes a shared note except through a proposal | S13 |
+| 6 | Persona catalog + prompt pipeline | personas unused | §16.10.2 option C (`persona_catalog`, `persona_files`) and §16.10.3 native specs. One function builds every prompt as ordered layers: **system rules → persona → playbook section for seat + stage → brief/boundaries/skills → lessons → notes → evidence**. Each layer has a budget and returns `{layer, chars, truncated, source ids}` | S12 (Phase P) |
+| 7 | Indexing, fallback, observability, budget, quality tests | none of these | Reindex at boot, after approval and when the vault's newest mtime is newer than the index; fallback logs once and appears in `/api/health.brain`; the manifest from #6 is stored with the call; budgets sum to at most the cap and the cut removes the lowest-priority layer first; golden retrieval tests per department/stage; ACL tests; truncation test; graph/index parity test | S5, S9 |
+| 8 | Graph consistency | sample vs real, stem identity | One `iter_vault_notes()` used by index **and** graph (same skip rules, identity = vault-relative path); orphan notes become nodes; an explicit "sample data" banner if the screen ever falls back; test: graph nodes = indexed notes minus exclusions | S9, S10 |
+| 9 | Security and boundaries | see BR-1, BR-3, BR-9 | Fence every retrieved/learned/approved text and neutralise a closing `</untrusted>` inside it; ACL in #3; agents keep **no** write path to the vault (verified: only `proposals.py`, `learn.py`, the MCP log write there); approval is the only door. Tenant: one owner = one vault = one database today, so no `company_id` yet; add a `vault` column in migration `003` only when a second company is real | S5, S9 (security-reviewer) |
+
+Principle kept: the Brain supplies context and decides nothing; nothing in this plan lets a note change a verdict, a gate or a budget.
+
+## G.3 Tasks ("the 65")
+
+### G.3.1 What the database holds (V, queried)
+
+83 rows in `tasks`, **all `done`**. `state` column and `data.state` agree on all 83 (0 mismatches).
+
+| Agent id | Rows | Failed (`error=true`) | In the current roster? |
+|---|---|---|---|
+| `exec-vp-engineering` | 31 | 14 | yes (live lead) |
+| `exec-ceo-strategist` | 30 | 14 | yes (live lead) |
+| `olead` | 17 | 13 | **no** (legacy v1 id) |
+| `dlead` | 3 | 1 | **no** (legacy v1 id) |
+| `invo` | 2 | 0 | yes (fin department, not live) |
+| **Total** | **83** | **42** | |
+
+81 rows are display-only `pl-<job>-<stage>-<seat>[-key]-<ts>` pipeline rows (39 finished, 42 failed). The other two are `invo` rows: one chat task (`by: you`) and one routine run (`by: routine`).
+
+### G.3.2 Where the 65 comes from
+
+The UI skips any stored task whose agent is not in the roster (`src/tasks.js:574` and `:684`, `if (!agentOf(st.agent))`). That hides **20 rows** (`olead` 17 + `dlead` 3). 83 − 20 = **63** stored rows are shown; the UI adds **2** rows built from jobs, giving 65 (64 done + 1 backlog). **V** for 83, 20 and 63; **V-inferred** for the 2 job-derived rows and their split. The API returns all 83 (`GET /api/tasks`, V), so the loss is in the UI, not the backend.
+
+### G.3.3 Classification
+
+| Class (from the request) | Count | Notes |
+|---|---|---|
+| Legitimately completed | 39 | finished pipeline stages (`done`, no error) |
+| **Failed, stored as `done`** (not a class the request listed, but the real one) | 42 | `done` + `error=true`. 14+14+13+1; 28 of them are visible, 14 hidden |
+| Backlog that should stay open | 0 stored | the single backlog row is job-derived (V-inferred) |
+| Duplicates | 0 by id (primary key). Repeated stages after rework are separate history rows by design | not duplicates |
+| Stale | 20 | legacy `olead`/`dlead` rows written before the lead ids were renamed |
+| Missing from the lists | **20** | the same rows, hidden by `agentOf` |
+| Status disagreement DB ↔ API | 0 | both show 83 `done` |
+| Status disagreement API ↔ UI | 20 hidden; failure is shown as "failed" only through the `done+error` flag | see TK-1, TK-2 |
+| Generated/consumed/archived/omitted by a digest | **none found**: there is no task digest in the backend (the word appears only in worker trace code); sync is the UI polling `/api/tasks` every 6 s and building rows from `/api/jobs` | no digest bug to fix |
+| Routines / calendar | 0 routines (`routines.json` is `{"routines": []}`, `routine_state` empty); the calendar has no storage or API of its own, it is drawn in the UI from routines | nothing missing |
+
+**No task should be deleted or marked complete.** Rows are history; the fix is to show them truthfully.
+
+### G.3.4 Root causes
+
+| ID | Sev | Cause | Evidence |
+|---|---|---|---|
+| TK-1 | High | **"Failed" is encoded as `state=done` + `error=true`** everywhere (`pipeline/activity.py`, `fail_interrupted_tasks`, `main.py` exception path). There is no `failed` state, so counts, filters and "done" totals include failures. The UI does show "failed" for such rows (live rows with `error`; `src/tasks.js:729`, V by reading, not by looking at the screen) | DB: 42 of 83 |
+| TK-2 | High | **Legacy seat ids are hidden, not migrated.** 20 rows keep `olead`/`dlead`; the ids also survive in `src/v1data.js`, `tasks.js`, `mcp.js` demo data | DB + UI code |
+| TK-3 | High | **`graph.py:88` calls `activity.finish(shown, ok=bool(out), …)` in a `finally`** that also runs when the stage returns to park (`_park`). A parked stage is written as finished; "ok" is whether the stage returned a non-empty dict, not whether it succeeded (F-13 in §5.1) | code, lines 80–92 |
+| TK-4 | Med | `db.save_task` writes the state twice (column and JSONB). Today consistent; nothing enforces it except the writer | DB: 0 mismatches |
+| TK-5 | Med | Display rows and real tasks share one table and one list; the only discriminator is the `pl-` id prefix (`pipeline: true` in JSON) | code |
+| TK-6 | Med | `pl-…-<ts>`: a replayed stage after a crash writes another row; the history cannot tell a retry from a duplicate. `fail_interrupted_tasks` drops the reason ("interrupted") | code |
+| TK-7 | Med | **Inbox** (`pipeline/api.py inbox()`, about lines 364–390) includes archived jobs and has no `failed` kind; terminal `failed` jobs never reach the owner (F-04/F-12 follow-up) | code |
+| TK-8 | Low | No reconciliation anywhere: nothing checks that the roster knows every task agent, that a `doing` task has a live job, or that counts agree | — |
+
+### G.3.5 One source of truth (design, smallest change)
+
+| Aspect | Rule |
+|---|---|
+| Identity | `tasks.id` is the key. Add `kind` (`pipeline`, `routine`, `chat`) in the JSON, backfilled from the id prefix. No id is rewritten |
+| Lifecycle | `next/backlog → doing → waiting (owner OK) → done \| failed`. First step: keep the stored encoding (`done` + `error`) and add one function `task_status(row)` in the backend that returns `failed` for it; the API sends `status`; the UI reads `status`. Moving `failed` into storage is a later decision (row 21) and a migration across `claim_task`, `fail_interrupted_tasks`, `src/tasks.js` and the tests |
+| Transitions | Only through `db.save_task` / `claim_task`, validated by one transition table in one module; a test lists every legal edge |
+| Ownership | `agent` must be a roster id, or a listed legacy id shown as "former seat" (read-only). **No remapping of history** |
+| Scheduling | Routines only (`routines.json` + `routine_state`); the calendar stays derived |
+| Completion | `doneAt`, plus `error_reason` for a failed or interrupted run |
+| Idempotency | `pl-` ids carry an attempt counter instead of a bare timestamp, so a replay of the same attempt overwrites its own row |
+
+### G.3.6 Integrity checks (read-only)
+
+`taskcheck` returns a list of problems and counts, exposed at `GET /api/tasks/integrity` and logged once at boot. It never writes. Checks: column state equals JSON state; every `agent` is in the roster or the legacy list; every `pl-` row names a job that exists; `doing` rows have a live job; `done` rows have `doneAt`; failed rows have a reason; ids unique by prefix and attempt; counts by kind/state/agent equal the API output. Regression tests use fixtures for each failure.
+
+### G.3.7 Acceptance criteria
+
+1. The UI task total equals the API total for every known agent id; legacy rows appear under "former seat" and nothing disappears (test with a fixture of 83 rows).
+2. A stage that fails or parks is not written as a finished stage (test in `test_park_interrupted.py` / `test_pipeline.py`).
+3. A failed job reaches the inbox; an archived job does not (`test_inbox.py`).
+4. `GET /api/tasks/integrity` is clean on the live DB and reports each seeded fault in the tests.
+5. No row is deleted and no `state` is changed by any of the above (a before/after row count and checksum in the test).
+
+## G.4 Departments and seats
+
+### G.4.1 What exists (V)
+
+| Representation | Result |
+|---|---|
+| `backend/app/seed/roster_seed.json` | 17 seats in 8 departments (a 9th key, `brain`, has no seats) |
+| `GET /api/agents` (live, with token) | **all 17 seats**, `problems: []` |
+| `src/roster.gen.js` (generated from the seed by `scripts/gen_roster.mjs`) | 17 ids |
+| `DEFAULT_STAGES` (`config.py` 21–31) | four leads only: `exec-ceo-strategist`, `exec-vp-engineering`, `sec-compliance`, `devops-cd` |
+| `config.pipeline.live_departments` | `exec`, `engineering`, `secdata`, `devops` |
+| UI | `applyLive` (`src/main.js`) removes every department not in `liveDepartments` from the scene, the lists and the hotkeys; the free desks (`FREE_SEATS`) draw the rest of each department's ten seats as empty, unclickable furniture |
+| Database | **No seats table.** The roster is code + seed + `office.agents.json` overrides, so a duplicate seat in the DB cannot occur. Seat ids persist only as references: `tasks.data.agent`, `approvals.role`, job events |
+
+| Department | Lead | Other seats | Live? |
+|---|---|---|---|
+| exec · STRATEGY & LEGAL | `exec-ceo-strategist` | — | yes |
+| engineering · BACKEND BUILD | `exec-vp-engineering` | — | yes |
+| devops · DEVOPS & QA | `devops-cd` | — | yes |
+| secdata · SECURITY & PRIVACY | `sec-compliance` | — | yes |
+| revenue · MARKET & SALES | `lexi` | `ilm`, `piper`, `enzo` | no |
+| frontend · PRODUCT & FRONTEND | `mlead` | `riley`, `gfx` | no |
+| fin · FINANCE & PRICING | `alead` | `invo`, `apay` | no |
+| content · CONTENT & SUPPORT | `elead` | `newt`, `cmail` | no |
+
+### G.4.2 Why only leads appear
+
+**Not a seeding or API bug.** The backend exposes all 17 seats. Two deliberate rules combine: (1) the owner's 2026-10-06 decision (PLAN §19, Part F) removed ten seats from the four departments the pipeline runs (scout, legal, pco, ona, recon, kmail, vmail, dash, report, imail), leaving each with its lead; (2) the other four departments are dormant, and the UI hides dormant departments entirely. So the office shows four departments with one person each. The nine non-lead seats that remain (revenue 3, frontend 2, fin 2, content 2) are in the roster and API but not on screen.
+
+### G.4.3 The plan itself has three seat lists
+
+| Source | Seats |
+|---|---|
+| Running roster (PLAN §19, this part) | 17 |
+| §16.1 proposal | 42 (7 domains × 6; a cheaper 28) |
+| §16.9.10 / §16.10.3 native specs | 8 departments × up to 10 |
+
+I did not choose between them and added no seat. **Needs-attention row 19.** Leads stay leads in every option.
+
+### G.4.4 Consistency check and idempotency (no behaviour change)
+
+`backend/tests/test_seat_consistency.py` asserts: seed ids = `/api/agents` ids = `src/roster.gen.js` ids (catches a stale generated file); no duplicate ids; exactly one lead per department; every `DEFAULT_STAGES` lead is a lead of a live department; `live_departments` ⊆ departments; every seat has name, role, `does` and boundaries; `load_roster()` twice returns equal results and writes nothing. The expected 17 ids sit in the test as a fixture that changes only when the owner decides row 19. Seeding is already idempotent in the sense that nothing is persisted; if a seats table is added later (S12), the migration uses `INSERT … ON CONFLICT (id) DO NOTHING` and the same test.
+
+## G.5 Build completeness and tool reliability
+
+### G.5.1 The reported observations, checked
+
+| Claim | Verdict | Basis |
+|---|---|---|
+| 175 Nemotron requests averaged 177 output tokens, max 1,634 | **Consistent**; the larger sample checked (237 requests) had **none** reaching 8,192 | the 9router usage table you pasted (V) |
+| Worker cap 8,192; model allowance 65,536 | Configuration as stated; **irrelevant**: no request hit the cap | V |
+| No length-stop in the inspected outputs | **Confirmed** | V |
+| `AO_BACKBONE` 500k governor did not fire | **True, and expected**: the governor meters host-side model calls; the container builder calls the router directly, so it cannot meter it. `AO_BACKBONE=1` is on, which conflicts with Phase 4.2 and the D2 title | V (code), see S15 |
+| 8,000–20,000 input tokens per request, **no cache hits** | **Refuted**: about 30% of prompt tokens were cache hits | V (usage table) |
+| One build ended `error_max_turns` after 60 turns and 17 failed tool calls (missing `vitest`, `curl`, `lsof`, `pkill`; `EADDRINUSE` on 3000/3100) | **Confirmed on that trace** | V (trace in the job output, recorded in `b16fab3`) |
+| TASK.md now requires `npm ci` and forbids background servers | **Confirmed** (`worker/base.py` 42–44) | V |
+| Image has `procps`, `lsof`, `curl` | **Confirmed** (`infra/sandbox/worker-node.Dockerfile` 36–40) | V |
+| Backend 350 passed / 12 skipped; live UI 24/24 | Now **359 passed**; `npm run check` **24/24** | V (G.1) |
+| Image rebuild reused cached layers; changes affect only new jobs | Recorded in `b6c818c`; true by construction for new jobs | not re-measured |
+
+### G.5.2 Primary cause of incomplete builds
+
+**Environment and sandbox turn waste, in two families, not tokens or context size.**
+
+1. **Install failures through the proxy.** The bakery job `7bc5b4b2aa83` spent 101 minutes of `ECONNRESET` on `npm ci` and never reached the code. Mitigation (I, T, not L): baked npm cache, offline-first `npm ci`, cheap network failure, 45 min / 60-turn lanes, `recheck`.
+2. **Tool and server lifecycle.** The agent lost turns on commands that do not exist in the image and on a test server it left running, so every later run hit `EADDRINUSE`. Mitigation (I, T, not L): image tools, TASK.md rules, `npm ci` first.
+
+Not causes: output-token caps (never reached), the governor (never involved), prompt-cache misses (refuted), retries as such. Evidence for family 2 is **one trace**; family 1 is one job. The fixes are **implemented, not live-verified**; only a fresh S2 run can show that (row 23). I will not create one without your yes.
+
+### G.5.3 Remaining reported items
+
+| Item | What I found | Status | Slice |
+|---|---|---|---|
+| `deps.py` | `build_deps` replaces a missing deployer or promoter with `Unconfigured`, which logs a warning and raises only when a stage calls it. The T1.6 change to expose an `ok`/availability flag was never made, so `/api/health` cannot say which of deploy, promote, web, notify are real | V; P | S6 |
+| Inbox | archived jobs included, no `failed` kind (TK-7) | V; P | S1 |
+| In-process fallback event | `jobqueue._enqueue` logs and returns False on any exception; when Redis is down the API drives the job in-process with no dedupe and **tells the owner nothing** (F-18) | V; P | S6 |
+| Boot-sweep notification | `park_interrupted` (`pipeline/api.py:245`) only touches and logs; no `notify_once` | V; P | S6 |
+| "web.py notes" | I cannot find a list with that name. `connectors/web.py` has no numbered notes; the related open items are F-11 (done) and S-02 SSRF (done) in §5. **Row 22** | not actionable | — |
+| `verify_slice.py` | 284 lines; drives a real server and **creates and advances jobs**. Part F records its last partial run (2026-10-04, fake worker: 31/40 slice checks, 10/11 UI checks); the failures there were the `build` gate refusing the fake worker and no web tool being bound, and Part F's safety note calls its expectations stale. I have **not itemised** the stale expectations in this audit and did not run it | V (read); P | S7 |
+| Roster/config | `AO_BACKBONE=1` while Phase 4.2 says the governor should be off for the builder | V; P | S15 |
+
+### G.5.4 Reliability improvements (only where evidence supports them)
+
+| Area | Change | Evidence | Slice |
+|---|---|---|---|
+| Deterministic dependencies | Keep the baked lockfile cache; fail the install gate fast with a precise message; image rebuilt from cache by `npm run image` | S2 history | done (I, T); not L |
+| Server start/stop | `npm run test:e2e` owns its server; add a port sweep before the checks (`run-job.sh`) and a one-line "port busy: pid …" error | trace | S13a (small, after S2) |
+| Bounded, useful retries | Keep `recheck` for registry outages; no second full agent run for an infrastructure failure | S2 history | done |
+| Actionable tool errors | The checks report `E1…` labels with the command and the fix | b16fab3 | done |
+| Turn budget | Keep 60 turns; report "turns used / tools failed" in the job evidence so a 60-turn stop is explained | trace | S13a |
+| Context | **No change**: input size is not the cause and cache hits work | usage table | — |
+
+## G.6 Data consistency matrix
+
+| Object | Source of truth | Writers | API | UI | Sync / retry | Audit / recovery | Gap |
+|---|---|---|---|---|---|---|---|
+| Task | `tasks` table (JSONB + `state` column) | `main.py` task routes; `pipeline/activity.py`; routines; `fail_interrupted_tasks` | `GET/POST /api/tasks`, `…/run`, `…/approve` | `src/tasks.js` (poll 6 s) | `jobqueue.enqueue_task`; boot sweep | task transitions not in `audit_log` (not verified; check in S3) | TK-1…TK-8 |
+| Routine | `<vault>/Agents Office/routines.json` + `routine_state` | `routines.py` | health/routines endpoints | tasks bar, calendar | fired by the server clock; catch-up | file is outside the DB | not in any backup (BR-12) |
+| Calendar event | none (derived from routines) | — | none | `calendar.js` | — | — | by design; document it |
+| Department | seed `depts` + `config.pipeline.live_departments` | owner decisions | `/api/health.pipeline.liveDepartments` | `applyLive`, `markStandby` | reload | git | four departments hidden |
+| Seat | seed + `office.agents.json` overrides | owner | `/api/agents` (17) | `src/roster.gen.js` (generated copy) | `gen_roster.mjs` | git | generated copy can go stale (S4 test) |
+| Agent job | `jobs` + `checkpoint_*` + `jobs_dir/<id>` + container | `pipeline/*`, `jobqueue.py`, worker | `/api/jobs…` | `src/jobs.js` | arq; park; Retry; boot sweep | `audit_log`, `evidence`, `run_costs` | boot parks silent (G.5.3) |
+| Brain note | markdown vault (`AO_BRAIN`); `brain_chunks` derived | owner; `proposals.py`; `learn.py` | `/api/brain` (graph) | `brain.js` | reindex at boot/approval | git for the vault only | BR-1…BR-12; DC-1 |
+| Approval | `approvals` (pipeline gates) + LangGraph interrupt; task approval in `tasks` JSON; proposals as JSON files | gates, owner clicks | `…/decide`, `…/approve`, proposals routes | `jobs.js`, `tasks.js` | resume via checkpointer | `approvals` table; proposals JSON | three stores, no cross-view |
+
+Cross-platform mismatches found: **DC-1** the UI says deliverables are "saved to your brain" but no backend path saves them (V). **DC-2** Brain screen shows sample data while the real vault has 12 notes (BR-6). **DC-3** the legacy ids exist in UI demo data but not in the roster (TK-2). **DC-4** `invo` rows are visible while the `fin` department is hidden (V-inferred from `agentOf` vs `applyLive`).
+
+## G.7 Security and trust boundaries
+
+| Threat | Today | Control to add | Slice |
+|---|---|---|---|
+| Instruction injection through a retrieved note, lesson or approved proposal | unfenced (BR-1, BR-9) | fence + neutralise the closing tag; the pack states that notes are data | S5 |
+| One seat reading another department's private notes | possible (BR-3) | `folder` + `visibility` ACL in SQL | S9 |
+| Agent writing a trusted note | **not possible today** (V: only `proposals.py`, `learn.py`, MCP log write) | keep; add a test that fails if another writer appears under the vault | S9 |
+| Path traversal / odd filenames in proposals | covered by `test_architecture.py` | extend to the new ACL paths | S9 |
+| SQL | `brain_search` builds an OR tsquery from the query | security-reviewer checks quoting and term limits | S9 |
+| Cross-company leakage | one owner, one vault, one DB | `vault` column when a second company is real | later |
+| Approval laundering (agent text approved by a tired owner, then trusted forever) | the owner sees the text; the note then loses the "proposed by agent" mark in prompts | keep `proposed_by` in front-matter and label it when injected | S5, S14 |
+
+## G.8 Safe verification plan
+
+| Allowed now | Needs your yes first |
+|---|---|
+| `backend/.venv/bin/python -m pytest` and `npm run check` against `office_ui` | `npm run verify`, `scripts/verify_slice.py` against the live stack |
+| `SELECT` through `docker exec … psql`; `GET` with the page token | a fresh S2 job; any job create/advance/kill/cancel |
+| Fixture databases created and dropped by tests (`office_ui`) | `brain.reindex` on the production DB (the tests cover it on `office_ui`) |
+| Reading files; `docker ps` | deleting the stray vault directories |
+
+Migrations and recovery (checked in S3/S14): run all migrations twice on an empty disposable database and assert the second run changes nothing; a restore drill (export → empty DB → restore → compare hashes) in a test database; the `taskcheck` and seat checks run on the live read-only path.
+
+## G.9 Gate 1 task list (thin vertical slices, in order)
+
+Each slice is test-first (red test, then the smallest change, then `npm run check`), then `code-reviewer`; `security-reviewer` where marked. Nothing is committed before Gate 2. "Frozen" = the path is on the §12 freeze list and needs row 20.
+
+| # | Slice | Fixes | Files (first guess) | Red test / acceptance | Needs |
+|---|---|---|---|---|---|
+| S1 | Inbox correctness | TK-7 | `pipeline/api.py` inbox(); `test_inbox.py` | archived job absent; terminal `failed` job present with kind `failed` | — |
+| S2 | Honest activity rows | TK-3, TK-6, F-13 | `pipeline/graph.py` (finally), `pipeline/activity.py`; `test_pipeline.py`, `test_park_interrupted.py` | a parked stage is not written finished; a failed stage is written failed with a reason; ids carry the attempt | row 21 only for how failures look |
+| S3 | Task integrity check | TK-4, TK-5, TK-8 | new `taskcheck.py`, route in `main.py`; tests with seeded faults | clean on the live DB; each fault reported; no write | — |
+| S4 | Seat consistency test | G.4 | `tests/test_seat_consistency.py` | the checks in G.4.4 pass on 17 seats | row 19 for the fixture |
+| S5 | Prompt safety and budget | BR-1, BR-2, BR-9, BR-10 | `context.py`, `engine.py:253`; `test_architecture.py` | notes and lessons come out fenced; a hostile closing tag is neutralised; sections sum ≤ cap; truncation is logged with section names | **security-reviewer**; frozen (row 20) |
+| S6 | Visible degradation | TK-7, F-18, F-03, `deps.py` | `jobqueue.py`, `pipeline/api.py park_interrupted`, `deps.py`, `/api/health` | in-process fallback writes an owner-visible event; a boot park notifies once; health shows which of deploy/promote/web/notify are real | — |
+| S7 | `verify_slice.py` made safe | G.5.3 | `scripts/verify_slice.py` | refuses unless an isolated database and an explicit flag; stale expectations itemised and updated; **not run** | review before any run |
+| S8 | UI honesty | TK-1, TK-2, DC-1 | `src/tasks.js` | legacy rows under "former seat"; failed rows look failed; the "saved to your brain" text only when a note exists; `npm run check` live-ui covers it | frozen (row 20) |
+| S9 | Retrieval v2 | BR-3, BR-4, BR-5, BR-10 | `brain.py`, `db.py`, new migration for `visibility`; `test_architecture.py`, new `test_retrieval_quality.py` | golden queries per stage/department; ACL denies cross-department reads; index and graph skip rules equal; stem collisions resolved by path | **security-reviewer**; frozen; row "unlabelled default" |
+| S10 | Real graph | BR-5, BR-6 | `brain.brain_graph`, `src/brain.js` | graph nodes = indexed notes minus exclusions; orphans shown; sample banner | frozen |
+| S11 | Playbooks v1 | BR-7 | vault `Playbooks/` through proposals | structured playbook per department, one section per seeded seat | your approval of the text; row 19 |
+| S12 | Persona + prompt pipeline | BR-8 | `personas.py`, `context.py` | layered builder with a manifest; `for_seat` has a caller | Phase P; frozen |
+| S13 | Agent and job memory | G.2.3 #5 | migration + `memory.py` | scoped read/write; job memory never visible to other jobs | after S9 |
+| S13a | Build reliability small items | G.5.4 | `infra/sandbox/run-job.sh`, evidence | port sweep; turn/tool-failure line in the evidence; `run-checks.mjs` rerun on a copy | after a fresh S2 shows they matter |
+| S14 | Brain in Postgres | BR-9, BR-12 | migration `003`, export and restore | restore drill in a disposable DB; migrations twice change nothing | after S9/S10 |
+| S15 | `AO_BACKBONE` / Phase 4.2 | G.5.1 | `.env.local` (value, not committed), `backbone_bridge.py` | decide: off for the container builder, per-lane budget from the run's own usage | row 24 context |
+| S16 | Fresh S2 run, then S3, S4 | G.5.2 | none (a run) | the build fixes are or are not confirmed live | **row 23** |
+| S17 | Remove stray empty vault directories | BR-11 | vault | three empty directories removed | your yes |
+
+Order rationale: S1–S4 are low risk and give the integrity baseline; S5 closes the highest-severity Brain hole; S6–S8 make failures visible; S9–S14 are the larger Brain work and are separate approvals; S16 is the only real run.
+
+## G.10 Decisions this part needs
+
+Rows **18-24** of **Needs your attention**: approve this list (18), the seat list (19), the freeze lift (20), the task board and failed-state design (21), what "web.py notes" means (22), a fresh S2 run (23), whether D4 is superseded (24). Two smaller choices are folded into S9 and S17 and will be asked when those slices start: the default visibility of an unlabelled note, and removing the three empty vault directories.
+
+## G.11 What is verified, implemented, tested, pending
+
+| | |
+|---|---|
+| **Verified** | everything labelled V above |
+| **Implemented / tested** | the build-reliability fixes in `b16fab3` and earlier (G.5.2); not part of this part's changes |
+| **Live-verified** | nothing |
+| **Pending** | S1–S17 |
+
 ## Appendix. Reading order, open questions, change log
 
-**Reading order:** `CLAUDE.md` → this file (§0, §1, §6, §7) → `PLAN.md` (§1, §3, §11, §20) → `backend/app/config.py` and `pipeline/graph.py` → `main.py` and `pipeline/api.py` → `jobqueue.py`, `sandbox.py`, `infra/sandbox/run-job.sh`, `checks/` → `src/jobs.js` → `backend/tests/`.
+**Reading order:** `CLAUDE.md` → this file (§0, §1, §6, §7, Part F, Part G) → `PLAN.md` only for old history (frozen) → `backend/app/config.py` and `pipeline/graph.py` → `main.py` and `pipeline/api.py` → `jobqueue.py`, `sandbox.py`, `infra/sandbox/run-job.sh`, `checks/` → `src/jobs.js` → `backend/tests/`.
 
 **Open questions for you:** see **Needs your attention** at the top. That list is the single place for decisions and open items.
 
@@ -1337,13 +1830,14 @@ Layers as in 3.3. Env-var names in `.env.example`: `ROUTER_API_KEY`, `PORT`, `AO
 
 ## 0. Original file-relationship note (kept for reference)
 
-- **`CLAUDE.md`** names `PLAN.md` as the single plan. This file is the consolidated map + delivery plan you asked for. `CLAUDE.md` and `PLAN.md` were **not** changed. Once you approve, add one line to `PLAN.md` pointing here (or fold this file into it).
-- **`PLAN.md`** stays the decision log and the §11 runbook where **run results** (S1..S7) are recorded.
+- **Superseded 2026-10-10:** the four lines that used to be here said `CLAUDE.md` names `PLAN.md` as the single plan and that this file was an addition to it. The owner has since made **this file the only plan**; `CLAUDE.md` and `README.md` now point here and `PLAN.md` is frozen history (its run results are copied into Part F).
 - **`PROJECT_STRUCTURE.md`** is merged into Part 3 below, so it can be retired (it was not deleted).
-- **Precedence:** `CLAUDE.md` rules > past decisions in `PLAN.md` > this plan (once approved). A decision here that reverses `PLAN.md` (D2) takes effect only after you say yes and `PLAN.md` gets a line.
+- **Precedence now:** `CLAUDE.md` rules > this plan > `PLAN.md` (history only; if it disagrees with this file, this file wins).
 
 **One-minute summary.** The architecture matches the goal and nothing needs rewriting. Time is lost because (1) the build lane has never run end to end, so every real run finds a new bug; (2) failures are quiet or misleading; (3) the preview, the thing you actually want, has never been reached. The plan: **stop the bleeding (Phase 1), close the security holes (Phase 2), prove the lane end to end (Phase 3), then cut the drag (Phase 4).**
 - 2026-10-09 — owner review: D2→B, D3 C+Dokploy MCP, D4→option D (haiku main, nemotron rest), D1/D5/D7 approved; added §13 platform vision; file restructured into Parts A–E (content kept, section numbers kept as IDs).
+- 2026-10-10 — GATE 1 and GATE 2 passed for the delivery plan; T1.x/T2.x implemented (§5 status map); every role moved to `oc/nemotron-3-ultra-free` (commit 9c51973; D4's Haiku-main is not what runs, row 24).
+- 2026-10-10 — **owner: this file is the only plan; `PLAN.md` frozen.** Reconciled: header, Read-this-first, Needs-attention rows 15-24, §4 live state (S2 job no longer running; 31 jobs; no uncommitted files), §5 status map, §7 status, §12 freeze note, new **Part F** (run log copied from PLAN.md §11/§13/§14/§15/§19/§20) and new **Part G** (audit of the Brain, tasks, seats, build reliability, data consistency). `CLAUDE.md` and `README.md` repointed here.
 
 ## Appendix F. All 265 Citadel agents (from `catalog/_registry.yaml`)
 

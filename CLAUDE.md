@@ -1,9 +1,9 @@
 # Agents Office — for Claude Code
 
-Read `.claude/plans/PLAN.md` before doing anything. It is the single plan and holds the decisions, the architecture and **§11, the laptop runbook**. Update it when a decision changes; do not create other plan files.
+Read `.claude/plans/MASTER_PLAN.md` before doing anything. It is the only plan and holds the decisions, the architecture, the audit (Part G) and the run log (**Part F**, which continues the old laptop runbook). Update it when a decision changes; do not create other plan files. `.claude/plans/PLAN.md` is frozen history: never edit it.
 
 ## Your job on the laptop
-Boot with `npm run boot`, check it with `npm run verify`, and execute the runbook in PLAN.md §11 in order. In short:
+Boot with `npm run boot`, check it with `npm run check`, and execute the runbook (Part F.1 of MASTER_PLAN.md) in order. `npm run verify` and `scripts/verify_slice.py` create and advance real jobs: do not run them against the live stack without the owner's yes (MASTER_PLAN Part G.8). In short:
 - S1: 9router.
 - S1b: find and bind the owner's keyless web search/fetch tool.
 - S2: build the worker image and run the bakery job on Claude Code/Haiku from the template; record the wall clock.
@@ -14,7 +14,7 @@ Boot with `npm run boot`, check it with `npm run verify`, and execute the runboo
 - S7: Telegram.
 - Then a stress test.
 
-Record each result (pass/fail line, evidence, minutes) in PLAN.md §11 and fix the code only where a check proves it wrong.
+Record each result (pass/fail line, evidence, minutes) in MASTER_PLAN.md Part F and fix the code only where a check proves it wrong.
 
 ## Rules that do not bend
 - Agents may build and deploy **previews** only. Never production, marketing, outreach or spending. Production is the owner's Promote endpoint (`/api/jobs/{id}/promote`); nothing an agent can call may reach it (`tests/test_promote.py` pins this).

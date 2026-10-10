@@ -5,7 +5,7 @@ The goal: get from an idea or a client request to a **validated or killed idea**
 
 Two lanes over one gated pipeline:
 
-- **validate** (your idea, or "is there a market?"): intake → **research** → you. Web research where every kept claim quotes a page that was actually fetched. The verdict (GO / TEST / NO-GO) is computed from the evidence by the rubric in PLAN.md §2a, never written by an agent. From a finished memo you can start a landing-page test or the MVP.
+- **validate** (your idea, or "is there a market?"): intake → **research** → you. Web research where every kept claim quotes a page that was actually fetched. The verdict (GO / TEST / NO-GO) is computed from the evidence by the rubric in `backend/app/pipeline/research.py`, never written by an agent. From a finished memo you can start a landing-page test or the MVP.
 - **build** (a client job, or an idea you validated): intake → verify → scope → build → security → preview → exposure → handoff. The builder extends a **golden template** (`templates/webapp/`, Next.js + Drizzle + Better Auth + Vitest + Playwright). The job container then installs, builds, tests, starts and browser-tests the app, and a red check sends the work back.
 
 Agents research, build and deploy **previews** only. **Production is your Promote button**: it prepares a private repo and a production app, and deploys only after you confirm the variables are set. It then checks `/healthz`. Outreach and spending stay yours.
@@ -13,7 +13,7 @@ Everything that needs you is in one **NEEDS YOU** list on the Jobs screen (J), a
 
 Forked from [ajsahni/agents-office](https://github.com/ajsahni/agents-office) (see `NOTICE`). The 3D office UI is kept; the runtime is new.
 
-**Read `.claude/plans/PLAN.md` first.** It is the only plan: decisions, the audit (§14), what is implemented, and the laptop runbook (§11).
+**Read `.claude/plans/MASTER_PLAN.md` first.** It is the only plan: decisions, what is implemented, the 2026-10-10 audit (Part G) and the run log of the laptop runbook (Part F). `PLAN.md` is frozen history.
 
 ## What is in the repo
 
@@ -59,4 +59,4 @@ These have not been run against the real thing:
 - Telegram;
 - the owner's web search tool.
 
-The template and the in-container checks were run for real (outside Docker). PLAN.md §11 lists each remaining check with its pass/fail line.
+The template and the in-container checks were run for real (outside Docker). MASTER_PLAN.md Part F.1 lists each remaining check with its pass/fail line.
