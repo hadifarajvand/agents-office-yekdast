@@ -35,6 +35,11 @@ def thread(job_id: str) -> dict:
     return {"configurable": {"thread_id": f"job-{job_id}"}, "recursion_limit": 200}
 
 
+def crash_reason(e: BaseException) -> str:
+    from ..policy import redact
+    return f"the pipeline crashed ({type(e).__name__}: {redact(str(e))[:200]}) — press Retry; see the server log"
+
+
 RESTART_REASON = "interrupted by a restart — press Retry to continue from the last checkpoint"
 
 
@@ -50,7 +55,7 @@ async def _drive(job_id: str, payload) -> None:
         raise
     except Exception as e:
         log.exception("job %s crashed", job_id)
-        await _park_after_crash(job_id, f"the pipeline crashed ({type(e).__name__}) — press Retry; see the server log")
+        await _park_after_crash(job_id, crash_reason(e))
 
 
 async def _park_after_crash(job_id: str, reason: str) -> None:

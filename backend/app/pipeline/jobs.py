@@ -2,11 +2,13 @@
 document in db.jobs; the LangGraph checkpoint holds the graph's own state."""
 from __future__ import annotations
 
+import logging
 import time
 
 from .. import activity, db
 from ..config import load_config
 
+log = logging.getLogger("agents_office.jobs")
 TERMINAL = {"done", "killed", "failed"}
 
 
@@ -79,6 +81,9 @@ async def set_stage(job_id: str, stage: str, state: str, **extra) -> dict:
     return job
 
 
+_warned_null = False
+
+
 async def notify_once(job_id: str, key: str, text: str) -> bool:
     """Tell the owner once per key (graph nodes re-run on resume, so this must be idempotent).
     Never raises: a dead notification channel must not stop a job."""
@@ -86,18 +91,26 @@ async def notify_once(job_id: str, key: str, text: str) -> bool:
     job = await db.get_job(job_id)
     if job is None or key in (job.get("notified") or []):
         return False
-    job["notified"] = (job.get("notified") or [])[-40:] + [key]
-    await db.save_job(job)
+    from .ports import get_deps
+    n = getattr(get_deps(), "notifier", None)
+    if not n or not getattr(n, "enabled", False):
+        global _warned_null
+        if not _warned_null:
+            _warned_null = True
+            log.warning("Telegram not configured: owner notifications are shown in the Jobs screen only")
+        return False
     try:
-        n = getattr(get_deps(), "notifier", None)
-        if not n or not getattr(n, "enabled", False):
-            return False
         url = load_config().notify.get("office_url", "")
-        ok = await n.send(f"{text}\n{url}" if url else text)
-        activity.emit("notify", "Telegram: " + text[:80], job=job_id, connector="telegram", agent="exec-ceo-strategist")
-        return ok
+        ok = bool(await n.send(f"{text}\n{url}" if url else text))
     except Exception:
         return False
+    if not ok:
+        return False  # not marked: the next pass tries again
+    job = await db.get_job(job_id) or job
+    job["notified"] = (job.get("notified") or [])[-40:] + [key]
+    await db.save_job(job)
+    activity.emit("notify", "Telegram: " + text[:80], job=job_id, connector="telegram", agent="exec-ceo-strategist")
+    return True
 
 
 async def add_cost(job_id: str, tokens: int, usd: float) -> dict:

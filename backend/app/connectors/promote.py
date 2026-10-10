@@ -144,5 +144,7 @@ def checklist(job: dict, evidence: list[dict]) -> list[dict]:
         {"name": "the app was built, tested and started by a real worker, all green",
          "ok": bool(real) and all(e.get("ok") for e in build), "detail": f"{sum(1 for e in build if e.get('ok'))}/{len(build)} checks green"},
         {"name": "the security checks passed", "ok": bool(sec) and all(e.get("ok") for e in sec), "detail": f"{len(sec)} checks"},
+        {"name": "the production repo is configured (PRODUCT_GITHUB_OWNER and PRODUCT_REPO_TOKEN are set)",
+         "ok": bool(os.environ.get("PRODUCT_GITHUB_OWNER")) and bool(os.environ.get("PRODUCT_REPO_TOKEN"))},
         {"name": "a preview was deployed and reviewed", "ok": bool(prev.get("app_id")) and not prev.get("stopped")},
     ]

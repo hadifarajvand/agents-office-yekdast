@@ -56,10 +56,16 @@ def client(fake_db):
     set_deps(None)
 
 
-async def test_a_ready_job_is_prepared_then_deployed_and_probed(client, tmp_path):
+@pytest.fixture(autouse=True)
+def _product_env(monkeypatch):
+    monkeypatch.setenv("PRODUCT_GITHUB_OWNER", "acme")
+    monkeypatch.setenv("PRODUCT_REPO_TOKEN", "t")
+
+
+async def test_a_ready_job_is_prepared_then_deployed_and_probed(client, tmp_path, monkeypatch):
     jid = await finished_job(tmp_path)
     st = client.get(f"/api/jobs/{jid}/promote").json()
-    assert st["ready"] is True and len(st["checklist"]) == 4
+    assert st["ready"] is True and len(st["checklist"]) == 5
     r = client.post(f"/api/jobs/{jid}/promote", json={"step": "deploy", "envConfirmed": True})
     assert r.status_code == 409  # prepare comes first
     r = client.post(f"/api/jobs/{jid}/promote", json={"step": "prepare", "domain": "Orders.Acme-Bakery.com"})

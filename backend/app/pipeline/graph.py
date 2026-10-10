@@ -110,10 +110,11 @@ def router_down(exc: BaseException) -> bool:
 
 
 async def _park(jid: str, stage: str, reason: str) -> dict:
-    job = await jobs.touch(jid, status="parked", parkReason=reason)
+    prior = int((await db.get_job(jid) or {}).get("parkCount", 0))
+    job = await jobs.touch(jid, status="parked", parkReason=reason, parkCount=prior + 1)
     await jobs.set_stage(jid, stage, "failed", reason=reason[:300])
     await jobs.event(jid, f"parked at {stage}: {reason}")
-    await jobs.notify_once(jid, f"park:{stage}:{len(job.get('events') or [])}", f'⚠ "{job["title"]}" is parked at {stage}: {reason[:160]}')
+    await jobs.notify_once(jid, f"park:{stage}:{job['parkCount']}", f'⚠ "{job["title"]}" is parked at {stage}: {reason[:160]}')
     return {"route": "park", "park_stage": stage, "park_reason": reason}
 
 
