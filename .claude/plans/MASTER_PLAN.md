@@ -54,8 +54,8 @@ Only open decisions. "Rec" is my recommendation. Last updated 2026-10-10 (after 
 |---|---|---|---|---|
 | 1 | **Persona catalog design (your proposal, reworked):** the catalog indexes every file an agent has (persona, its domain rules, skills, subagent definition) with full-text search over their details; leads search, the pipeline loads the files found by path. Files are copied unmodified into the repo (all 265; only 146 are there today) | accept / change | accept | §16.10.2 |
 | 2 | Keep Citadel's 15 domain folders on disk (department is a column in the catalog), or physically move files into the 8 department folders | keep folders / move | keep folders | §16.10.2 |
-| 3 | The 8 departments and which Citadel domains go in each; dept 8 "Growth & Customer" dormant | accept / move a domain | accept | §16.9.10 |
-| 4 | Seat rule: max 10 per department, lead fills from the bench using the catalog search | accept / change number | accept | §16.9.10 |
+| 3 | ~~8 departments mapping~~ **Accepted** | done | | §16.9.10 |
+| 4 | ~~10-seat rule~~ **Accepted** | done | | §16.9.10 |
 | 5 | Sandbox: one throwaway container per department per job; per-agent tools and writable area inside (software-enforced), or one container per role | per department / per role | per department | §16.9.11-12 |
 | 6 | Billing in generated apps: Stripe test mode only; Polar/Autumn optional; Lago only as a separate service | accept / other | accept | §16.9.8 |
 | 7 | Templates: default open-source starter per product type | accept table / change row | accept | §16.9.8 |
@@ -67,7 +67,7 @@ Only open decisions. "Rec" is my recommendation. Last updated 2026-10-10 (after 
 | 13 | Platform changes itself only with your approval each time | confirm | confirm | §16.9.3 |
 | 14 | `check:core` goes in `package.json`, `CLAUDE.md` unchanged | yes / no | yes | D6 |
 | 15 | This file vs `PLAN.md`: fold into PLAN.md, or amend `CLAUDE.md` | fold in / amend | fold in | B4 |
-| 16 | **GATE 2** (do first): commit the 74 uncommitted files on a new branch, no push, after `npm run check` | yes / no | yes | |
+| 16 | ~~GATE 2~~ **Done 2026-10-10:** `npm run check` 18/18, branch `chore/checkpoint-before-real-runs`, 3 commits, not pushed | done | | |
 | 17 | **GATE 1**: approve the plan so work can start (step 1 = GATE 2, step 2 = finish S2) | Approve | when 1-15 settled | |
 
 Things only you can do outside the repo (no decision, just tasks): provide the search tool if not SearXNG; Dokploy server and DNS; Telegram bot token as an env-var name; confirm the two models exist in 9router; set `AO_API_TOKEN`. Reference notes and warnings are kept at the end of this section.
@@ -634,7 +634,7 @@ Rules that keep them apart:
 - **Table `persona_files`:** `agent_id`, `kind` (persona, rule, skill, subagent), `path`, `sha256`. This is the "address of every file the agent has".
 - **Lead flow:** `find_agents(query, department)` returns at most 10 lines (id, name, role line, tier). The lead picks. The **pipeline**, not the lead, then loads the chosen agents' files by path, only from `seed/citadel/`, only the picked ones. Lookup costs no model tokens; the lead reads about 10 lines plus the chosen personas.
 - **Rebuild and checks:** the table is rebuilt from the files at boot. Tests: all 265 registry ids have a file, every hash matches, the rebuild twice gives the same table, a path outside `seed/citadel/` is refused, the 8-department counts sum to 265.
-- **Folders (decision 2):** keep Citadel's 15 domain folders on disk so future upstream updates stay a clean diff; department is a catalog column from one mapping file. Moving files into 8 folders would break that for no search benefit.
+- **Folders (owner decided 2026-10-10):** files move into 8 department folders. Contents stay byte-identical; the catalog and `PROVENANCE.md` keep each file's original Citadel path and hash, so a future upstream update is still comparable by hash. Cost accepted: upstream updates are no longer a plain folder diff.
 
 **Honest limit.** 254 of the 265 files are the same template with a different role line, so searching their "details" mostly matches the role line and description. Search will find the right *kind* of agent; it will not reveal depth the files do not have. The 11 hand-written agents are the only ones with real tool lists. The files also mention a RAG vector store (`backbone/rag/`) we do not run; the platform rules file overrides that, the file stays unedited.
 
