@@ -39,7 +39,7 @@ echo $! > data/api.pid
 if [ "${AO_QUEUE:-}" = "1" ]; then
   docker compose up -d redis >/dev/null 2>&1 || echo "warning: could not start redis; the in-process fallback will be used"
   # graph execution in an arq worker (needs the redis service)
-  (cd backend && nohup .venv/bin/arq app.jobqueue.WorkerSettings > ../data/worker.log 2>&1 & echo $! > ../data/worker.pid)
+  (cd backend; nohup .venv/bin/arq app.jobqueue.WorkerSettings > ../data/worker.log 2>&1 & echo $! > ../data/worker.pid)
 fi
 for i in $(seq 1 60); do
   curl -sf "http://127.0.0.1:$PORT/api/health" >/dev/null && { echo "up: http://127.0.0.1:$PORT (pid $(cat data/api.pid))"; exit 0; }
