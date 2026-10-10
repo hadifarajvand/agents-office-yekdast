@@ -77,7 +77,7 @@ async def test_the_inbox_lists_what_waits_for_the_owner_in_priority_order(fake_d
     rows = [mk("idle", status="running"),
             mk("memo", status="done", lane="validate"),
             mk("gate", status="waiting", pending=[{"stage": "verify", "roles": ["owner"], "needsOwner": True}]),
-            mk("lead-only", status="waiting", pending=[{"stage": "scope", "roles": ["dlead"], "needsOwner": False}]),
+            mk("lead-only", status="waiting", pending=[{"stage": "scope", "roles": ["exec-vp-engineering"], "needsOwner": False}]),
             mk("parked", status="parked", parkReason="budget"),
             mk("unhealthy", status="done", production={"state": "unhealthy"}),
             {"id": "broken-row"}]

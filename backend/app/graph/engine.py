@@ -173,7 +173,8 @@ async def _specialist_node(state: SpecialistState) -> SpecialistState:
                     _escalation_target(state.get("agent_boundaries") or {}),
                 )
             else:
-                allowed, refusal_msg = mcp_registry.call_allowed(dept, key)
+                allowed, refusal_msg = mcp_registry.call_allowed(
+                    dept, key, call["name"], call["args"], state.get("mode"))
             # Audit BEFORE the call runs, so a crash mid-call still leaves a record.
             if brain_path:
                 policy.append_audit_log(

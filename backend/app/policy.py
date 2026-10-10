@@ -92,11 +92,79 @@ def audit_log_line(agent: str, dept: str, server: str, operation: str, resource:
     return redact(line)
 
 
+def audit_log_path(brain_path: Path) -> Path:
+    """Where the MCP audit log lives. The owner's `policies.auditLog` wins, but only for the
+    office's own brain; a caller passing some other brain (a test, a copy) keeps the default."""
+    from .config import ROOT, load_config
+    cfg = load_config()
+    custom = _policy_block(cfg.policies).get("auditLog")
+    if custom and Path(brain_path).resolve() == Path(cfg.brain_path).resolve():
+        p = Path(custom)
+        return p if p.is_absolute() else (ROOT / p).resolve()
+    return Path(brain_path) / "Agents Office" / "audit" / "mcp-access.log"
+
+
 def append_audit_log(brain_path: Path, line: str) -> None:
-    log_path = brain_path / "Agents Office" / "audit" / "mcp-access.log"
+    log_path = audit_log_path(brain_path)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as f:
         f.write(line + "\n")
+
+
+def _policy_block(policies: dict | None) -> dict:
+    """The owner's mcp rules. `requireHumanApprovalForWrites` and `auditLog` are accepted at the
+    top of `policies` or inside `mcpAccessNotes` (the owner's file nests them there)."""
+    p = policies or {}
+    notes = p.get("mcpAccessNotes") if isinstance(p.get("mcpAccessNotes"), dict) else {}
+    out = {k: v for k, v in notes.items() if k in ("requireHumanApprovalForWrites", "auditLog")}
+    out.update({k: v for k, v in p.items() if k in ("requireHumanApprovalForWrites", "auditLog")})
+    out["servers"] = {re.sub(r"[^a-z0-9]", "", k.lower()) for k, v in notes.items() if isinstance(v, str)}
+    return out
+
+
+_WRITE_VERBS = frozenset(
+    "create update delete remove write add edit merge push send post put patch set close reopen comment "
+    "assign fork run stop start kill exec rm trash archive import save reload silence mutate approve "
+    "dismiss submit publish transfer move rename restart".split())
+_BROADCAST = re.compile(r"(?<![\w@])@(channel|here|everyone)\b", re.IGNORECASE)
+
+
+def _tokens(tool: str) -> list[str]:
+    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", tool)
+    return [t for t in re.split(r"[^A-Za-z0-9]+", spaced.lower()) if t]
+
+
+def is_write(tool: str) -> bool:
+    return any(t in _WRITE_VERBS for t in _tokens(tool))
+
+
+def tool_verdict(server: str, tool: str, args: dict | None, mode: str | None, policies: dict | None) -> str | None:
+    """The owner's per-connector rules (`policies`), checked fresh on every call. Returns None when
+    the call may run, else the reason it is refused. A rule applies only to a connector the owner
+    wrote a note for. `mode == "approve"` means the owner just approved this task at its gate, which
+    is what `requireHumanApprovalForWrites` asks for."""
+    pol = _policy_block(policies)
+    key = re.sub(r"[^a-z0-9]", "", (server or "").lower())
+    if key not in pol["servers"]:
+        return None
+    write = is_write(tool)
+    toks = set(_tokens(tool))
+    if key == "github" and write:
+        return "github is read-only: no merges, no writes"
+    if key in ("prometheus", "grafana") and write:
+        return f"{key} is read-only"
+    if key == "docker" and not (toks & {"logs", "log", "inspect"}):
+        return "docker allows logs and inspect only"
+    if key == "notion" and toks & {"delete", "remove", "trash"}:
+        return "notion pages are never deleted"
+    if key == "slack" and _BROADCAST.search(str(args or {})):
+        return "slack: no @channel/@here/@everyone broadcasts"
+    if key == "gmail" and "send" in toks:
+        return "gmail is draft-only: nothing is sent from here"
+    approval = {re.sub(r"[^a-z0-9]", "", str(x).lower()) for x in pol.get("requireHumanApprovalForWrites") or []}
+    if write and key in approval and mode != "approve":
+        return f"{key} writes need the owner's approval first"
+    return None
 
 
 EXECUTION_BOUNDARY = (

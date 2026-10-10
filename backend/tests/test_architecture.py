@@ -46,7 +46,7 @@ async def test_search_falls_back_to_keywords_when_the_index_breaks(fake_db, vaul
 
 # ---------- context pack ----------
 async def test_pack_has_persona_playbook_and_brain_and_stays_under_the_cap(fake_db, vault):
-    pack = await context.build_pack("comply", stage="security", query="bakery ordering price",
+    pack = await context.build_pack("sec-compliance", stage="security", query="bakery ordering price",
                                     evidence=[{"stage": "scope", "kind": "memo", "title": "scope", "ok": True}] * 400)
     assert "SECURITY LEAD" in pack and "Never expose a preview" in pack and "Offer ladder" in pack
     assert len(pack) <= context.PACK_CHARS
@@ -64,17 +64,16 @@ async def test_verify_and_scope_and_handoff_run_their_seats_and_record_findings_
     assert job["status"] == "done"
     ev = await db.list_evidence(jid)
     findings = [e for e in ev if e["kind"] == "finding"]
-    by_stage = {s: {e["body"]["seat"] for e in findings if e["stage"] == s} for s in ("verify", "scope", "handoff")}
-    assert by_stage == {"verify": {"scout", "ilm", "enzo"}, "scope": {"pco"}, "handoff": set()}
-    assert all(e["ok"] is None for e in findings)  # information only
-    assert not any(a["role"] in {"scout", "ilm", "enzo", "pco", "piper", "cmail"} for a in env.db.approvals.values())
+    assert findings == []  # the staffed seats were removed (2026-10-06): leads work alone
+    assert all(a["role"] in {"exec-ceo-strategist", "exec-vp-engineering", "sec-compliance", "devops-cd", "owner"}
+               for a in env.db.approvals.values())
 
 
 async def test_security_checks_are_attributed_to_the_right_seat(env, vault):
     jid = await start(env)
     await run_to_end(env, jid)
     sec = {e["title"]: e["body"]["seat"] for e in await db.list_evidence(jid) if e["stage"] == "security" and e["kind"] == "check"}
-    assert sec == {"secret scan": "kmail", "dependency audit": "vmail"}
+    assert sec == {"secret scan": "", "dependency audit": ""}  # checks are the container's, credited to no seat
 
 
 async def test_a_failing_seat_does_not_stop_the_stage(env, vault, monkeypatch):
@@ -89,7 +88,7 @@ async def test_a_failing_seat_does_not_stop_the_stage(env, vault, monkeypatch):
     jid = await start(env)
     job = await run_to_end(env, jid)
     assert job["status"] == "done"
-    assert any(e["kind"] == "finding" and e["body"].get("error") for e in await db.list_evidence(jid))
+    assert not any(e["kind"] == "finding" for e in await db.list_evidence(jid))  # no seats, so nothing to fail
 
 
 # ---------- config rules for seats ----------
@@ -100,16 +99,16 @@ def test_seat_rules_are_validated():
     stages = json.loads(json.dumps(cfg.pipeline["stages"]))
     for s in stages:
         if s["name"] == "verify":
-            s["seats"] = ["olead", "nobody", "comply"]
+            s["seats"] = ["exec-ceo-strategist", "nobody", "sec-compliance"]
         if s["name"] == "exposure":
-            s["seats"] = ["scout"]
+            s["seats"] = ["ilm"]
     old = cfg.pipeline["stages"]
     cfg.pipeline["stages"] = stages
     try:
         problems = " | ".join(exp.validate_config(cfg, agents))
     finally:
         cfg.pipeline["stages"] = old
-    assert 'seat "olead" is a lead' in problems and 'seat "nobody" does not exist' in problems
+    assert 'seat "exec-ceo-strategist" is a lead' in problems and 'seat "nobody" does not exist' in problems
     assert "exposure stage takes no seat workers" in problems
 
 
@@ -142,14 +141,14 @@ async def test_consult_is_lead_to_lead_across_departments_and_read_only(fake_db,
     async def fake_ask(system, user, **kw):
         return "engineering says: two days"
     monkeypatch.setattr(sp, "ask", fake_ask)
-    out = await sp.consult("olead", "dlead", "how long to build?", job_id="j", stage="verify")
+    out = await sp.consult("exec-ceo-strategist", "exec-vp-engineering", "how long to build?", job_id="j", stage="verify")
     assert out["ok"] and (await fake_db.list_evidence("j"))[0]["kind"] == "consult"
     with pytest.raises(sp.SpawnRefused, match="both sides"):
-        await sp.consult("olead", "pco", "x", job_id="j", stage="verify")
+        await sp.consult("exec-ceo-strategist", "pco", "x", job_id="j", stage="verify")
     with pytest.raises(sp.SpawnRefused, match="another department"):
-        await sp.consult("olead", "olead", "x", job_id="j", stage="verify")
+        await sp.consult("exec-ceo-strategist", "exec-ceo-strategist", "x", job_id="j", stage="verify")
     with pytest.raises(sp.SpawnRefused, match="revenue is not live"):
-        await sp.consult("olead", "lexi", "x", job_id="j", stage="verify")
+        await sp.consult("exec-ceo-strategist", "lexi", "x", job_id="j", stage="verify")
 
 
 # ---------- governed brain writes ----------
@@ -181,8 +180,8 @@ async def test_slice_job_uses_leads_only_for_live_stages_and_the_owner_for_the_r
     roles = {}
     for a in slice_env.db.approvals.values():
         roles.setdefault(a["stage"], set()).add(a["role"])
-    assert roles["verify"] == {"olead", "owner"} and roles["scope"] == {"dlead"} and roles["build"] == {"dlead"}
-    assert roles["security"] == roles["preview"] == {"owner"} and roles["handoff"] == {"olead", "owner"}
+    assert roles["verify"] == {"exec-ceo-strategist", "owner"} and roles["scope"] == {"exec-vp-engineering"} and roles["build"] == {"exec-vp-engineering"}
+    assert roles["security"] == roles["preview"] == {"owner"} and roles["handoff"] == {"exec-ceo-strategist", "owner"}
 
 
 async def test_slice_job_never_sends_an_offline_departments_persona_or_seats_to_a_model(slice_env):
@@ -191,7 +190,7 @@ async def test_slice_job_never_sends_an_offline_departments_persona_or_seats_to_
     systems = "\n".join(slice_env.script.systems)
     assert "REVENUE LEAD" not in systems and "SECURITY LEAD" not in systems and "DEVOPS LEAD" not in systems
     assert not {"PROPOSAL WRITER", "STATUS WRITER"} & set(slice_env.script.seat_calls)
-    assert {"COMPETITIVE INTEL", "LEAD QUALIFIER", "PRICING ANALYST", "SERVICE BUILDER"} <= set(slice_env.script.seat_calls)
+    assert not slice_env.script.seat_calls  # no staffed seats remain in the live departments
     sec = [e for e in await db.list_evidence(jid) if e["stage"] == "security" and e["kind"] == "check"]
     assert sec and all(e["body"]["seat"] == "" for e in sec)  # offline seats are not credited
 
@@ -207,10 +206,10 @@ def test_exposure_needs_both_key_departments_live(env, monkeypatch):
 def test_stage_roles_fall_back_to_the_owner_for_offline_departments(env, monkeypatch):
     cfg = env.cfg
     monkeypatch.setitem(cfg.pipeline, "live_departments", ["exec", "engineering"])
-    assert exp.stage_roles(cfg, "scope") == ["dlead"]
+    assert exp.stage_roles(cfg, "scope") == ["exec-vp-engineering"]
     assert exp.stage_roles(cfg, "security") == [exp.OWNER]
-    assert exp.stage_roles(cfg, "handoff") == ["olead", exp.OWNER]
-    assert exp.stage_roles(cfg, "verify") == ["olead", exp.OWNER]
+    assert exp.stage_roles(cfg, "handoff") == ["exec-ceo-strategist", exp.OWNER]
+    assert exp.stage_roles(cfg, "verify") == ["exec-ceo-strategist", exp.OWNER]
     assert exp.validate_config(cfg, defaults()) == []
     monkeypatch.setitem(cfg.pipeline, "live_departments", ["exec", "nonsense"])
     assert any("not a department" in p for p in exp.validate_config(cfg, defaults()))

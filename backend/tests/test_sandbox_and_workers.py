@@ -393,3 +393,21 @@ def test_task_md_tells_the_builder_to_extend_the_template():
     from app.worker.base import task_markdown
     md = task_markdown({"title": "Bakery", "description": "orders", "scope": {"stack": "Vue + Firebase"}})
     assert "CLAUDE.md" in md and "Fixed by the template" in md and "npm run test:e2e" in md
+
+
+def test_stop_job_container_removes_the_named_container_and_never_raises():
+    from app.sandbox import stop_job_container
+
+    class C:
+        def __init__(self): self.removed = []
+        def get(self, name):
+            if name != "ao-job-abc": raise KeyError(name)
+            outer = self
+            class K:
+                def remove(self, force=False): outer.removed.append((name, force))
+            return K()
+    class Client:
+        containers = C()
+    assert stop_job_container("abc", client=Client) is True
+    assert Client.containers.removed == [("ao-job-abc", True)]
+    assert stop_job_container("none", client=Client) is False

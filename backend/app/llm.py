@@ -75,6 +75,10 @@ def on_usage(fn: Callable[[Call, str], Awaitable[None]]) -> None:
 
 def role_model(role: str) -> str:
     """Router model id pinned for a pipeline role (builder, research, lead_review...)."""
+    from . import backbone_bridge
+    tiered = backbone_bridge.model_for_role(role)
+    if tiered:
+        return tiered
     roles = load_config().roles
     return roles.get(role) or roles.get("drafts") or model_id(None)
 
@@ -143,6 +147,10 @@ async def _record(resp, pinned: str) -> None:
             await hook(call, meter.label if meter else "")
         except Exception:
             pass
+    from . import backbone_bridge
+    stop = backbone_bridge.charge(meter.label if meter else "", tin + tout, call.usd)
+    if stop:
+        raise BudgetExceeded(f"{meter.label if meter else 'run'}: {stop}")
     if meter is not None and meter.usd_cap is not None and meter.usd > meter.usd_cap:
         raise BudgetExceeded(f"{meter.label or 'run'} spent ${meter.usd:.4f}, over the ${meter.usd_cap:.2f} cap")
 
@@ -165,14 +173,20 @@ async def ask(system: str, user: str, *, model_key: str | None = None, model: st
     return _text(resp)
 
 
-async def ask_json(system: str, user: str, *, role: str = "router", max_tokens: int = 1024) -> dict:
-    return parse_json(await ask(system, user, role=role, max_tokens=max_tokens))
+async def ask_json(system: str, user: str, *, role: str = "router", max_tokens: int = 4096) -> dict:
+    # Free models sometimes emit malformed JSON; asking again is cheap, failing the stage is not.
+    for attempt in range(3):
+        try:
+            return parse_json(await ask(system, user, role=role, max_tokens=max_tokens))
+        except ValueError:  # json.JSONDecodeError is a ValueError
+            if attempt == 2:
+                raise
 
 
 async def ask_haiku_json(system: str, user: str) -> dict:
     """The task router hop. Kept under its historical name; the model is the
     pinned "router" role, not necessarily Haiku."""
-    return await ask_json(system, user, role="router", max_tokens=512)
+    return await ask_json(system, user, role="router", max_tokens=1024)
 
 
 async def ask_with_tools(messages: list[dict], tools: list, *, model_key: str | None = None,
@@ -206,4 +220,4 @@ def parse_json(text: str) -> dict:
     m = re.search(r"\{.*\}", t, re.DOTALL)
     if not m:
         raise ValueError(f"no JSON object found in: {str(text)[:200]}")
-    return json.loads(m.group(0))
+    return json.loads(m.group(0), strict=False)

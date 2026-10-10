@@ -184,7 +184,7 @@ async def test_a_validate_job_researches_then_waits_for_the_owner_and_finishes(l
                               "loops": {}, "feedback": "", "route": ""}, config=thread(job["id"]))
     j = await db.get_job(job["id"])
     assert j["status"] == "waiting" and j["pending"][0]["stage"] == "research"
-    assert set(j["pending"][0]["roles"]) == {exp.OWNER}  # olead already passed it
+    assert set(j["pending"][0]["roles"]) == {exp.OWNER}  # exec-ceo-strategist already passed it
     memo = [e for e in await db.list_evidence(job["id"]) if e["kind"] == "memo"][0]
     assert memo["body"]["verdict"] == "TEST"  # two queries are not a sufficient search
     assert [c["subject"] for c in memo["body"]["claims"]] == ["Acme Bakeries Pro", "Acme Bakeries Pro"]

@@ -52,7 +52,7 @@ class Script:
             q = self.review_verdicts.get(stage, [])
             v = q.pop(0) if q else "PASS"
             if self.mismatch:
-                llm.current_meter.get().mismatches.append("pinned kr/glm-5, router answered with other-model")
+                llm.current_meter.get().mismatches.append("pinned oc/mimo-v2.5-free, router answered with other-model")
             ids = re.findall(r"id=(\S+)", user)
             if v == "NOCITE":
                 return {"verdict": "PASS", "reasons": ["looks fine"], "cites": []}
@@ -75,7 +75,7 @@ class FakeWorker:
     def __init__(self):
         self.runs = 0
         self.exit_state = "ok"
-        self.models = ["claude-haiku-4-5-20251001"]
+        self.models = ["big-pickle"]
         self.checks = [{"name": "unit tests pass (npm test)", "ok": True, "detail": "12 passed"}]
         self.briefs: list[dict] = []
 
@@ -169,30 +169,30 @@ async def run_to_end(env, jid, limit=12):
 def test_shipped_pipeline_config_is_valid_and_separates_duties():
     cfg = load_config()
     assert exp.validate_config(cfg, defaults()) == []
-    for role in ("dlead", "mlead", "qa"):  # engineering, frontend, devops leads
+    for role in ("exec-vp-engineering", "mlead", "devops-cd"):  # engineering, frontend, devops leads
         assert not exp.can_approve(cfg, role, "exposure")
-    assert exp.can_approve(cfg, "comply", "exposure") and exp.can_approve(cfg, "olead", "exposure")
+    assert exp.can_approve(cfg, "sec-compliance", "exposure") and exp.can_approve(cfg, "exec-ceo-strategist", "exposure")
     assert exp.can_approve(cfg, exp.OWNER, "exposure")
-    assert not exp.can_approve(cfg, "dlead", "preview")  # a lead approves only its own stage
-    assert exp.can_approve(cfg, "qa", "preview")
+    assert not exp.can_approve(cfg, "exec-vp-engineering", "preview")  # a lead approves only its own stage
+    assert exp.can_approve(cfg, "devops-cd", "preview")
 
 
 def test_validator_rejects_a_builder_as_exposure_key(monkeypatch):
     cfg = load_config()
-    monkeypatch.setitem(cfg.exposure, "keys", {"security": "dlead", "commercial": "olead"})
+    monkeypatch.setitem(cfg.exposure, "keys", {"security": "exec-vp-engineering", "commercial": "exec-ceo-strategist"})
     assert any("builders cannot approve exposure" in p for p in exp.validate_config(cfg, defaults()))
-    monkeypatch.setitem(cfg.exposure, "keys", {"security": "comply", "commercial": "comply"})
+    monkeypatch.setitem(cfg.exposure, "keys", {"security": "sec-compliance", "commercial": "sec-compliance"})
     assert any("two different seats" in p for p in exp.validate_config(cfg, defaults()))
 
 
 def test_roles_by_tier():
     cfg = load_config()
     assert exp.stage_roles(cfg, "exposure", tier=0) == []
-    assert exp.stage_roles(cfg, "exposure", tier=1, owner_clicks=0) == ["comply", "olead", "owner"]
-    assert exp.stage_roles(cfg, "exposure", tier=1, owner_clicks=3) == ["comply", "olead"]
-    assert exp.stage_roles(cfg, "exposure", tier=2, owner_clicks=99) == ["comply", "olead", "owner"]
-    assert exp.stage_roles(cfg, "verify") == ["olead", "owner"]
-    assert exp.stage_roles(cfg, "build") == ["dlead"]
+    assert exp.stage_roles(cfg, "exposure", tier=1, owner_clicks=0) == ["sec-compliance", "exec-ceo-strategist", "owner"]
+    assert exp.stage_roles(cfg, "exposure", tier=1, owner_clicks=3) == ["sec-compliance", "exec-ceo-strategist"]
+    assert exp.stage_roles(cfg, "exposure", tier=2, owner_clicks=99) == ["sec-compliance", "exec-ceo-strategist", "owner"]
+    assert exp.stage_roles(cfg, "verify") == ["exec-ceo-strategist", "owner"]
+    assert exp.stage_roles(cfg, "build") == ["exec-vp-engineering"]
 
 
 # ---------- the happy path ----------
@@ -216,10 +216,18 @@ async def test_every_stage_records_a_lead_approval_with_evidence(env):
     jid = await start(env)
     await run_to_end(env, jid)
     approvals = {(a["stage"], a["role"]) for a in await db.list_approvals(jid)}
-    for stage, lead in (("verify", "olead"), ("scope", "dlead"), ("build", "dlead"), ("security", "comply"),
-                        ("preview", "qa"), ("handoff", "olead")):
+    for stage, lead in (("verify", "exec-ceo-strategist"), ("scope", "exec-vp-engineering"), ("build", "exec-vp-engineering"), ("security", "sec-compliance"),
+                        ("preview", "devops-cd"), ("handoff", "exec-ceo-strategist")):
         assert (stage, lead) in approvals
-    assert ("exposure", "comply") not in approvals  # Tier 0: no exposure decision at all
+    assert ("exposure", "sec-compliance") not in approvals  # Tier 0: no exposure decision at all
+
+
+async def test_pipeline_work_shows_up_as_finished_display_only_tasks(env):
+    jid = await start(env)
+    await run_to_end(env, jid)
+    mine = [t for t in await db.list_tasks() if t.get("jobId") == jid]
+    assert mine and all(t["by"] == "pipeline" and t["pipeline"] and t["state"] == "done" for t in mine)
+    assert {("engineering", "exec-vp-engineering"), ("secdata", "sec-compliance"), ("devops", "devops-cd")} <= {(t["dept"], t["agent"]) for t in mine}
 
 
 # ---------- exposure ----------
@@ -233,7 +241,7 @@ async def test_gated_preview_needs_both_keys_and_the_owner_until_n_clicks(env):
     assert job["pending"][0]["stage"] == "exposure"
     assert job["pending"][0]["roles"] == ["owner"]  # both keys already recorded by the graph
     appr = {a["role"]: a["verdict"] for a in await db.list_approvals(jid) if a["stage"] == "exposure"}
-    assert appr == {"comply": "PASS", "olead": "PASS"}
+    assert appr == {"sec-compliance": "PASS", "exec-ceo-strategist": "PASS"}
     assert env.dep.exposed == []  # nothing public before the owner's click
     await owner(env, jid)
     job = await db.get_job(jid)
@@ -458,7 +466,7 @@ def test_http_flow_owner_gates_counter_and_kill(api, env):
     assert env.db.counters.get("tier1_owner_clicks") == 1  # counted once
 
     job = api.get(f"/api/jobs/{jid}").json()
-    assert {a["role"] for a in job["approvals"] if a["stage"] == "exposure"} >= {"comply", "olead", "owner"}
+    assert {a["role"] for a in job["approvals"] if a["stage"] == "exposure"} >= {"sec-compliance", "exec-ceo-strategist", "owner"}
     assert any(e["kind"] == "probe" for e in job["evidence"])
 
     killed = api.post(f"/api/jobs/{jid}/kill").json()

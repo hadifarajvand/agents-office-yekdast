@@ -27,7 +27,7 @@ from .. import db
 from ..config import load_config
 from ..llm import BudgetExceeded, RunMeter, current_meter
 from . import exposure as exp
-from . import jobs, leads
+from . import activity, jobs, leads
 from .stages import WORK
 
 log = logging.getLogger("agents_office.pipeline")
@@ -68,6 +68,8 @@ def _work_node(stage: str):
         meter = RunMeter(label=f"job:{jid}:{stage}", usd_cap=max(0.0, usd_cap - job["costs"]["usd"]))
         tok = current_meter.set(meter)
         out: dict = {}
+        lead = activity.stage_cfg(stage).get("lead", "")
+        shown = await activity.start(job, stage, lead, activity.stage_cfg(stage).get("label", stage), key="work") if lead else None
         try:
             out = await WORK[stage](state)
         except BudgetExceeded as exc:
@@ -79,6 +81,9 @@ def _work_node(stage: str):
             return await _park(jid, stage, f"{stage} failed: {type(exc).__name__}")
         finally:
             current_meter.reset(tok)
+            ev = [e for e in await db.list_evidence(jid) if e["stage"] == stage]
+            kinds = ", ".join(sorted({str(e.get("kind", "")) for e in ev if e.get("kind")})) or "none"
+            await activity.finish(shown, ok=bool(out), result=(f"{stage} finished; evidence: {kinds}" if out else f"{stage} did not finish"))
             extra = out.pop("_cost", None) if isinstance(out, dict) else None
             await jobs.add_cost(jid, meter.tokens + (extra or {}).get("tokens", 0), meter.usd + (extra or {}).get("usd", 0.0))
         costs = (await db.get_job(jid))["costs"]
@@ -129,12 +134,15 @@ def _review_node(stage: str):
         for role in roles:
             if role in existing:
                 continue
+            shown = await activity.start(job, stage, role, f"review {stage}", key="review")
             try:
                 out = await leads.review(stage, role, role, job, evidence)
             except Exception as exc:
+                await activity.finish(shown, ok=False, result=f"review of {stage} failed: {type(exc).__name__}")
                 if router_down(exc):
                     return await _park(jid, stage, "the model router (9router) is unreachable; start it and retry this stage")
                 raise
+            await activity.finish(shown, ok=out["verdict"] == "PASS", result=f'{out["verdict"]}: ' + "; ".join(out["reasons"]))
             c = out.get("cost") or {}
             if c.get("tokens") or c.get("usd"):
                 await jobs.add_cost(jid, int(c.get("tokens", 0)), float(c.get("usd", 0.0)))

@@ -45,7 +45,7 @@ def test_app_and_proxy_are_opt_in_and_postgres_has_a_healthcheck():
     c = compose()["services"]
     assert c["app"]["profiles"] == ["app"] and c["docker-proxy"]["profiles"] == ["app"]
     assert "healthcheck" in c["postgres"] and "healthcheck" in c["app"]
-    assert "redis" not in c
+    assert "healthcheck" in c["redis"] and "profiles" not in c["redis"]  # the job queue: loopback only (see test above)
 
 
 def test_egress_allowlist_is_small_and_has_no_wildcard_everything():

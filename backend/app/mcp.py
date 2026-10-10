@@ -167,7 +167,8 @@ class MCPRegistry:
     def usable(self) -> list[dict]:
         return [s for s in self.servers if s["status"] == "connected" and self._allowed(s)]
 
-    def call_allowed(self, dept: str, key: str) -> tuple[bool, str | None]:
+    def call_allowed(self, dept: str, key: str, tool: str = "", args: dict | None = None,
+                     mode: str | None = None) -> tuple[bool, str | None]:
         """Call-time policy gate (Task 2): checked fresh on every tool-call event
         during the specialist loop, never cached from a decision made earlier in
         the loop or from what's merely named in the prompt (mcp.py's existing
@@ -178,6 +179,11 @@ class MCPRegistry:
             return False, policy.refusal(f"{key} not wired to {dept} department", "the owner")
         if dept not in self._depts_for(s["name"], s.get("key")):
             return False, policy.refusal(f"{s['name']} not wired to {dept} department", "the owner")
+        if tool:
+            from .config import load_config
+            why = policy.tool_verdict(s.get("key") or s["id"], tool, args, mode, load_config().policies)
+            if why:
+                return False, policy.refusal(why, "the owner")
         return True, None
 
     def attach_tools(self, server_key: str, tools: list, name: str | None = None) -> None:

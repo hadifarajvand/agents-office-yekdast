@@ -1,314 +1,204 @@
 {
- "agents": [
-  {
-   "id": "olead",
-   "dept": "exec",
-   "lead": true,
-   "name": "CEO STRATEGIST"
+  "agents": [
+    {
+      "id": "exec-ceo-strategist",
+      "dept": "exec",
+      "lead": true,
+      "name": "CEO STRATEGIST"
+    },
+    {
+      "id": "lexi",
+      "dept": "revenue",
+      "lead": true,
+      "name": "VP SALES"
+    },
+    {
+      "id": "ilm",
+      "dept": "revenue",
+      "lead": false,
+      "name": "LEAD QUALIFIER"
+    },
+    {
+      "id": "piper",
+      "dept": "revenue",
+      "lead": false,
+      "name": "PROPOSAL WRITER"
+    },
+    {
+      "id": "enzo",
+      "dept": "revenue",
+      "lead": false,
+      "name": "PRICING ANALYST"
+    },
+    {
+      "id": "exec-vp-engineering",
+      "dept": "engineering",
+      "lead": true,
+      "name": "VP ENGINEERING"
+    },
+    {
+      "id": "mlead",
+      "dept": "frontend",
+      "lead": true,
+      "name": "FRONTEND LEAD"
+    },
+    {
+      "id": "riley",
+      "dept": "frontend",
+      "lead": false,
+      "name": "COMPONENT BUILDER"
+    },
+    {
+      "id": "gfx",
+      "dept": "frontend",
+      "lead": false,
+      "name": "UI DESIGNER"
+    },
+    {
+      "id": "devops-cd",
+      "dept": "devops",
+      "lead": true,
+      "name": "DEVOPS LEAD"
+    },
+    {
+      "id": "sec-compliance",
+      "dept": "secdata",
+      "lead": true,
+      "name": "SECURITY LEAD"
+    },
+    {
+      "id": "alead",
+      "dept": "fin",
+      "lead": true,
+      "name": "FINANCE LEAD"
+    },
+    {
+      "id": "invo",
+      "dept": "fin",
+      "lead": false,
+      "name": "PRICING MODELLER"
+    },
+    {
+      "id": "apay",
+      "dept": "fin",
+      "lead": false,
+      "name": "USAGE & COST"
+    },
+    {
+      "id": "elead",
+      "dept": "content",
+      "lead": true,
+      "name": "CONTENT EDITOR"
+    },
+    {
+      "id": "newt",
+      "dept": "content",
+      "lead": false,
+      "name": "DOCS WRITER"
+    },
+    {
+      "id": "cmail",
+      "dept": "content",
+      "lead": false,
+      "name": "STATUS WRITER"
+    }
+  ],
+  "depts": {
+    "exec": "STRATEGY & LEGAL",
+    "revenue": "MARKET & SALES",
+    "engineering": "BACKEND BUILD",
+    "frontend": "PRODUCT & FRONTEND",
+    "devops": "DEVOPS & QA",
+    "secdata": "SECURITY & PRIVACY",
+    "fin": "FINANCE & PRICING",
+    "content": "CONTENT & SUPPORT",
+    "brain": "THE BRAIN"
   },
-  {
-   "id": "scout",
-   "dept": "exec",
-   "lead": false,
-   "name": "COMPETITIVE INTEL"
-  },
-  {
-   "id": "legal",
-   "dept": "exec",
-   "lead": false,
-   "name": "CONTRACT COUNSEL"
-  },
-  {
-   "id": "lexi",
-   "dept": "revenue",
-   "lead": true,
-   "name": "VP SALES"
-  },
-  {
-   "id": "ilm",
-   "dept": "revenue",
-   "lead": false,
-   "name": "LEAD QUALIFIER"
-  },
-  {
-   "id": "piper",
-   "dept": "revenue",
-   "lead": false,
-   "name": "PROPOSAL WRITER"
-  },
-  {
-   "id": "enzo",
-   "dept": "revenue",
-   "lead": false,
-   "name": "PRICING ANALYST"
-  },
-  {
-   "id": "dlead",
-   "dept": "engineering",
-   "lead": true,
-   "name": "VP ENGINEERING"
-  },
-  {
-   "id": "pco",
-   "dept": "engineering",
-   "lead": false,
-   "name": "SERVICE BUILDER"
-  },
-  {
-   "id": "ona",
-   "dept": "engineering",
-   "lead": false,
-   "name": "CODE REVIEWER"
-  },
-  {
-   "id": "mlead",
-   "dept": "frontend",
-   "lead": true,
-   "name": "FRONTEND LEAD"
-  },
-  {
-   "id": "riley",
-   "dept": "frontend",
-   "lead": false,
-   "name": "COMPONENT BUILDER"
-  },
-  {
-   "id": "gfx",
-   "dept": "frontend",
-   "lead": false,
-   "name": "UI DESIGNER"
-  },
-  {
-   "id": "qa",
-   "dept": "devops",
-   "lead": true,
-   "name": "DEVOPS LEAD"
-  },
-  {
-   "id": "dash",
-   "dept": "devops",
-   "lead": false,
-   "name": "IMAGE BUILDER"
-  },
-  {
-   "id": "report",
-   "dept": "devops",
-   "lead": false,
-   "name": "SMOKE TESTER"
-  },
-  {
-   "id": "imail",
-   "dept": "devops",
-   "lead": false,
-   "name": "E2E TESTER"
-  },
-  {
-   "id": "comply",
-   "dept": "secdata",
-   "lead": true,
-   "name": "SECURITY LEAD"
-  },
-  {
-   "id": "recon",
-   "dept": "secdata",
-   "lead": false,
-   "name": "SAST SCANNER"
-  },
-  {
-   "id": "kmail",
-   "dept": "secdata",
-   "lead": false,
-   "name": "SECRET SCANNER"
-  },
-  {
-   "id": "vmail",
-   "dept": "secdata",
-   "lead": false,
-   "name": "DEPENDENCY AUDITOR"
-  },
-  {
-   "id": "alead",
-   "dept": "fin",
-   "lead": true,
-   "name": "FINANCE LEAD"
-  },
-  {
-   "id": "invo",
-   "dept": "fin",
-   "lead": false,
-   "name": "PRICING MODELLER"
-  },
-  {
-   "id": "apay",
-   "dept": "fin",
-   "lead": false,
-   "name": "USAGE & COST"
-  },
-  {
-   "id": "elead",
-   "dept": "content",
-   "lead": true,
-   "name": "CONTENT EDITOR"
-  },
-  {
-   "id": "newt",
-   "dept": "content",
-   "lead": false,
-   "name": "DOCS WRITER"
-  },
-  {
-   "id": "cmail",
-   "dept": "content",
-   "lead": false,
-   "name": "STATUS WRITER"
-  }
- ],
- "depts": {
-  "exec": "STRATEGY & LEGAL",
-  "revenue": "MARKET & SALES",
-  "engineering": "BACKEND BUILD",
-  "frontend": "PRODUCT & FRONTEND",
-  "devops": "DEVOPS & QA",
-  "secdata": "SECURITY & PRIVACY",
-  "fin": "FINANCE & PRICING",
-  "content": "CONTENT & SUPPORT",
-  "brain": "THE BRAIN"
- },
- "v1": [
-  {
-   "id": "olead",
-   "role": "CEO Strategist Agent",
-   "tagline": "Runs intake and verify: is the idea worth building, and is the client real. Citadel: exec-ceo-strategist."
-  },
-  {
-   "id": "scout",
-   "role": "Competitive Intel Agent",
-   "tagline": "Maps competitors, their pricing and the public pain around the idea. Citadel: exec-competitive-intel."
-  },
-  {
-   "id": "legal",
-   "role": "Contract Counsel Agent",
-   "tagline": "Reads the client contract and flags risky clauses before a build starts. Citadel: legal-contract."
-  },
-  {
-   "id": "lexi",
-   "role": "VP Sales Agent",
-   "tagline": "Runs handoff: what the client receives, pricing and the deposit position. Citadel: exec-vp-sales."
-  },
-  {
-   "id": "ilm",
-   "role": "Lead Qualifier Agent",
-   "tagline": "Scores an incoming request against the ideal client and flags weak ones. Citadel: sales-lead-qualifier."
-  },
-  {
-   "id": "piper",
-   "role": "Proposal Writer Agent",
-   "tagline": "Drafts the proposal and scope summary the owner sends. Citadel: sales-proposal-gen."
-  },
-  {
-   "id": "enzo",
-   "role": "Pricing Analyst Agent",
-   "tagline": "Prices a build from scope and cost, and checks the margin. Citadel: sales-pricing."
-  },
-  {
-   "id": "dlead",
-   "role": "VP Engineering Agent",
-   "tagline": "Owns scope and build: acceptance criteria, task list, the patch review. Citadel: exec-vp-engineering."
-  },
-  {
-   "id": "pco",
-   "role": "Service Builder Agent",
-   "tagline": "Builds backend services inside the sandbox. Citadel: eng-service-builder."
-  },
-  {
-   "id": "ona",
-   "role": "Code Reviewer Agent",
-   "tagline": "Reviews the patch for defects and style before security sees it. Citadel: eng-code-reviewer."
-  },
-  {
-   "id": "mlead",
-   "role": "Frontend Lead Agent",
-   "tagline": "Owns the UI half of a build: pages, structure, the design system. Citadel: fe-page."
-  },
-  {
-   "id": "riley",
-   "role": "Component Builder Agent",
-   "tagline": "Builds and maintains UI components. Citadel: fe-component."
-  },
-  {
-   "id": "gfx",
-   "role": "UI Designer Agent",
-   "tagline": "Designs screens and visual assets. Citadel: design-ui."
-  },
-  {
-   "id": "qa",
-   "role": "DevOps Lead Agent",
-   "tagline": "Owns the preview deploy and its checks. Citadel: devops-cd."
-  },
-  {
-   "id": "dash",
-   "role": "Image Builder Agent",
-   "tagline": "Builds the container image for the preview. Citadel: devops-image-build."
-  },
-  {
-   "id": "report",
-   "role": "Smoke Tester Agent",
-   "tagline": "Runs the smoke suite on every preview. Citadel: qa-smoke."
-  },
-  {
-   "id": "imail",
-   "role": "E2E Tester Agent",
-   "tagline": "Runs the end-to-end acceptance tests against the preview. Citadel: qa-e2e."
-  },
-  {
-   "id": "comply",
-   "role": "Security Lead Agent",
-   "tagline": "Owns the security stage and holds the security key on exposure. Citadel: sec-compliance."
-  },
-  {
-   "id": "recon",
-   "role": "SAST Scanner Agent",
-   "tagline": "Static analysis of the patch for vulnerabilities. Citadel: sec-sast."
-  },
-  {
-   "id": "kmail",
-   "role": "Secret Scanner Agent",
-   "tagline": "Finds committed secrets and keys in the patch. Citadel: sec-secret."
-  },
-  {
-   "id": "vmail",
-   "role": "Dependency Auditor Agent",
-   "tagline": "Audits dependencies and licences. Citadel: sec-sca."
-  },
-  {
-   "id": "alead",
-   "role": "Finance Lead Agent",
-   "tagline": "Owns unit economics and the per-job cost cap. Citadel: exec-cfo-finance."
-  },
-  {
-   "id": "invo",
-   "role": "Pricing Modeller Agent",
-   "tagline": "Models price against build and run cost. Citadel: fin-pricing."
-  },
-  {
-   "id": "apay",
-   "role": "Usage and Cost Agent",
-   "tagline": "Tracks token and infrastructure spend per job. Citadel: fin-usage."
-  },
-  {
-   "id": "elead",
-   "role": "Content Editor Agent",
-   "tagline": "Edits everything the client or owner reads. Citadel: content-editor."
-  },
-  {
-   "id": "newt",
-   "role": "Docs Writer Agent",
-   "tagline": "Writes the README and handoff docs. Citadel: content-docs."
-  },
-  {
-   "id": "cmail",
-   "role": "Status Writer Agent",
-   "tagline": "Writes status updates on a job. Citadel: content-status."
-  }
- ]
+  "v1": [
+    {
+      "id": "exec-ceo-strategist",
+      "role": "CEO Strategist Agent",
+      "tagline": "Runs intake and verify: is the idea worth building, and is the client real. Citadel: exec-ceo-strategist."
+    },
+    {
+      "id": "lexi",
+      "role": "VP Sales Agent",
+      "tagline": "Runs handoff: what the client receives, pricing and the deposit position. Citadel: exec-vp-sales."
+    },
+    {
+      "id": "ilm",
+      "role": "Lead Qualifier Agent",
+      "tagline": "Scores an incoming request against the ideal client and flags weak ones. Citadel: sales-lead-qualifier."
+    },
+    {
+      "id": "piper",
+      "role": "Proposal Writer Agent",
+      "tagline": "Drafts the proposal and scope summary the owner sends. Citadel: sales-proposal-gen."
+    },
+    {
+      "id": "enzo",
+      "role": "Pricing Analyst Agent",
+      "tagline": "Prices a build from scope and cost, and checks the margin. Citadel: sales-pricing."
+    },
+    {
+      "id": "exec-vp-engineering",
+      "role": "VP Engineering Agent",
+      "tagline": "Owns scope and build: acceptance criteria, task list, the patch review. Citadel: exec-vp-engineering."
+    },
+    {
+      "id": "mlead",
+      "role": "Frontend Lead Agent",
+      "tagline": "Owns the UI half of a build: pages, structure, the design system. Citadel: fe-page."
+    },
+    {
+      "id": "riley",
+      "role": "Component Builder Agent",
+      "tagline": "Builds and maintains UI components. Citadel: fe-component."
+    },
+    {
+      "id": "gfx",
+      "role": "UI Designer Agent",
+      "tagline": "Designs screens and visual assets. Citadel: design-ui."
+    },
+    {
+      "id": "devops-cd",
+      "role": "DevOps Lead Agent",
+      "tagline": "Owns the preview deploy and its checks. Citadel: devops-cd."
+    },
+    {
+      "id": "sec-compliance",
+      "role": "Security Lead Agent",
+      "tagline": "Owns the security stage and holds the security key on exposure. Citadel: sec-compliance."
+    },
+    {
+      "id": "alead",
+      "role": "Finance Lead Agent",
+      "tagline": "Owns unit economics and the per-job cost cap. Citadel: exec-cfo-finance."
+    },
+    {
+      "id": "invo",
+      "role": "Pricing Modeller Agent",
+      "tagline": "Models price against build and run cost. Citadel: fin-pricing."
+    },
+    {
+      "id": "apay",
+      "role": "Usage and Cost Agent",
+      "tagline": "Tracks token and infrastructure spend per job. Citadel: fin-usage."
+    },
+    {
+      "id": "elead",
+      "role": "Content Editor Agent",
+      "tagline": "Edits everything the client or owner reads. Citadel: content-editor."
+    },
+    {
+      "id": "newt",
+      "role": "Docs Writer Agent",
+      "tagline": "Writes the README and handoff docs. Citadel: content-docs."
+    },
+    {
+      "id": "cmail",
+      "role": "Status Writer Agent",
+      "tagline": "Writes status updates on a job. Citadel: content-status."
+    }
+  ]
 }

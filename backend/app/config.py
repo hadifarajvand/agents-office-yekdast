@@ -10,6 +10,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -18,16 +19,16 @@ ROOT = Path(__file__).resolve().parents[2]
 # Pipeline stage -> (owning department, approving lead seat). The building
 # department never appears as an approver of "exposure" (see pipeline/exposure.py).
 DEFAULT_STAGES = [
-    {"name": "intake", "dept": "exec", "lead": "olead", "label": "Intake", "seats": []},
-    {"name": "verify", "dept": "exec", "lead": "olead", "label": "Verify", "seats": ["scout", "ilm", "enzo"]},
-    {"name": "scope", "dept": "engineering", "lead": "dlead", "label": "Scope", "seats": ["pco"]},
-    {"name": "build", "dept": "engineering", "lead": "dlead", "label": "Build", "seats": []},
-    {"name": "security", "dept": "secdata", "lead": "comply", "label": "Security review", "seats": ["recon", "kmail", "vmail"]},
-    {"name": "preview", "dept": "devops", "lead": "qa", "label": "Preview deploy", "seats": ["dash"]},
-    {"name": "exposure", "dept": "secdata", "lead": "comply", "label": "Exposure", "seats": []},
-    {"name": "handoff", "dept": "exec", "lead": "olead", "label": "Handoff", "seats": []},
+    {"name": "intake", "dept": "exec", "lead": "exec-ceo-strategist", "label": "Intake", "seats": []},
+    {"name": "verify", "dept": "exec", "lead": "exec-ceo-strategist", "label": "Verify", "seats": []},
+    {"name": "scope", "dept": "engineering", "lead": "exec-vp-engineering", "label": "Scope", "seats": []},
+    {"name": "build", "dept": "engineering", "lead": "exec-vp-engineering", "label": "Build", "seats": []},
+    {"name": "security", "dept": "secdata", "lead": "sec-compliance", "label": "Security review", "seats": []},
+    {"name": "preview", "dept": "devops", "lead": "devops-cd", "label": "Preview deploy", "seats": []},
+    {"name": "exposure", "dept": "secdata", "lead": "sec-compliance", "label": "Exposure", "seats": []},
+    {"name": "handoff", "dept": "exec", "lead": "exec-ceo-strategist", "label": "Handoff", "seats": []},
     # Validate lane only: web research and a memo whose verdict is computed from the evidence.
-    {"name": "research", "dept": "exec", "lead": "olead", "label": "Market research", "seats": []},
+    {"name": "research", "dept": "exec", "lead": "exec-ceo-strategist", "label": "Market research", "seats": []},
 ]
 
 DEFAULTS: dict = {
@@ -52,22 +53,22 @@ DEFAULTS: dict = {
         "timeout_s": 120,
         # Office model keys (task/agent/routine menus) -> router model ids.
         "models": {
-            "haiku": "cc/claude-haiku-4-5-20251001",
+            "haiku": "oc/big-pickle",
             "sonnet": "cc/claude-sonnet-5",
             "opus": "cc/claude-opus-5",
             "fable": "cc/claude-fable-5-1",
         },
     },
-    # Pinned model per pipeline role (owner decision 2026-10-03: Haiku builds,
-    # free-tier GLM for research, drafts, tests and reviews).
+    # Pinned model per pipeline role. Owner decision 2026-10-05: every role (and the Haiku office
+    # key) runs on oc/big-pickle for now; any router id can be set here (was Haiku builds + free tier).
     "roles": {
-        "builder": "cc/claude-haiku-4-5-20251001",
-        "router": "kr/glm-5",
-        "research": "kr/glm-5",
-        "drafts": "kr/glm-5",
-        "tests": "kr/glm-5",
-        "lead_review": "kr/glm-5",
-        "chat": "kr/glm-5",
+        "builder": "oc/big-pickle",
+        "router": "oc/big-pickle",
+        "research": "oc/big-pickle",
+        "drafts": "oc/big-pickle",
+        "tests": "oc/big-pickle",
+        "lead_review": "oc/big-pickle",
+        "chat": "oc/big-pickle",
     },
     # Caps per lane, in estimated USD and in tokens (free-tier models cost $0 but are still bounded).
     # Prices are USD per million tokens, estimated from list prices: 9router's own cost figures are
@@ -77,7 +78,8 @@ DEFAULTS: dict = {
         "usd_per_mtok": {
             "default": {"in": 1.0, "out": 5.0},
             "cc/claude-haiku-4-5-20251001": {"in": 1.0, "out": 5.0},
-            "kr/glm-5": {"in": 0.0, "out": 0.0},
+            "oc/mimo-v2.5-free": {"in": 0.0, "out": 0.0},
+            "oc/big-pickle": {"in": 0.0, "out": 0.0},
         },
     },
     "pipeline": {"stages": DEFAULT_STAGES, "max_review_loops": 2,
@@ -96,9 +98,9 @@ DEFAULTS: dict = {
     # Two keys for a gated (Tier 1) preview: an independent security verdict and
     # commercial consent. Neither may be the building department's lead.
     "exposure": {"tier1_owner_clicks": 3, "preview_ttl_days": 7,
-                 "keys": {"security": "comply", "commercial": "olead"}},
+                 "keys": {"security": "sec-compliance", "commercial": "exec-ceo-strategist"}},
     # template: copied into every new job workspace (PLAN.md section 14, C3).
-    "worker": {"kind": "fake", "timeout_minutes": 180, "template": "templates/webapp", "images": {
+    "worker": {"kind": "fake", "timeout_minutes": 180, "max_turns": 250, "template": "templates/webapp", "images": {
         "claude_code": "agents-office/worker-node:latest",
         "openhands": "agents-office/worker-openhands:latest",
         "mini_swe": "agents-office/worker-node:latest",
@@ -142,6 +144,9 @@ DEFAULTS: dict = {
                "office_url": "http://127.0.0.1:4520"},
     "github": {"token_env": "GITHUB_TOKEN", "url": "https://api.githubcopilot.com/mcp/readonly", "readonly": True},
     "api": {"token_env": "AO_API_TOKEN", "allowed_hosts": ["localhost", "127.0.0.1", "testserver"]},
+    # Owner policy, enforced at call time (app/policy.py tool_verdict, app/mcp.py call_allowed).
+    # Empty = no extra rules. See PLAN section 20 for the shape.
+    "policies": {},
 }
 
 KNOWN_KEYS = set(DEFAULTS) | {"_comment"}
@@ -189,6 +194,7 @@ class Config:
     production: dict = field(default_factory=dict)
     notify: dict = field(default_factory=dict)
     rubric: dict = field(default_factory=dict)
+    policies: dict = field(default_factory=dict)
     problems: list = field(default_factory=list)
 
     def secret(self, section: str, key: str = "api_key_env") -> str:
@@ -228,6 +234,26 @@ def _clear() -> None:
 load_config_cache_clear = _clear
 
 
+_ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _inline_secret_problems(merged: dict) -> list[str]:
+    """policies.secrets.inlineSecretsForbidden: every `*_env` setting names an environment
+    variable. A value that is not a plausible variable name is a secret pasted in the wrong
+    place, so it is reported (by key, never by value) and cleared so it is never used."""
+    if not ((merged.get("policies") or {}).get("secrets") or {}).get("inlineSecretsForbidden"):
+        return []
+    out: list[str] = []
+    for section, body in merged.items():
+        if not isinstance(body, dict):
+            continue
+        for k, v in body.items():
+            if k.endswith("_env") and isinstance(v, str) and v and not _ENV_NAME.match(v):
+                out.append(f'{section}.{k} must be an environment variable NAME, not a value — cleared')
+                body[k] = ""
+    return out
+
+
 def _load() -> Config:
     problems: list[str] = []
     base = _read_json(ROOT / "office.config.json")
@@ -239,6 +265,7 @@ def _load() -> Config:
             if k not in KNOWN_KEYS:
                 problems.append(f'unknown config key "{k}" — ignored')
     merged = _merge(_merge(DEFAULTS, base), local)
+    problems += _inline_secret_problems(merged)
 
     merged["name"] = os.environ.get("AO_NAME", merged["name"])
     merged["brain"] = os.environ.get("AO_BRAIN", merged["brain"])
@@ -264,7 +291,8 @@ def _load() -> Config:
         router=merged["router"], roles=merged["roles"], budget=merged["budget"],
         pipeline=merged["pipeline"], exposure=merged["exposure"], worker=merged["worker"],
         sandbox=merged["sandbox"], dokploy=merged["dokploy"], github=merged["github"],
-        api=merged["api"], web=merged["web"], rubric=merged["rubric"], production=merged["production"], notify=merged["notify"], problems=problems,
+        api=merged["api"], web=merged["web"], rubric=merged["rubric"], production=merged["production"], notify=merged["notify"],
+        policies=merged["policies"], problems=problems,
     )
 
 

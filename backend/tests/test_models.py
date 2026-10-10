@@ -26,3 +26,13 @@ def test_model_id_resolves_env_backed_id():
     assert model_id("sonnet")
     assert model_id("opus")
     assert model_id("haiku") == HAIKU_MODEL_ID
+
+
+def test_any_router_id_passes_through():
+    from app.models import is_router_id, model_for, model_id, norm_model
+    assert is_router_id("oc/mimo-v2.5-free") and is_router_id("kr/glm-5")
+    assert not is_router_id("sonnet-evil") and not is_router_id("a b/c") and not is_router_id("../x/y;rm")
+    assert norm_model("oc/Mimo-V2.5-Free") == "oc/Mimo-V2.5-Free"
+    assert model_id("oc/mimo-v2.5-free") == "oc/mimo-v2.5-free"
+    assert model_for(task="oc/mimo-v2.5-free")["model"] == "oc/mimo-v2.5-free"
+    assert norm_model("nonsense") is None

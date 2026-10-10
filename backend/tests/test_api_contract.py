@@ -120,7 +120,7 @@ def test_health_shape(client):
     for key in ("ok", "version", "backend", "model", "models", "depts", "agents", "agentCount",
                 "routines", "roster", "skills", "tools", "mcp", "pipeline", "roles"):
         assert key in body
-    assert isinstance(body["agents"], list) and body["agentCount"] == len(body["agents"]) == 27
+    assert isinstance(body["agents"], list) and body["agentCount"] == len(body["agents"]) == 17
     assert [s["name"] for s in body["pipeline"]["stages"]][:2] == ["intake", "verify"]
 
 
@@ -130,8 +130,8 @@ def test_agents_shape_and_approval_scopes(client):
     for key in ("id", "department", "lead", "name", "role", "does", "tools", "approves"):
         assert key in first
     by_id = {a["id"]: a for a in agents}
-    assert "exposure" in by_id["comply"]["approves"] and "exposure" in by_id["olead"]["approves"]
-    assert "exposure" not in by_id["dlead"]["approves"]  # the builder never approves exposure
+    assert "exposure" in by_id["sec-compliance"]["approves"] and "exposure" in by_id["exec-ceo-strategist"]["approves"]
+    assert "exposure" not in by_id["exec-vp-engineering"]["approves"]  # the builder never approves exposure
     assert all(not a["approves"] for a in agents if not a["lead"])
 
 
@@ -231,7 +231,7 @@ def test_list_routines_shape(client):
 def test_create_routine_validates(client):
     when = {"kind": "daily", "at": "09:00"}
     assert client.post("/api/routines", json={"dept": "nope", "text": "x", "when": when}).status_code == 400
-    assert client.post("/api/routines", json={"dept": "engineering", "text": "x", "when": when}).status_code == 400
+    assert client.post("/api/routines", json={"dept": "frontend", "text": "x", "when": when}).status_code == 400
     assert client.post("/api/routines", json={"dept": "fin", "text": "", "when": when}).status_code == 400
     assert client.post("/api/routines", json={"dept": "fin", "text": "chase overdue invoices"}).status_code == 400
 
@@ -302,3 +302,138 @@ def test_chat_routine_commands(client):
 
 def test_unknown_route_404(client):
     assert client.get("/api/not-a-real-route").status_code == 404
+
+
+def test_queue_off_by_default_and_arq_worker_importable(monkeypatch):
+    from app import jobqueue
+    monkeypatch.delenv("AO_QUEUE", raising=False)
+    assert jobqueue.enabled() is False
+    assert jobqueue.WorkerSettings.max_tries == 1 and jobqueue.WorkerSettings.functions
+
+
+def test_once_routine_for_live_dept(client, fake_db):
+    import time
+    at = int((time.time() + 3600) * 1000)
+    r = client.post("/api/routines", json={"dept": "engineering", "text": "check the build", "when": {"kind": "once", "atMs": at},
+                                           "createdBy": "Dash"})
+    assert r.status_code == 200, r.json()
+    got = r.json()["routine"]
+    assert got["createdBy"] == "Dash" and got["when"]["kind"] == "once"
+    row = next(x for x in client.get("/api/routines").json()["routines"] if x["id"] == got["id"])
+    assert row["needsYou"] is False
+    assert client.post("/api/routines", json={"dept": "devops", "text": "x", "when": {"kind": "once"}}).status_code == 400
+
+
+def test_job_stream_sends_the_view_then_ends_when_final(client, fake_db):
+    import asyncio
+    from app import db
+    from app.pipeline import jobs
+    job = jobs.new_job("client", "Stream me", {"title": "Stream me"}, requested_tier=0, lane="build")
+    job["status"] = "done"
+    asyncio.run(db.save_job(job))
+    assert client.get("/api/jobs/nope/stream").status_code == 404
+    r = client.get(f"/api/jobs/{job['id']}/stream")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/event-stream")
+    assert r.text.startswith("data: ") and job["id"] in r.text
+
+
+def test_archive_hides_a_job_but_keeps_it(client, fake_db):
+    import asyncio
+    from app import db
+    from app.pipeline import jobs
+    job = jobs.new_job("client", "Old test", {"title": "Old test"}, requested_tier=0, lane="build")
+    job["status"] = "killed"
+    asyncio.run(db.save_job(job))
+    assert any(j["id"] == job["id"] for j in client.get("/api/jobs").json())
+    assert client.post(f"/api/jobs/{job['id']}/archive", json={}, headers={"X-AO-Client": "office"}).status_code == 200
+    assert not any(j["id"] == job["id"] for j in client.get("/api/jobs").json())
+    assert any(j["id"] == job["id"] for j in client.get("/api/jobs?archived=true").json())
+    assert client.get(f"/api/jobs/{job['id']}").status_code == 200
+
+
+def test_queue_gives_each_job_one_driver(monkeypatch):
+    import asyncio
+    from app import jobqueue
+    calls = []
+
+    class Pool:
+        async def enqueue_job(self, fn, *a, **kw):
+            calls.append((fn, a, kw))
+            return None if len(calls) > 1 else object()  # arq answers None for a job id it already holds
+
+    monkeypatch.setattr(jobqueue, "_pool", Pool())
+    assert asyncio.run(jobqueue.enqueue("j1", {"x": 1})) is True
+    assert asyncio.run(jobqueue.enqueue("j1", {"x": 2})) is True  # duplicate: handled, never run in the API too
+    assert {c[2]["_job_id"] for c in calls} == {"drive-j1"}
+
+
+def test_worker_activity_reaches_the_api_buffer():
+    from app import activity
+    before = activity.since(0)["seq"]
+    activity.ingest({"at": 1, "kind": "job-event", "text": "from the worker", "agent": None, "connector": None,
+                     "job": "j", "stage": "build", "level": "info"})
+    got = activity.since(before)
+    assert [e["text"] for e in got["events"]] == ["from the worker"] and got["seq"] == before + 1
+
+
+# ---------- tasks and routines in the worker (AO_QUEUE=1) ----------
+
+@pytest.fixture
+def queued(monkeypatch):
+    """Queue on; the 'worker' is a callable the test controls. Records every enqueue_task call."""
+    from app import jobqueue, main
+    monkeypatch.setenv("AO_QUEUE", "1")
+    seen, worker = [], {"drive": True}
+
+    async def fake_enqueue(task_id, kind, feedback, approve, key):
+        seen.append({"id": task_id, "kind": kind, "feedback": feedback, "approve": approve, "key": key})
+        if worker["drive"]:
+            main.spawn(main.drive_task(task_id, kind, feedback, approve))  # what the worker process does
+        return True
+
+    monkeypatch.setattr(jobqueue, "enqueue_task", fake_enqueue)
+    return seen, worker
+
+
+def test_queued_run_blocks_until_the_worker_settles_it(client, queued, router_says):
+    seen, _ = queued
+    router_says["needs_ok"] = False
+    created = client.post("/api/tasks", json={"dept": "fin", "text": "list overdue invoices"}).json()
+    task = client.post(f"/api/tasks/{created['id']}/run").json()
+    assert task["state"] == "done" and task["result"] == "mocked agent output"
+    assert [s["kind"] for s in seen] == ["run"] and seen[0]["id"] == created["id"]
+
+
+def test_queued_approve_goes_to_the_worker_and_finishes(client, queued, fake_db):
+    seen, _ = queued
+    created = client.post("/api/tasks", json={"dept": "fin", "text": "email the client"}).json()
+    assert client.post(f"/api/tasks/{created['id']}/run").json()["state"] == "waiting"
+    r = client.post(f"/api/tasks/{created['id']}/approve")
+    assert r.json()["state"] == "doing"
+    t = wait_for(fake_db, created["id"], "done")
+    assert t["approved"] is True and t["result"] == "sent after OK"
+    assert [s["kind"] for s in seen] == ["run", "resume"] and seen[1]["approve"] is True
+
+
+def test_queued_routine_run_is_left_to_the_worker(client, queued, fake_db):
+    seen, worker = queued
+    worker["drive"] = False  # the worker has not picked it up yet
+    rid = client.post("/api/routines", json={
+        "dept": "fin", "text": "list overdue invoices", "when": {"kind": "weekly", "days": [1], "at": "09:00"},
+    }).json()["routine"]["id"]
+    run = client.post(f"/api/routines/{rid}/run").json()
+    tid = run["task"]["id"]
+    assert [s["kind"] for s in seen] == ["routine"] and seen[0]["id"] == tid
+    assert fake_db.tasks[tid]["state"] == "doing" and fake_db.tasks[tid]["thread"]  # nothing ran in the API
+    assert fake_db.tasks[tid].get("result") is None
+
+
+def test_worker_skips_a_task_that_was_settled_meanwhile(client, fake_db):
+    import asyncio
+    from app import main
+    created = client.post("/api/tasks", json={"dept": "fin", "text": "list overdue invoices"}).json()
+    asyncio.run(main.drive_task(created["id"], "run"))  # still "next": nobody started it
+    assert fake_db.tasks[created["id"]]["state"] == "next"
+    fake_db.tasks[created["id"]].update(state="done", error=True)  # marked failed by a restart
+    asyncio.run(main.drive_task(created["id"], "routine"))
+    assert fake_db.tasks[created["id"]]["state"] == "done" and fake_db.tasks[created["id"]]["error"] is True

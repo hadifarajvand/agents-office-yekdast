@@ -36,8 +36,19 @@ EFFORT_KEYS = ["low", "medium", "high", "xhigh", "max"]
 EFFORT_NAME = {"low": "Low", "medium": "Medium", "high": "High", "xhigh": "X-high", "max": "Max"}
 
 
+_ROUTER_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$")
+
+
+def is_router_id(s: str | None) -> bool:
+    """Any model the router serves, written provider/name (cc/..., oc/..., kr/...)."""
+    return bool(s) and bool(_ROUTER_ID.match(str(s).strip()))
+
+
 def model_id(k: str | None) -> str:
-    """Router model id for an office key. Unknown keys fall back to the default."""
+    """Router model id for an office key. A router id passes through unchanged;
+    other unknown keys fall back to the default."""
+    if is_router_id(k):
+        return str(k).strip()
     key = k if k in MODELS else DEFAULT_MODEL
     env = os.environ.get(f"ROUTER_MODEL_{key.upper()}")
     if env:
@@ -70,7 +81,8 @@ def norm_model(s: str | None) -> str | None:
     for k in MODEL_KEYS:
         if t == model_id(k).lower():
             return k
-    return None
+    raw = str(s).strip()
+    return raw if is_router_id(raw) else None
 
 
 def effort_for(task=None, routine=None, agent=None, office=None, model=None) -> dict:

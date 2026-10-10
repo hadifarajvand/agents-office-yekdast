@@ -60,8 +60,8 @@ async def test_jobs_approvals_evidence_costs(pool):
     from app import db
     await db.save_job({"id": "j1", "kind": "client", "title": "Site", "stage": "intake", "status": "running"})
     assert (await db.get_job("j1"))["title"] == "Site"
-    assert await db.record_approval("j1", "verify", "olead", "PASS", "ok", ["e1"], "olead") is True
-    assert await db.record_approval("j1", "verify", "olead", "PASS", "ok", ["e1"], "olead") is False
+    assert await db.record_approval("j1", "verify", "exec-ceo-strategist", "PASS", "ok", ["e1"], "exec-ceo-strategist") is True
+    assert await db.record_approval("j1", "verify", "exec-ceo-strategist", "PASS", "ok", ["e1"], "exec-ceo-strategist") is False
     assert len(await db.list_approvals("j1")) == 1
     await db.clear_approvals("j1", "verify")
     assert await db.list_approvals("j1") == []
@@ -69,11 +69,11 @@ async def test_jobs_approvals_evidence_costs(pool):
     await db.add_evidence("j1", "security", "check", "secret scan", False, {"hits": 1}, evidence_id="ev1")
     ev = await db.list_evidence("j1")
     assert eid == "ev1" and len(ev) == 1 and ev[0]["ok"] is False
-    await db.record_cost("task:x", "kr/glm-5", "glm-5", 10, 5, 0.0)
+    await db.record_cost("task:x", "oc/mimo-v2.5-free", "glm-5", 10, 5, 0.0)
     assert (await db.usage_window())["tokens"] == 15
     assert await db.bump_counter("tier1_owner_clicks") == 1
     assert await db.counter("tier1_owner_clicks") == 1
-    await db.audit("comply", "secdata", "dokploy", "application-deploy", "previews/app", True)
+    await db.audit("sec-compliance", "secdata", "dokploy", "application-deploy", "previews/app", True)
 
 
 async def test_paused_task_survives_restart_and_resumes_once(pool, monkeypatch):
@@ -186,8 +186,8 @@ async def test_spawn_and_consult_evidence_round_trips_through_jsonb(pool, monkey
         return "answer text"
     monkeypatch.setattr(sp, "ask", fake_ask)
     await db.save_job({"id": "jx", "kind": "client", "title": "x", "stage": "intake", "status": "running"})
-    await sp.spawn("dlead", "eng-api-designer", "name the endpoints", job_id="jx", stage="scope")
-    await sp.consult("olead", "dlead", "how long?", job_id="jx", stage="verify")
+    await sp.spawn("exec-vp-engineering", "eng-api-designer", "name the endpoints", job_id="jx", stage="scope")
+    await sp.consult("exec-ceo-strategist", "exec-vp-engineering", "how long?", job_id="jx", stage="verify")
     ev = await db.list_evidence("jx")
     assert {e["kind"] for e in ev} == {"spawn", "consult"} and all(e["body"]["text"] == "answer text" for e in ev)
 

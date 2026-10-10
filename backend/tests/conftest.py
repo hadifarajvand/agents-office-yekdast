@@ -18,6 +18,9 @@ def fresh_config():
     on load_config() do not leak into the next test."""
     from app.config import load_config
     load_config.cache_clear()
+    # The owner's local `policies` (audit path, connector rules) must not steer unrelated tests;
+    # tests/test_mcp_policies.py supplies its own.
+    load_config().policies = {}
     yield
     load_config.cache_clear()
 

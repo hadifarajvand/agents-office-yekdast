@@ -42,6 +42,12 @@ class ClaudeCodeWorker(ContainerWorker):
             "ANTHROPIC_MODEL": model, "ANTHROPIC_DEFAULT_HAIKU_MODEL": model,
             "ANTHROPIC_DEFAULT_SONNET_MODEL": model, "ANTHROPIC_DEFAULT_OPUS_MODEL": model,
             "ANTHROPIC_SMALL_FAST_MODEL": model,
+            # Free router models (oc/*) stall for 8-13 s between stream chunks; Claude Code then falls back
+            # to a non-streaming call, and 9router answers that in OpenAI format (not a Message), which
+            # kills the run. Keep it on streaming, retry instead, and cap runaway generations.
+            # Flag names confirmed present in the worker image CLI binary (2026-10-05).
+            "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK": "1", "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "8192",
+            "API_TIMEOUT_MS": "600000", "CLAUDE_STREAM_IDLE_TIMEOUT_MS": "120000", "CLAUDE_CODE_MAX_RETRIES": "6",
             "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1", "DISABLE_AUTOUPDATER": "1", "DISABLE_TELEMETRY": "1",
         }
 

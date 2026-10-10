@@ -15,6 +15,7 @@ from ..config import load_config
 from ..context import build_pack, fence
 from ..context import seat as seat_of
 from ..policy import redact_secrets
+from . import activity
 from . import exposure as exp
 from .ports import get_deps
 
@@ -53,13 +54,19 @@ async def run_seats(state: dict, stage: str, tasks: dict[str, str], *, role: str
     brief = fence(json.dumps(state["brief"])[:4000])
     evidence = await db.list_evidence(state["job_id"])
 
+    job = await db.get_job(state["job_id"]) or {"id": state["job_id"]}
+
     async def one(sid: str) -> tuple[str, dict]:
+        shown = await activity.start(job, stage, sid, tasks[sid][:80], dept=activity.stage_cfg(stage).get("dept"), key="seat")
         try:
             system = await build_pack(sid, stage=stage, query=f'{state["brief"].get("title", "")} {tasks[sid]}', evidence=evidence)
             data = await deps.chat_json(system + "\n\n" + SEAT_JSON, f"Your task: {tasks[sid]}\n\nBrief:\n{brief}", role=role)
-            return sid, {"finding": str(data.get("finding", ""))[:1200], "risks": [str(r)[:200] for r in data.get("risks", [])][:5],
-                         "confidence": str(data.get("confidence", ""))[:10]}
+            res = {"finding": str(data.get("finding", ""))[:1200], "risks": [str(r)[:200] for r in data.get("risks", [])][:5],
+                   "confidence": str(data.get("confidence", ""))[:10]}
+            await activity.finish(shown, result=res["finding"])
+            return sid, res
         except Exception as exc:  # a seat that cannot answer must not stop the stage
+            await activity.finish(shown, ok=False, result=f"could not answer: {type(exc).__name__}")
             return sid, {"finding": "", "risks": [], "error": type(exc).__name__}
 
     out = await asyncio.gather(*(one(s) for s in wanted))
@@ -155,7 +162,8 @@ async def build(state: dict) -> dict:
     job_dir = Path(cfg.sandbox["jobs_dir"]) / state["job_id"]
     job_dir.mkdir(parents=True, exist_ok=True)
     brief = {**state["brief"], "scope": state.get("scope", {}), "feedback": state.get("feedback", "")}
-    limits = {"minutes": cfg.worker.get("timeout_minutes", 180), "model": cfg.roles.get("builder")}
+    limits = {"minutes": cfg.worker.get("timeout_minutes", 180), "model": cfg.roles.get("builder"),
+              "max_turns": cfg.worker.get("max_turns", 250)}
     res = await deps.worker.run(job_dir, brief, limits)
     pinned = cfg.roles.get("builder", "")
     from ..llm import same_model

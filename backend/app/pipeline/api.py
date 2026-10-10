@@ -9,10 +9,10 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from langgraph.types import Command
 
-from .. import db
+from .. import db, jobqueue
 from ..config import load_config
 from . import exposure as exp
 from . import jobs
@@ -47,6 +47,13 @@ async def _drive(job_id: str, payload) -> None:
             pass
 
 
+async def dispatch(job_id: str, payload) -> None:
+    """Hand a start/resume/kill to the worker queue, or run it in this process when the queue is off."""
+    if jobqueue.enabled() and await jobqueue.enqueue(job_id, payload):
+        return
+    _spawn(_drive(job_id, payload))
+
+
 async def _view(job_id: str) -> dict | None:
     job = await db.get_job(job_id)
     if job is None:
@@ -60,9 +67,42 @@ async def body_of(req: Request) -> dict:
 
 
 @router.get("")
-async def list_jobs():
-    # rows that are not complete job records (e.g. written by a test) are skipped, not fatal
-    return [jobs.public(j) for j in await db.list_jobs() if j.get("stages") and j.get("status")]
+async def list_jobs(archived: bool = False):
+    # rows that are not complete job records (e.g. written by a test) are skipped, not fatal;
+    # archived jobs are hidden from the list but their records stay (?archived=true shows them)
+    return [jobs.public(j) for j in await db.list_jobs()
+            if j.get("stages") and j.get("status") and (archived or not j.get("archived"))]
+
+
+@router.get("/{job_id}/stream")
+async def stream_job(job_id: str):
+    """Server-sent events: the job's public view whenever it changes, until it reaches a final state.
+    Reads Postgres, so it sees changes made by the API process and by the queue worker alike."""
+    import json
+
+    if await db.get_job(job_id) is None:
+        return JSONResponse({"error": "not found"}, status_code=404)
+
+    async def gen():
+        last, idle = None, 0
+        while True:
+            v = await _view(job_id)
+            if v is None:
+                yield "event: gone\ndata: {}\n\n"
+                return
+            blob = json.dumps(v, sort_keys=True, default=str)
+            if blob != last:
+                last, idle = blob, 0
+                yield f"data: {blob}\n\n"
+            else:
+                idle += 1
+                if idle % 15 == 0:
+                    yield ": keep-alive\n\n"
+            if v.get("status") in jobs.TERMINAL:
+                return
+            await asyncio.sleep(1)
+
+    return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @router.get("/{job_id}")
@@ -104,7 +144,7 @@ async def create_job(req: Request):
         except KeyError:
             pass
     cfgd = {"job_id": job["id"], "kind": kind, "lane": lane, "brief": brief, "requested_tier": tier, "loops": {}, "feedback": "", "route": ""}
-    _spawn(_drive(job["id"], cfgd))
+    await dispatch(job["id"], cfgd)
     return jobs.public(job)
 
 
@@ -127,7 +167,7 @@ async def decide_gate(job_id: str, stage: str, req: Request):
     if verdict == "PASS" and stage == "exposure" and int(job.get("requestedTier", 0)) == 1:
         await db.bump_counter("tier1_owner_clicks")
     await jobs.event(job_id, f"owner {verdict} on {stage}")
-    _spawn(_drive(job_id, Command(resume={"owner": verdict})))
+    await dispatch(job_id, Command(resume={"owner": verdict}))
     return {"ok": True}
 
 
@@ -178,7 +218,7 @@ async def retry_parked(job_id: str, req: Request):
         payload = Command(resume={"action": "retry", "note": str(body.get("note") or "")[:1000]})
     else:
         payload = None  # parked by a restart, not by the graph: continue from the last checkpoint
-    _spawn(_drive(job_id, payload))
+    await dispatch(job_id, payload)
     return {"ok": True}
 
 
@@ -194,6 +234,19 @@ async def park_interrupted() -> int:
     return n
 
 
+@router.post("/{job_id}/archive")
+async def archive_job(job_id: str, req: Request):
+    """Owner only: hide a finished, killed, failed or parked job from the list. Nothing is deleted."""
+    await body_of(req)  # same owner-client check as every mutating call
+    job = await db.get_job(job_id)
+    if job is None:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    if job.get("status") == "running":
+        return JSONResponse({"error": "a running job cannot be archived; kill or park it first"}, status_code=409)
+    await jobs.touch(job_id, archived=True)
+    return {"ok": True}
+
+
 @router.post("/{job_id}/kill")
 async def kill_job(job_id: str):
     """Kill switch: stop the job, take the preview down, release the graph."""
@@ -204,13 +257,15 @@ async def kill_job(job_id: str):
     if job["status"] in jobs.TERMINAL:
         return {"ok": True, "status": job["status"]}
     await jobs.touch(job_id, status="killed", pending=[])
+    from ..sandbox import stop_job_container
+    await asyncio.to_thread(stop_job_container, job_id)  # a killed job's agent must stop using the router
     prev = job.get("preview")
     if prev and prev.get("app_id"):
         try:
             await get_deps().deployer.stop(job, prev)
         except Exception:
             log.exception("could not stop the preview of %s", job_id)
-    _spawn(_drive(job_id, Command(resume={"action": "kill"})))
+    await dispatch(job_id, Command(resume={"action": "kill"}))
     await jobs.event(job_id, "killed by the owner")
     return {"ok": True, "status": "killed"}
 

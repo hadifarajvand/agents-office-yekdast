@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .config import ROOT, load_config
+from .models import norm_model
 
 FILE = ROOT / "office.agents.json"
 LOCAL = ROOT / "office.agents.local.json"
@@ -112,13 +113,13 @@ def validate(doc, base: list[Agent] | None = None) -> dict:
             else:
                 a.tools = [s for s in (str(t).strip() for t in e["tools"]) if s][:12]
         if "model" in e:
-            m = str(e["model"] or "").lower().strip()
-            if not m:
+            m = norm_model(str(e["model"] or ""))
+            if not str(e["model"] or "").strip():
                 a.model = ""
-            elif m in MODELS:
+            elif m:
                 a.model = m
             else:
-                problems.append(f'"{eid}": model must be sonnet, opus, fable or haiku (got "{e["model"]}") — kept {a.model or "the office default"}')
+                problems.append(f'"{eid}": model must be sonnet, opus, fable, haiku or a router id like oc/name (got "{e["model"]}") — kept {a.model or "the office default"}')
         if "effort" in e:
             v = str(e["effort"] or "").lower().strip()
             if not v:

@@ -1,8 +1,10 @@
 """Port of routines.mjs — routines: tasks the office does on its own clock.
 
 A routine is a line in <brain>/Agents Office/routines.json. Run state (next/last run)
-lives in Postgres (db.routine_state) so the brain file stays clean config. This release:
-routines are for the Content, Finance and Revenue departments only.
+lives in Postgres (db.routine_state) so the brain file stays clean config. Routines run for the
+live departments (exec, engineering, devops, secdata) and Content, Finance and Revenue. A
+`once` schedule is a single task set for later. `createdBy` records who scheduled it (the owner
+or a named agent); it changes nothing about what the run may do.
 
 Entries that fail validation are reported, never deleted: `load()` returns them under
 "invalid" and `save()` writes them back unchanged, so a hand-edited typo is not lost
@@ -17,8 +19,9 @@ import tempfile
 from pathlib import Path
 
 from .when import describe, next_run, valid
+from .models import norm_model
 
-ALLOWED = ["content", "fin", "revenue"]
+ALLOWED = ["exec", "engineering", "devops", "secdata", "content", "fin", "revenue"]
 NAMES = {"content": "Content", "fin": "Finance", "revenue": "Revenue", "exec": "Exec", "engineering": "Engineering", "frontend": "Frontend", "devops": "Devops", "secdata": "Secdata"}
 LATE_AFTER = 90 * 1000  # ms
 
@@ -40,7 +43,7 @@ def _read_json(p: Path, fallback):
 
 
 def refusal(dept: str) -> str:
-    return f"Routines come to {NAMES.get(dept, dept)} in a later release. This release: Content, Finance and Revenue."
+    return f"Routines come to {NAMES.get(dept, dept)} in a later release. Available now: " + ", ".join(NAMES[d] for d in ALLOWED) + "."
 
 
 def validate(r: dict, agents: list, existing: list[dict] | None = None) -> dict:
@@ -69,14 +72,16 @@ def validate(r: dict, agents: list, existing: list[dict] | None = None) -> dict:
         problems.append(f'{out["id"]}: the schedule is not complete ({json.dumps(r.get("when"))}) — see when.py')
     out["needsOk"] = r.get("needsOk") is not False
     out["paused"] = r.get("paused") is True
+    if r.get("createdBy"):
+        out["createdBy"] = str(r["createdBy"])[:60]
     if isinstance(r.get("plan"), list):
         out["plan"] = [str(x) for x in r["plan"][:4]]
     if r.get("model") not in (None, ""):
-        m = str(r["model"]).lower().strip()
-        if m in ("sonnet", "opus", "fable", "haiku"):
+        m = norm_model(str(r["model"]))
+        if m:
             out["model"] = m
         else:
-            problems.append(f'{out["id"]}: model must be sonnet, opus, fable or haiku (got "{r["model"]}")')
+            problems.append(f'{out["id"]}: model must be sonnet, opus, fable, haiku or a router id like oc/name (got "{r["model"]}")')
     if r.get("effort") not in (None, ""):
         e = str(r["effort"]).lower().strip()
         if e in ("low", "medium", "high", "xhigh", "max"):
@@ -117,6 +122,8 @@ def save(brain_path: Path, routines: list[dict], invalid: list[dict] | None = No
     for r in routines:
         c = {"id": r["id"], "dept": r["dept"], "agent": r["agent"], "title": r["title"], "text": r["text"],
              "when": r["when"], "needsOk": r["needsOk"], "paused": r["paused"]}
+        if r.get("createdBy"):
+            c["createdBy"] = r["createdBy"]
         if r.get("model"):
             c["model"] = r["model"]
         if r.get("effort"):

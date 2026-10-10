@@ -26,12 +26,12 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
-from . import activity, db, learn, llm, routines as routines_mod, when as whenmod
+from . import activity, db, jobqueue, learn, llm, routines as routines_mod, when as whenmod
 from .brain import brain_graph, brain_summary
 from .config import ROOT, load_config
 from .graph import engine
 from .mcp import registry as mcp_registry
-from .models import EFFORT_KEYS, MODEL_KEYS, MODELS, model_id
+from .models import EFFORT_KEYS, MODEL_KEYS, MODELS, model_id, norm_model
 from .onboard import active as onboard_active, setup_map
 from .roster import DEPTS, load_roster
 from .skills import load_skills
@@ -83,11 +83,12 @@ async def lifespan(_app: FastAPI):
     except Exception as e:
         log.info("GitHub tools not attached: %s", e)
     llm.on_usage(_record_cost)
-    n = await db.fail_interrupted_tasks()
+    # with the queue on, the worker owns running tasks and jobs and settles interrupted ones itself
+    n = 0 if jobqueue.enabled() else await db.fail_interrupted_tasks()
     if n:
         log.warning("marked %d task(s) interrupted by the last restart as failed", n)
     from .pipeline import api as pipeline_api
-    pn = await pipeline_api.park_interrupted()
+    pn = 0 if jobqueue.enabled() else await pipeline_api.park_interrupted()
     if pn:
         log.warning("parked %d job(s) interrupted by the last restart", pn)
     ticker = spawn(_tick_routines())
@@ -95,12 +96,15 @@ async def lifespan(_app: FastAPI):
         yield
     finally:
         ticker.cancel()
+        await jobqueue.close()
         for t in list(_bg_tasks):
             t.cancel()
         await db.close_pool()
 
 
-app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+# The machine-readable contract is served under /api (so the token guard covers it) and only to a
+# loopback client; the Swagger/ReDoc pages stay off (they load scripts from a CDN).
+app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url="/api/openapi.json")
 
 
 # ---------- request hygiene ----------
@@ -118,6 +122,7 @@ def _host_only(value: str) -> str:
 
 
 MUTATING = {"POST", "PUT", "PATCH", "DELETE"}
+LOOPBACK_CLIENTS = {"127.0.0.1", "::1", "localhost"}
 
 
 @app.middleware("http")
@@ -129,6 +134,8 @@ async def guard(request: Request, call_next):
     origin = request.headers.get("origin")
     if origin and _host_only(urlsplit(origin).netloc) not in hosts:
         return JSONResponse({"error": "origin not allowed"}, status_code=403)
+    if request.url.path == "/api/openapi.json" and (request.client.host if request.client else "") not in LOOPBACK_CLIENTS:
+        return JSONResponse({"error": "not found"}, status_code=404)
     if request.url.path.startswith("/api/"):
         token = cfg.secret("api", "token_env")
         if token and request.headers.get("x-ao-token") != token:
@@ -406,6 +413,7 @@ async def get_mcp(refresh: int = 0):
 
 @app.get("/api/activity")
 async def get_activity(since: int = 0):
+    await jobqueue.pull_activity()  # events from the queue worker, when the queue is on
     return activity.since(since)
 
 
@@ -449,7 +457,11 @@ async def create_task(req: Request):
     for key, valid in (("model", MODEL_KEYS), ("effort", EFFORT_KEYS)):
         v = body.get(key)
         if v not in (None, ""):
-            if v not in valid:
+            if key == "model":
+                v = norm_model(v)
+                if not v:
+                    return JSONResponse({"error": f"model must be one of {', '.join(valid)} or a router id like oc/name"}, status_code=400)
+            elif v not in valid:
                 return JSONResponse({"error": f"{key} must be one of {', '.join(valid)}"}, status_code=400)
             task[key] = v
     await db.save_task(task)
@@ -486,6 +498,54 @@ async def _learn(task: dict, feedback: str) -> None:
     learn.record(cfg.brain_path, agent, task, feedback, verdict)
 
 
+async def drive_task(task_id: str, kind: str, feedback: str | None = None, approve: bool = False) -> None:
+    """One agent run for a task. kind is "run" (the owner pressed Run), "routine" (a routine fired) or
+    "resume" (the owner decided at the gate). It runs in the API process, or in the arq worker when the
+    queue is on; the task row in Postgres is the only handoff between the two."""
+    task = await db.get_task(task_id)
+    if not task or task.get("state") != "doing":
+        return  # settled meanwhile (an interrupted run was marked failed, or it was deleted)
+    async with _run_slots:
+        try:
+            if kind == "resume":
+                out = await engine.resume_task(task.get("thread") or task_id, "approve" if approve else "draft",
+                                               feedback, refresh_skills(), find_agent(task["agent"]))
+                if approve:
+                    task.update(result=out.get("result", ""), state="done", approved=True, approvedAt=now_ms(), doneAt=now_ms())
+                else:
+                    task.update(draft=out.get("draft") or out.get("result", ""), state="waiting", waitingAt=now_ms(),
+                                ask=routines_mod.ask_line(task), revised=True)
+            else:
+                mode = "draft" if task.get("needsOk") else ("routine" if kind == "routine" else None)
+                _apply_run(task, await _execute(task, feedback, mode))
+        except Exception as e:
+            log.exception("task %s (%s) failed", task_id, kind)
+            what = "The follow-up" if kind == "resume" else "The run"
+            task.update(state="done", error=True, result=f"{what} failed: {type(e).__name__}.", doneAt=now_ms())
+    await db.save_task(task)
+    if feedback:
+        await _learn(task, feedback)
+
+
+async def _run_task_job(task: dict, kind: str, feedback: str | None = None, *, approve: bool = False,
+                        wait: bool = False) -> None:
+    """Hand a task (already saved as "doing") to the worker when the queue is on, else run it here."""
+    if jobqueue.enabled() and await jobqueue.enqueue_task(
+            task["id"], kind, feedback, approve, f'{kind}-{task.get("runs", 0)}-{now_ms()}'):
+        if wait:  # the owner's Run call returns when the run settles, as it always has
+            deadline = time.monotonic() + float(os.environ.get("AO_TASK_WAIT_S", "600"))
+            while time.monotonic() < deadline:
+                cur = await db.get_task(task["id"])
+                if not cur or cur.get("state") != "doing":
+                    return
+                await asyncio.sleep(0.5)
+        return
+    if wait:
+        await drive_task(task["id"], kind, feedback, approve)
+    else:
+        spawn(drive_task(task["id"], kind, feedback, approve))
+
+
 @app.post("/api/tasks/{task_id}/run")
 @app.post("/api/tasks/{task_id}/revise")
 async def run_or_revise_task(task_id: str, req: Request):
@@ -496,22 +556,15 @@ async def run_or_revise_task(task_id: str, req: Request):
     task = await db.get_task(task_id)
     if not task:
         return JSONResponse({"error": "not found"}, status_code=404)
+    if task.get("pipeline"):
+        return JSONResponse({"error": "this task shows pipeline work; it cannot be run or revised"}, status_code=400)
     if task.get("state") in ("doing", "waiting"):
         return JSONResponse({"error": f'task is already {task["state"]}'}, status_code=409)
     task.update(state="doing", startedAt=now_ms())
     _new_thread(task)
     await db.save_task(task)
-    async with _run_slots:
-        try:
-            out = await _execute(task, feedback, "draft" if task.get("needsOk") else None)
-            _apply_run(task, out)
-        except Exception as e:
-            log.exception("task %s failed", task_id)
-            task.update(state="done", error=True, result=f"The run failed: {type(e).__name__}.", doneAt=now_ms())
-    await db.save_task(task)
-    if feedback:
-        spawn(_learn(task, feedback))
-    return task
+    await _run_task_job(task, "run", feedback, wait=True)
+    return await db.get_task(task_id) or task
 
 
 @app.post("/api/tasks/{task_id}/approve")
@@ -525,29 +578,8 @@ async def approve_or_reject_task(task_id: str, req: Request):
     task = await db.claim_task(task_id, "waiting", "doing")
     if not task:
         return JSONResponse({"error": "task is not waiting for approval"}, status_code=400)
-    spawn(_resume(task_id, is_approve, feedback))
+    await _run_task_job(task, "resume", feedback, approve=is_approve)
     return {"ok": True, "id": task_id, "state": "doing"}
-
-
-async def _resume(task_id: str, is_approve: bool, feedback: str | None) -> None:
-    t = await db.get_task(task_id)
-    if not t:
-        return
-    async with _run_slots:
-        try:
-            out = await engine.resume_task(t.get("thread") or task_id, "approve" if is_approve else "draft",
-                                           feedback, refresh_skills(), find_agent(t["agent"]))
-            if is_approve:
-                t.update(result=out.get("result", ""), state="done", approved=True, approvedAt=now_ms(), doneAt=now_ms())
-            else:
-                t.update(draft=out.get("draft") or out.get("result", ""), state="waiting", waitingAt=now_ms(),
-                         ask=routines_mod.ask_line(t), revised=True)
-        except Exception as e:
-            log.exception("resuming task %s failed", task_id)
-            t.update(state="done", error=True, result=f"The follow-up failed: {type(e).__name__}.", doneAt=now_ms())
-        await db.save_task(t)
-    if feedback:
-        await _learn(t, feedback)
 
 
 @app.delete("/api/tasks/{task_id}")
@@ -562,6 +594,9 @@ async def _routines_out():
     rl = routines_mod.load(cfg.brain_path, agents_list())
     st = await db.load_routine_state()
     merged = routines_mod.with_state(rl["routines"], st)
+    for r in merged["list"]:  # a run parked for the owner shows as "needs you" on the Calendar
+        last = await db.get_task(r["lastTaskId"]) if r.get("lastTaskId") else None
+        r["needsYou"] = bool(last and last.get("state") == "waiting")
     return {"routines": merged["list"], "depts": routines_mod.ALLOWED, "path": str(rl["path"]), "problems": rl["problems"]}
 
 
@@ -596,7 +631,7 @@ async def create_routine(req: Request):
     rl = routines_mod.load(cfg.brain_path, agents_list())
     draft = {"dept": dept, "agent": agent_id, "text": text, "title": body.get("title") or text[:90],
              "when": when, "needsOk": body.get("needsOk", routines_mod.guess_needs_ok(text)), "paused": False}
-    for k in ("model", "effort", "id"):
+    for k in ("model", "effort", "id", "createdBy"):
         if body.get(k):
             draft[k] = body[k]
     v = routines_mod.validate(draft, agents_list(), rl["routines"])
@@ -669,25 +704,11 @@ async def _fire_routine(r: dict, late: bool) -> dict:
     await db.save_task(task)
     routines_mod.advance(st, r, task_id=task["id"], late=late)
     await db.save_routine_state(st)
-    spawn(_run_server_task(task["id"]))
-    return task
-
-
-async def _run_server_task(task_id: str):
-    task = await db.get_task(task_id)
-    if not task:
-        return
     task.update(state="doing", startedAt=now_ms())
     _new_thread(task)
     await db.save_task(task)
-    async with _run_slots:
-        try:
-            out = await _execute(task, None, "draft" if task.get("needsOk") else "routine")
-            _apply_run(task, out)
-        except Exception as e:
-            log.exception("routine task %s failed", task_id)
-            task.update(state="done", error=True, result=f"The run failed: {type(e).__name__}.", doneAt=now_ms())
-    await db.save_task(task)
+    await _run_task_job(task, "routine")
+    return task
 
 
 async def _tick_routines():

@@ -1,9 +1,9 @@
 from app.roster import DEPTS, boundaries_text, defaults, validate
 
 
-def test_eight_departments_27_seats():
+def test_eight_departments_17_seats():
     assert len(DEPTS) == 8
-    assert len(defaults()) == 27
+    assert len(defaults()) == 17  # live departments are leads only (Citadel personas)
 
 
 def test_rejects_new_agent():
@@ -32,7 +32,7 @@ def test_model_accepts_haiku_now_a_valid_choice():
     base = defaults()
     seat = base[0]
     r = validate({"agents": [{"id": seat.id, "model": "haiku"}]}, base)
-    assert not any("must be sonnet, opus, fable or haiku" in p for p in r["problems"])
+    assert not any("must be sonnet, opus, fable, haiku or a router id" in p for p in r["problems"])
     updated = next(a for a in r["agents"] if a.id == seat.id)
     assert updated.model == "haiku"
 
@@ -41,7 +41,7 @@ def test_model_rejects_unknown_value():
     base = defaults()
     seat = base[0]
     r = validate({"agents": [{"id": seat.id, "model": "bogus"}]}, base)
-    assert any("must be sonnet, opus, fable or haiku" in p for p in r["problems"])
+    assert any("must be sonnet, opus, fable, haiku or a router id" in p for p in r["problems"])
 
 
 def test_boundaries_parsed_and_capped():

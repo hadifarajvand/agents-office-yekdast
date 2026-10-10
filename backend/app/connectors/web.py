@@ -169,7 +169,7 @@ def from_config(cfg) -> WebTool:
     web = cfg.web or {}
 
     async def audit(op, resource, ok, reason):
-        await db.audit("olead", "exec", "web", op, resource, ok, reason)
+        await db.audit("exec-ceo-strategist", "exec", "web", op, resource, ok, reason)
 
     def mcp_call(spec: dict, name: str):
         cmd = spec["command"]

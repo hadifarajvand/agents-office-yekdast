@@ -1,7 +1,8 @@
 """Port of src/when.js — routine schedules: plain words -> a schedule, a schedule -> next due
 time, a schedule -> the words the office says back. Local time throughout.
 
-when = {kind: 'daily'|'weekdays'|'weekly'|'hourly'|'minutes', at: 'HH:MM', days: [0..6],
+when = {kind: 'daily'|'weekdays'|'weekly'|'hourly'|'minutes'|'once', at: 'HH:MM', days: [0..6],
+        atMs: epoch ms (once: a single run at that moment, never repeats),
         every: N, from/to: 'HH:MM', weekdaysOnly: true}
 """
 from __future__ import annotations
@@ -197,6 +198,9 @@ def from_picker(cadence: str, at: str | None) -> dict:
 def describe(when: dict | None) -> str:
     if not when:
         return ""
+    if when.get("kind") == "once" and isinstance(when.get("atMs"), (int, float)):
+        d = datetime.fromtimestamp(when["atMs"] / 1000)
+        return f'once · {SHORT[(d.weekday() + 1) % 7]} {d.day} {d.strftime("%b")} · {hhmm(d.hour, d.minute)}'
     at = f' · {when["at"]}' if when.get("at") else ""
     kind = when.get("kind")
     if kind == "minutes":
@@ -234,6 +238,8 @@ def valid(when: dict | None) -> bool:
         return bool(re.match(r"^\d{2}:\d{2}$", s or ""))
 
     kind = when.get("kind")
+    if kind == "once":
+        return isinstance(when.get("atMs"), (int, float)) and not isinstance(when.get("atMs"), bool) and when["atMs"] > 0
     if kind == "minutes":
         return isinstance(when.get("every"), int) and when["every"] >= 1
     if kind == "hourly":
@@ -262,6 +268,9 @@ def next_run(when: dict | None, from_ms: float | None = None) -> float | None:
     from_ms = from_ms if from_ms is not None else datetime.now().timestamp() * 1000
     f = datetime.fromtimestamp(from_ms / 1000)
     kind = when["kind"]
+
+    if kind == "once":  # one run at atMs; once it has passed there is no next one
+        return float(when["atMs"]) if when["atMs"] > from_ms else None
 
     if kind == "minutes":
         step = when["every"] * 60000

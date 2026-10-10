@@ -150,6 +150,15 @@ def _run_blocking(spec: dict, timeout_s: int, client=None) -> RunResult:
     return RunResult(code, logs, timed_out)
 
 
+def stop_job_container(job_id: str, client=None) -> bool:
+    """Remove a job's container if it is running (the owner's kill switch). True if one was removed."""
+    try:
+        (client or _docker()).containers.get(f"ao-job-{job_id}").remove(force=True)
+        return True
+    except Exception:  # none running, or Docker unavailable: the kill itself must not fail
+        return False
+
+
 async def run_container(spec: dict, timeout_s: int, client=None) -> RunResult:
     assert_hardened(spec)
     from . import activity

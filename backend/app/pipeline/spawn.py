@@ -15,6 +15,7 @@ from pathlib import Path
 
 from .. import db
 from ..config import load_config
+from .. import personas
 from ..llm import ask
 from ..roster import defaults
 
@@ -55,10 +56,15 @@ async def spawn(lead_id: str, bench_id: str, task: str, *, job_id: str, stage: s
         raise SpawnRefused(f"{stage} already used its {cap} sub-agents")
 
     await db.audit(lead_id, seat.department, "spawn", bench_id, f"{job_id}/{stage}", True)
-    system = (f"You are {role['name']}, a specialist sub-agent working for the {seat.name} of an internal "
-              f"software workshop. Your remit: {role['description']}. Answer the task concisely. You give "
-              "information only: you do not approve, pass or fail anything, and you do not act outside this "
-              "reply.")
+    boundary = ("You give information only: you do not approve, pass or fail anything, and you do not act "
+                "outside this reply. Answer the task concisely.")
+    persona = personas.get(bench_id)
+    if persona:  # the vendored Citadel prompt, verbatim, then our boundary
+        system = (f"{persona.system_prompt}\n\nYou are working for the {seat.name} of an internal software "
+                  f"workshop. {boundary}")
+    else:
+        system = (f"You are {role['name']}, a specialist sub-agent working for the {seat.name} of an internal "
+                  f"software workshop. Your remit: {role['description']}. {boundary}")
     tok = _in_spawn.set(True)
     try:
         text = await ask(system, str(task)[:4000], role="research", max_tokens=1500)

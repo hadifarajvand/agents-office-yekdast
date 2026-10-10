@@ -115,7 +115,7 @@ class _ExplodingTool:
 
 def test_specialist_node_redacts_tool_result_end_to_end(monkeypatch, tmp_path):
     r = engine.mcp_registry
-    monkeypatch.setattr(r, "call_allowed", lambda dept, key: (True, None))
+    monkeypatch.setattr(r, "call_allowed", lambda dept, key, *a: (True, None))
     monkeypatch.setattr(r, "tools_for", lambda agent_tools: [_SecretTool()])
     monkeypatch.setattr(r, "key_of", lambda name: "gmail")
 
@@ -150,7 +150,7 @@ def test_specialist_node_redacts_exception_text_end_to_end(monkeypatch, tmp_path
     """A failing tool's error text can echo a credential; it must reach the model
     redacted, and the audit line must be written before the call runs."""
     r = engine.mcp_registry
-    monkeypatch.setattr(r, "call_allowed", lambda dept, key: (True, None))
+    monkeypatch.setattr(r, "call_allowed", lambda dept, key, *a: (True, None))
     monkeypatch.setattr(r, "tools_for", lambda agent_tools: [_ExplodingTool()])
     monkeypatch.setattr(r, "key_of", lambda name: "gmail")
 

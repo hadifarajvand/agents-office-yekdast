@@ -10,6 +10,7 @@ from collections import deque
 
 _buf: deque[dict] = deque(maxlen=400)
 _seq = 0
+_sink = None  # set in the queue worker: forwards each event to the API process (see jobqueue)
 
 # stack connectors the UI draws as tiles (key -> display name, departments they sit in)
 STACK = {
@@ -42,11 +43,21 @@ def emit(kind: str, text: str, *, agent: str | None = None, connector: str | Non
     global _seq
     try:
         _seq += 1
-        _buf.append({"seq": _seq, "at": int(time.time() * 1000), "kind": kind, "text": str(text)[:200],
-                     "agent": agent or _lead_of(stage), "connector": connector, "job": job,
-                     "stage": stage, "level": level})
+        ev = {"seq": _seq, "at": int(time.time() * 1000), "kind": kind, "text": str(text)[:200],
+              "agent": agent or _lead_of(stage), "connector": connector, "job": job,
+              "stage": stage, "level": level}
+        _buf.append(ev)
+        if _sink is not None:
+            _sink(ev)
     except Exception:
         pass
+
+
+def ingest(ev: dict) -> None:
+    """An event that happened in another process (the queue worker): same buffer, this process's seq."""
+    global _seq
+    _seq += 1
+    _buf.append({**ev, "seq": _seq})
 
 
 def label_parts(label: str) -> tuple[str | None, str | None]:

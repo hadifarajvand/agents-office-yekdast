@@ -94,7 +94,7 @@ async def notify_once(job_id: str, key: str, text: str) -> bool:
             return False
         url = load_config().notify.get("office_url", "")
         ok = await n.send(f"{text}\n{url}" if url else text)
-        activity.emit("notify", "Telegram: " + text[:80], job=job_id, connector="telegram", agent="olead")
+        activity.emit("notify", "Telegram: " + text[:80], job=job_id, connector="telegram", agent="exec-ceo-strategist")
         return ok
     except Exception:
         return False
