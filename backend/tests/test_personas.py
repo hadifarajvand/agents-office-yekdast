@@ -40,4 +40,4 @@ def test_every_bench_role_in_the_live_departments_has_a_persona():
 
 
 def test_tiers_resolve_to_the_one_free_model():
-    assert {pe.model_for(t) for t in ("reasoning_deep", "reasoning_fast", "cheap_fast", "unknown")} == {"oc/big-pickle"}
+    assert {pe.model_for(t) for t in ("reasoning_deep", "reasoning_fast", "cheap_fast", "unknown")} == {"oc/nemotron-3-ultra-free"}

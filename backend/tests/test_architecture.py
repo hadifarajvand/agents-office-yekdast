@@ -61,7 +61,7 @@ def test_fence_marks_outside_text_untrusted_and_cannot_be_closed_early():
 async def test_verify_and_scope_and_handoff_run_their_seats_and_record_findings_not_verdicts(env, vault):
     jid = await start(env)
     job = await run_to_end(env, jid)
-    assert job["status"] == "done"
+    assert job["status"] == "done", job.get("parkReason")
     ev = await db.list_evidence(jid)
     findings = [e for e in ev if e["kind"] == "finding"]
     assert findings == []  # the staffed seats were removed (2026-10-06): leads work alone

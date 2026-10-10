@@ -53,22 +53,22 @@ DEFAULTS: dict = {
         "timeout_s": 120,
         # Office model keys (task/agent/routine menus) -> router model ids.
         "models": {
-            "haiku": "oc/big-pickle",
+            "haiku": "oc/nemotron-3-ultra-free",
             "sonnet": "cc/claude-sonnet-5",
             "opus": "cc/claude-opus-5",
             "fable": "cc/claude-fable-5-1",
         },
     },
-    # Pinned model per pipeline role. Owner decision 2026-10-05: every role (and the Haiku office
-    # key) runs on oc/big-pickle for now; any router id can be set here (was Haiku builds + free tier).
+    # Pinned model per pipeline role. Owner decision 2026-10-10 (was oc/big-pickle): every role (and the Haiku office
+    # key) runs on oc/nemotron-3-ultra-free for now; any router id can be set here (was Haiku builds + free tier).
     "roles": {
-        "builder": "oc/big-pickle",
-        "router": "oc/big-pickle",
-        "research": "oc/big-pickle",
-        "drafts": "oc/big-pickle",
-        "tests": "oc/big-pickle",
-        "lead_review": "oc/big-pickle",
-        "chat": "oc/big-pickle",
+        "builder": "oc/nemotron-3-ultra-free",
+        "router": "oc/nemotron-3-ultra-free",
+        "research": "oc/nemotron-3-ultra-free",
+        "drafts": "oc/nemotron-3-ultra-free",
+        "tests": "oc/nemotron-3-ultra-free",
+        "lead_review": "oc/nemotron-3-ultra-free",
+        "chat": "oc/nemotron-3-ultra-free",
     },
     # Caps per lane, in estimated USD and in tokens (free-tier models cost $0 but are still bounded).
     # Prices are USD per million tokens, estimated from list prices: 9router's own cost figures are
@@ -80,6 +80,7 @@ DEFAULTS: dict = {
             "cc/claude-haiku-4-5-20251001": {"in": 1.0, "out": 5.0},
             "oc/mimo-v2.5-free": {"in": 0.0, "out": 0.0},
             "oc/big-pickle": {"in": 0.0, "out": 0.0},
+            "oc/nemotron-3-ultra-free": {"in": 0.0, "out": 0.0},
         },
     },
     "pipeline": {"stages": DEFAULT_STAGES, "max_review_loops": 2,

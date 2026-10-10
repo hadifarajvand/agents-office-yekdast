@@ -63,9 +63,9 @@ def test_price_uses_input_and_output_rates_and_never_prices_an_unknown_model_at_
 
 
 def test_roles_resolve_to_pinned_router_ids():
-    assert llm.role_model("builder") == "oc/big-pickle"
-    assert llm.role_model("research") == "oc/big-pickle"
-    assert llm.role_model("drafts") == "oc/big-pickle"
+    assert llm.role_model("builder") == "oc/nemotron-3-ultra-free"
+    assert llm.role_model("research") == "oc/nemotron-3-ultra-free"
+    assert llm.role_model("drafts") == "oc/nemotron-3-ultra-free"
     assert llm.resolve_model(model="x/y") == "x/y"
 
 

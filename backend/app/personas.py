@@ -22,8 +22,8 @@ _SEED = Path(__file__).resolve().parent / "seed" / "roster_seed.json"
 DEPT_OF = {"executive": "exec", "legal": "exec", "engineering": "engineering", "security": "secdata",
            "data-analytics": "secdata", "devops": "devops", "qa-testing": "devops"}
 # Tier -> model. Config key `pipeline.tiers` overrides; every tier is the one free model today.
-DEFAULT_TIERS = {"reasoning_deep": "oc/big-pickle", "reasoning_fast": "oc/big-pickle",
-                 "cheap_fast": "oc/big-pickle", "rag_specialist": "oc/big-pickle", "local_only": "oc/big-pickle"}
+DEFAULT_TIERS = {"reasoning_deep": "oc/nemotron-3-ultra-free", "reasoning_fast": "oc/nemotron-3-ultra-free",
+                 "cheap_fast": "oc/nemotron-3-ultra-free", "rag_specialist": "oc/nemotron-3-ultra-free", "local_only": "oc/nemotron-3-ultra-free"}
 
 
 @dataclass(frozen=True)

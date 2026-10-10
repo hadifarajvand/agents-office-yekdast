@@ -34,8 +34,8 @@ def test_tier_router_gives_big_pickle_for_every_role(monkeypatch):
     from app import llm
     monkeypatch.setenv("AO_BACKBONE", "1")
     for role in bb.ROLE_TIER:
-        assert bb.model_for_role(role) == "oc/big-pickle"
-        assert llm.role_model(role) == "oc/big-pickle"
+        assert bb.model_for_role(role) == "oc/nemotron-3-ultra-free"
+        assert llm.role_model(role) == "oc/nemotron-3-ultra-free"
 
 
 def test_router_ignored_when_off(monkeypatch):

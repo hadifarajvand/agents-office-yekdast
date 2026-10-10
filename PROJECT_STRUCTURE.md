@@ -122,7 +122,7 @@ flowchart LR
 | `db.py` | One psycopg 3 pool; jobs, tasks, approvals, evidence, audit, costs, counters, brain chunks; `fail_interrupted_tasks()`. |
 | `deps.py` | Builds the pipeline's dependencies (deployer, worker, sandbox, notifier, …) from config, once at startup. |
 | `llm.py` | The only model layer: 9router client, `RunMeter`, per-lane USD/token caps, model-swap check, `on_usage` hook; calls the Citadel SafetyGovernor when `AO_BACKBONE=1`. |
-| `models.py` | The four office model keys (task/agent/routine menus) and which one wins; all roles currently map to `oc/big-pickle`. |
+| `models.py` | The four office model keys (task/agent/routine menus) and which one wins; all roles currently map to `oc/nemotron-3-ultra-free`. |
 | `activity.py` | 400-event ring buffer; `emit(kind, text, agent, connector, job, stage, level)` never raises; `STACK` names the stack connectors. In worker mode a sink forwards events to Redis. |
 | `jobqueue.py` | arq glue: `enqueue`, `enqueue_task`, `drive_job`, `drive_task`, worker lock, activity stream `ao:activity`, `WorkerSettings` (`max_jobs=3`, `max_tries=1`, `job_timeout=4h`). |
 | `backbone_bridge.py` | Prototype bridge to Citadel's backbone (SafetyGovernor, `AO_BACKBONE_MAX_USD`; the $ ceiling is skipped for `job:` labels). |
@@ -193,7 +193,7 @@ headless, `claude --bare -p … --output-format stream-json --verbose`), `openha
   `run_costs`, `counters`. `002_brain.sql`: `brain_chunks`. LangGraph checkpoint tables come from
   `AsyncPostgresSaver.setup()`.
 - `seed/roster_seed.json` (seats, departments, V1 data), `seed/bench.json` (bench roles),
-  `seed/backbone/{catalog,routing}.yaml` (tier → model; all `oc/big-pickle`, daily budget $50),
+  `seed/backbone/{catalog,routing}.yaml` (tier → model; all `oc/nemotron-3-ultra-free`, daily budget $50),
   `seed/citadel/` (vendored personas, see §13).
 
 ---
@@ -404,7 +404,7 @@ Only `exec`, `engineering`, `secdata` and `devops` are live in the pipeline. `of
 - **Env vars** (names in `.env.example`; values only in the gitignored `.env.local`): `ROUTER_API_KEY`, `PORT`,
   `AO_QUEUE`, `REDIS_URL`, `AO_BACKBONE`, `AO_BACKBONE_MAX_USD`, `AO_API_TOKEN`, `AO_TEST_DATABASE_URL`,
   `DOKPLOY_URL`, `DOKPLOY_API_KEY`, `PRODUCT_GITHUB_OWNER`, `PRODUCT_REPO_TOKEN`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
-- **Models**: every tier maps to `oc/big-pickle` through 9router (owner decision). S2 results are **big-pickle, not Haiku**.
+- **Models**: every tier maps to `oc/nemotron-3-ultra-free` through 9router (owner decision). S2 results are **big-pickle, not Haiku**.
 
 ---
 

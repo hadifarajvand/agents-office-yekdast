@@ -75,7 +75,7 @@ class FakeWorker:
     def __init__(self):
         self.runs = 0
         self.exit_state = "ok"
-        self.models = ["big-pickle"]
+        self.models = ["nemotron-3-ultra-free"]
         self.checks = [{"name": "unit tests pass (npm test)", "ok": True, "detail": "12 passed"}]
         self.briefs: list[dict] = []
 
