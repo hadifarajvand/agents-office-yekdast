@@ -11,6 +11,7 @@
     "verify": "backend/.venv/bin/python scripts/verify_slice.py --with-restart && node scripts/verify_ui.mjs",
     "build": "node build.mjs",
     "check": "node check.mjs",
+    "check:core": "CHECK_CORE=1 node check.mjs",
     "test:backend": "cd backend && python3 -m pytest -q",
     "graph": "node graph-build.mjs"
   },

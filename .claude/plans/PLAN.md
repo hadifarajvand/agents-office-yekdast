@@ -663,3 +663,21 @@ Open, in order of weight:
 - Item 8, UI: `src/v1data.js` now holds only the 13 seats that are in the seed (22 stale seats and their sample files removed, 840 → 343 lines; a seat without an entry gets role and tagline from the seed through `seatV1`), `AGENT_MCP` in `src/mcp.js` lists the 17 live seats, and the top bar draws a tile only for a connected MCP. A server that is present but not usable is one chip, "+N not connected", whose tooltip names each with its status (live: 5 tiles, "+2 not connected", Telegram and Dokploy failed, no console errors). Bundle 1275 → 1204 KB. `tasks.js` and `main.js` stay unsplit by decision.
 - Item 9, OpenAPI: `/api/openapi.json` is on (Swagger/ReDoc pages stay off); it sits under `/api` so the token guard covers it, and a non-loopback client gets 404. `tests/test_openapi_contract.py` pins all 43 routes in `tests/api_routes.txt` (regenerate on purpose with `UPDATE_API_ROUTES=1`), pins Promote to its status GET and the one owner POST, and covers the loopback rule.
 - Item 9, graphify re-run (`graphify update .`, code only; docs not re-extracted): 6,326 nodes, 9,691 edges, 637 communities, up from 2,061 / 4,670 / 109 in §17, because the corpus is 708 files now (the vendored `citadel-saas-factory` clone is 2,821 nodes; our `backend` 2,383, `src` 414, `templates` 120). The hubs of our own code are unchanged: `load_config` 98 (was 111), `initTasks` 92 (90), `MCPRegistry` 35 (33), `get_deps` 33 (33), `get_pool` 27 (27), `initBrain` 25 (25). `get_job` is split over several nodes (24 on the largest, was 49). New nodes are small: `drive_task` 14, `tool_verdict` 5, `enqueue_task` 4, `take_lock` 4. No new hub; the structure is as §17 described.
+
+### §20.1 Freeze list (owner approved 2026-10-10, D1; MASTER_PLAN §12)
+Frozen = no new work; code and tests stay and stay green; revisit after S6 (the first Promote). A bug in a frozen path is fixed only when it blocks the idea-to-preview pipeline.
+
+| Area | Paths |
+|---|---|
+| 3D office and its UI | `src/main.js`, `builders.js`, `mcp.js`, `tasks.js`, `calendar.js`, `brain.js` (landing screen is Jobs, D5; the office is one click away: Esc or J) |
+| 17-seat roster and personas | `roster.py`, `personas.py`, `seed/citadel/` (rewritten in waves from Phase 5, not before) |
+| Vendored Citadel | `citadel-saas-factory/` |
+| SafetyGovernor bridge | `backbone_bridge.py`, `seed/backbone/` |
+| MCP policy layer | `mcp.py`, `policy.py` `tool_verdict` (redaction stays active) |
+| Brain, learning, routines | `brain.py`, `learn.py`, `proposals.py`, `skills.py`, `routines.py`, `when.py`, `graph/engine.py` |
+| Alternate workers | `worker/openhands.py`, `worker/mini_swe.py` (deleted after S2 passes) |
+| Spawn and display-only activity | `pipeline/spawn.py`, `pipeline/activity.py` |
+
+Do not touch without a failing test that demands it: the LangGraph pipeline and Postgres checkpointer, sandbox/egress/router-gateway, `templates/webapp/` and `run-checks.mjs`, `research.compute_verdict`, `exposure.py` and `DEFAULT_STAGES`, `promote.py` and `test_promote.py`, `policy.py` redaction.
+
+Dev loop: `npm run check:core` (build, data sync, config, backend tests; no browser) while working; `npm run check` before every commit.

@@ -3,6 +3,8 @@
 //   AO_TEST_DATABASE_URL=postgresql://office:office@localhost:5432/office_ui node check.mjs
 //                                       … plus the live-UI smoke: the real server on that database
 //                                         with scripted models, driven through the Jobs screen
+//   CHECK_CORE=1 node check.mjs         (npm run check:core) the inner loop: build, data sync, config, backend
+//                                         tests. No browser smoke, no live UI; run the full check before committing.
 //   CHECK_REQUIRE_SERVER=1 node check.mjs   fail (instead of skip) when nothing answers on the port
 // Every step prints ✓ or ✗ with the reason; the process exits 1 if anything failed. Nothing here
 // calls a real model, 9router, Docker, GitHub or Dokploy: those are the laptop runbook (PLAN.md §11).
@@ -22,6 +24,9 @@ const sh = (cmd, args, opts = {}) => new Promise((resolve, reject) => {
   p.on('error', reject);
 });
 const cfg = loadConfig();
+const CORE = process.env.CHECK_CORE === '1';
+// the backend's own venv when it exists, so the tests run with the project's dependencies
+const PY = fs.existsSync(path.join(ROOT, 'backend', '.venv', 'bin', 'python')) ? path.join(ROOT, 'backend', '.venv', 'bin', 'python') : 'python3';
 
 
 /* ---------- browser launcher shared by the smoke sections ---------- */
@@ -93,13 +98,14 @@ await step('config: office.config.json is valid JSON with no secrets', async () 
 /* ---------- 1c. the backend's own tests ---------- */
 await step('backend: pytest', async () => {
   let out;
-  try { out = await sh('python3', ['-m', 'pytest', '-q', '--ignore=tests/e2e', '-p', 'no:cacheprovider'], { cwd: path.join(ROOT, 'backend'), env: { ...process.env } }); }
+  try { out = await sh(PY, ['-m', 'pytest', '-q', '--ignore=tests/e2e', '-p', 'no:cacheprovider'], { cwd: path.join(ROOT, 'backend'), env: { ...process.env } }); }
   catch (e) { throw new Error('backend tests failed or python deps are missing (pip install -r backend/requirements-dev.txt): ' + e.message); }
   return out.trim().split('\n').pop();
 });
 
 /* ---------- 2. offline smoke (Playwright) ---------- */
-if (!chromium) bad('smoke: playwright', 'not installed — npm i -D playwright-core (uses your Chrome)');
+if (CORE) console.log('· browser smoke and live UI skipped (CHECK_CORE=1)');
+else if (!chromium) bad('smoke: playwright', 'not installed — npm i -D playwright-core (uses your Chrome)');
 else {
   let browser = null;
   try {
@@ -197,7 +203,8 @@ else {
 
 /* ---------- 3. live-UI smoke: the real server (real Postgres, scripted models) driven through the page ---------- */
 const DB = process.env.AO_TEST_DATABASE_URL;
-if (!chromium) bad('live-ui: playwright', 'not installed');
+if (CORE) {}
+else if (!chromium) bad('live-ui: playwright', 'not installed');
 else if (!DB) ok('live-ui: skipped', 'set AO_TEST_DATABASE_URL to drive the real server through the Jobs screen');
 else {
   const port = 4590 + Math.floor(Math.random() * 9);
