@@ -16,9 +16,10 @@ from pathlib import Path
 # Secrets: credentials that must never reach a log, a prompt echo or a screen.
 # Keys may be quoted (JSON / Python-repr dicts) and values may be quoted, so the
 # key/value separator allows quote characters around both.
-_SECRET_KEYS = r"(?:token|api[_-]?key|secret|client[_-]?secret|access[_-]?key|authorization)"
+_SECRET_KEYS = r"(?:[A-Za-z0-9_]*(?:token|secret|api[_-]?key|access[_-]?key)[A-Za-z0-9_]*|authorization)"
 _NOT_REDACTED = r"(?!\*\*\*REDACTED)"  # never re-redact text we already replaced
 _SECRET_PATTERNS: list[tuple[str, re.Pattern]] = [
+    ("url credentials", re.compile(r"(?i)(?<=://)[^\s/:@]+:[^\s/@]+(?=@)")),
     ("AWS key", re.compile(r"AKIA[0-9A-Z]{16}")),
     ("JWT", re.compile(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")),
     ("private key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)", re.S)),

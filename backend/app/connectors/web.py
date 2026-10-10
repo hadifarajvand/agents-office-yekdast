@@ -38,16 +38,25 @@ class WebRefused(ValueError):
     pass
 
 
-def _public_host(host: str) -> None:
-    """Raise unless every address the host resolves to is public."""
+def _is_public(ip) -> bool:
+    ip = getattr(ip, "ipv4_mapped", None) or ip  # ::ffff:127.0.0.1 is 127.0.0.1
+    return ip.is_global and not ip.is_multicast
+
+
+def _public_ips(host: str) -> list[str]:
+    """Every address the host resolves to, refused unless ALL are public (ip.is_global)."""
     try:
         infos = socket.getaddrinfo(host, None)
     except socket.gaierror as e:
         raise WebRefused(f"cannot resolve {host}") from e
-    for info in infos:
-        ip = ipaddress.ip_address(info[4][0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
-            raise WebRefused(f"{host} resolves to a non-public address")
+    ips = [ipaddress.ip_address(info[4][0].split("%")[0]) for info in infos]
+    if not ips or not all(_is_public(ip) for ip in ips):
+        raise WebRefused(f"{host} resolves to a non-public address")
+    return [str(ip) for ip in ips]
+
+
+def _public_host(host: str) -> None:
+    _public_ips(host)
 
 
 def check_url(url: str) -> str:
@@ -69,6 +78,19 @@ def html_to_text(body: str) -> str:
     return re.sub(r"\n\s*\n+", "\n", body).strip()
 
 
+def _pin(url: str) -> tuple[str, dict]:
+    """(url with the validated IP as host, request kwargs keeping Host and TLS name) so a DNS answer
+    that changes between the check and the connection cannot reach a private address."""
+    u = urlparse(url)
+    ip = _public_ips(u.hostname)[0]
+    netloc = f"[{ip}]" if ":" in ip else ip
+    if u.port:
+        netloc += f":{u.port}"
+    host_header = u.hostname + (f":{u.port}" if u.port else "")
+    return u._replace(netloc=netloc).geturl(), {"headers": {"Host": host_header},
+                                                 "extensions": {"sni_hostname": u.hostname}}
+
+
 class HttpFetch:
     def __init__(self, client: httpx.AsyncClient | None = None, resolve=True):
         self._client, self._resolve = client, resolve
@@ -77,9 +99,12 @@ class HttpFetch:
         client = self._client or httpx.AsyncClient(timeout=15, follow_redirects=False, headers={"User-Agent": UA})
         try:
             for _ in range(5):
+                target, extra = url, {}
                 if self._resolve:
                     await asyncio.to_thread(check_url, url)
-                async with client.stream("GET", url) as r:
+                    if self._client is None:  # connect to the address that was validated, not a second lookup
+                        target, extra = await asyncio.to_thread(_pin, url)
+                async with client.stream("GET", target, **extra) as r:
                     if r.status_code in (301, 302, 303, 307, 308) and r.headers.get("location"):
                         url = urljoin(url, r.headers["location"])
                         continue

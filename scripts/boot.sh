@@ -32,6 +32,8 @@ if [ "$DRY" = 1 ]; then
   echo "[dry-run] backend/.venv/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port $PORT  (pid -> data/api.pid, log -> data/api.log)"
   exit 0
 fi
+# a fresh API token per boot, held in the process environment only (never written to a file)
+export AO_API_TOKEN="${AO_API_TOKEN:-$(openssl rand -hex 24)}"
 nohup backend/.venv/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port "$PORT" > data/api.log 2>&1 &
 echo $! > data/api.pid
 if [ "${AO_QUEUE:-}" = "1" ]; then

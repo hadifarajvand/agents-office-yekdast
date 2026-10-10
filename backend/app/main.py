@@ -63,8 +63,17 @@ async def _record_cost(call: "llm.Call", label: str) -> None:
     await db.record_cost(label, call.model_pinned, call.model_seen, call.input_tokens, call.output_tokens, call.usd)
 
 
+def ensure_api_token() -> None:
+    """The API is never open: without AO_API_TOKEN (boot.sh generates one per boot) the process makes its
+    own. It lives in the process environment only and reaches the browser through the page itself."""
+    name = (cfg.api or {}).get("token_env") or "AO_API_TOKEN"
+    if not os.environ.get(name) and not os.environ.get("PYTEST_CURRENT_TEST"):
+        os.environ[name] = secrets.token_urlsafe(32)
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    ensure_api_token()
     pool = await db.open_pool()
     saver = AsyncPostgresSaver(pool)
     await saver.setup()
@@ -139,7 +148,7 @@ async def guard(request: Request, call_next):
         return JSONResponse({"error": "not found"}, status_code=404)
     if request.url.path.startswith("/api/"):
         token = cfg.secret("api", "token_env")
-        if token and request.headers.get("x-ao-token") != token:
+        if token and request.url.path != "/api/health" and request.headers.get("x-ao-token") != token:
             return JSONResponse({"error": "missing or wrong X-AO-Token"}, status_code=401)
         if request.method in MUTATING:
             if request.headers.get("x-ao-client") != "office":

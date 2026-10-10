@@ -267,6 +267,8 @@ async def list_evidence(job_id: str) -> list[dict]:
 # ---------- audit, costs, counters ----------
 
 async def audit(agent: str, dept: str, server: str, operation: str, resource: str, allowed: bool, reason: str = "") -> None:
+    from .policy import redact_secrets
+    resource, reason = redact_secrets(resource), redact_secrets(reason)
     p = await get_pool()
     async with p.connection() as c:
         await c.execute(

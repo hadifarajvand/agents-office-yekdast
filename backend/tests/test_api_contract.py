@@ -95,8 +95,9 @@ def test_foreign_host_is_refused(client):
 
 def test_api_token_required_when_configured(client, monkeypatch):
     monkeypatch.setenv("AO_API_TOKEN", "s3cret")
-    assert client.get("/api/health").status_code == 401
-    assert client.get("/api/health", headers={"X-AO-Token": "s3cret"}).status_code == 200
+    assert client.get("/api/jobs").status_code == 401
+    assert client.get("/api/health").status_code == 200  # health carries nothing private
+    assert client.get("/api/jobs", headers={"X-AO-Token": "s3cret"}).status_code == 200
 
 
 def test_page_carries_token_meta_when_configured(client, monkeypatch, tmp_path):
@@ -437,3 +438,12 @@ def test_worker_skips_a_task_that_was_settled_meanwhile(client, fake_db):
     fake_db.tasks[created["id"]].update(state="done", error=True)  # marked failed by a restart
     asyncio.run(main.drive_task(created["id"], "routine"))
     assert fake_db.tasks[created["id"]]["state"] == "done" and fake_db.tasks[created["id"]]["error"] is True
+
+
+def test_the_server_makes_its_own_token_when_none_is_set(monkeypatch):
+    import os
+    from app import main
+    monkeypatch.setenv("AO_API_TOKEN", "")  # monkeypatch restores the original value afterwards
+    monkeypatch.delenv("PYTEST_CURRENT_TEST")
+    main.ensure_api_token()
+    assert len(os.environ["AO_API_TOKEN"]) >= 32

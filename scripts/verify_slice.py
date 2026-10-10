@@ -33,6 +33,12 @@ BRIEF = {"title": "Bakery ordering site", "client": "Acme Bakery", "deposit_ref"
 headers = {"X-AO-Client": "office"}
 if os.environ.get("AO_API_TOKEN"):
     headers["X-AO-Token"] = os.environ["AO_API_TOKEN"]
+else:  # the server makes its own token per boot and hands it to the page, like the browser gets it
+    import re as _re
+    import urllib.request as _ur
+    _m = _re.search(r'name="ao-token" content="([^"]+)"', _ur.urlopen(os.environ.get("BASE_URL", "http://127.0.0.1:4520") + "/").read().decode())
+    if _m:
+        headers["X-AO-Token"] = _m.group(1)
 c = httpx.Client(base_url=BASE, headers=headers, timeout=60)
 created: list[str] = []  # every job this run submits; finish() kills the ones still open so they do not pile up in the owner's inbox
 
